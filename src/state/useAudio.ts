@@ -80,7 +80,7 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
   // the instant the player mutes.
   useEffect(() => {
     engine.muted = muted
-    if (muted) window.speechSynthesis.cancel()
+    if (muted && 'speechSynthesis' in window) window.speechSynthesis.cancel()
   }, [muted])
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import type { GameStateSnapshot, DifficultyLevel, Airport, Command } from '../engine/types'
 import { gameState } from '../engine/game-state'
 import { processCommand } from '../engine/commands/command-registry'
@@ -26,7 +26,7 @@ const GameContext = createContext<GameContextType | null>(null)
 export function GameProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<GameStateSnapshot>(gameState.snapshot())
   const [muted, setMuted] = useState(false)
-  const toggleMute = () => setMuted(m => !m)
+  const toggleMute = useCallback(() => setMuted(m => !m), [])
 
   // Initial load
   useEffect(() => {
