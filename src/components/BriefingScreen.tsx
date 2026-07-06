@@ -111,6 +111,22 @@ export default function BriefingScreen() {
           >
             START
           </button>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('toggle-tutorial'))}
+            style={{
+              padding: '10px 16px',
+              background: '#1D2430',
+              color: '#E2E8F0',
+              border: '1px solid #334155',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: 14,
+              fontFamily: 'inherit',
+            }}
+          >
+            TUTORIALS
+          </button>
         </div>
 
         <div style={{ marginTop: 16, fontSize: 10, color: CSS_COLORS.text.muted, textAlign: 'center', lineHeight: 1.6 }}>

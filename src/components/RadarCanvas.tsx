@@ -3,12 +3,138 @@ import React, { useEffect, useRef } from 'react'
 import * as PIXI from 'pixi.js'
 import { useGame } from '../state/GameContext'
 import { AircraftPhase } from '../engine/types'
+import type { TutorialDemoAircraft } from '../data/tutorialContent'
 
 const COMPASS_LABEL_DEGS = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]
 const CARDINAL_LABELS: Record<number, string> = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }
 const RANGE_RING_STEP_NM = 5
 const RANGE_RING_COUNT = 6 // 5, 10, 15, 20, 25, 30 NM
 const RANGE_LABEL_BEARING_DEG = 315 // fixed radial (NW) so labels never sit under traffic
+
+/** Aircraft phases drawn as ground traffic (rect blip, no vector/trail vector line). */
+const GROUND_PHASES: ReadonlyArray<AircraftPhase> = [
+  AircraftPhase.PARKED, AircraftPhase.TAXI_IN, AircraftPhase.TAXI_OUT, AircraftPhase.HOLD_SHORT, AircraftPhase.LINE_UP,
+]
+
+/** Minimal shape both real Aircraft and TutorialDemoAircraft satisfy — the
+ *  only fields drawAircraftBody actually needs. Real Aircraft objects don't
+ *  carry `isGround` as a stored field (it's derived from `phase`), so callers
+ *  must compute it and spread it onto the aircraft before passing it in. */
+interface DrawableAircraft {
+  readonly id: string
+  readonly callsign: string
+  readonly x: number
+  readonly y: number
+  readonly altitude: number
+  readonly speed: number
+  readonly heading: number
+  readonly isGround: boolean
+  readonly isSelected?: boolean
+  readonly inViolation?: boolean
+  readonly urgent?: boolean
+  readonly clearedAltitude?: number | null
+  readonly clearedSpeed?: number | null
+  readonly trail?: ReadonlyArray<{ x: number; y: number }>
+}
+
+/** Draws one aircraft's blip, trail, hover ring, violation pulse, vector,
+ *  and leader-line datablock into the given sprite. Used for both real
+ *  traffic and staged tutorial demo aircraft so a demo violation looks
+ *  pixel-identical to a real one. */
+function drawAircraftBody(
+  g: PIXI.Graphics,
+  text: PIXI.Text,
+  data: DrawableAircraft,
+  mapX: (x: number) => number,
+  mapY: (y: number) => number,
+  zoom: number,
+  hoveredId: string | null,
+): void {
+  const x = mapX(data.x)
+  const y = mapY(data.y)
+  const isGround = data.isGround
+
+  let color = 0x38bdf8 // cyan
+  if (data.isSelected) color = 0xffffff
+  if (data.urgent) color = 0xeab308
+  if (data.inViolation) color = 0xef4444
+  if (isGround) color = 0x10b981
+
+  g.clear()
+  g.hitArea = new PIXI.Circle(x, y, 9)
+
+  // Trail
+  if (data.trail && data.trail.length > 1) {
+    g.setStrokeStyle({ width: 1, color, alpha: 0.4 })
+    g.moveTo(mapX(data.trail[0].x), mapY(data.trail[0].y))
+    for (let i = 1; i < data.trail.length; i++) {
+      g.lineTo(mapX(data.trail[i].x), mapY(data.trail[i].y))
+    }
+    g.stroke()
+  }
+
+  // Hover ring
+  if (hoveredId === data.id && !data.isSelected) {
+    g.setStrokeStyle({ width: 1, color: 0xe2e8f0, alpha: 0.6 })
+    g.circle(x, y, 7)
+    g.stroke()
+  }
+
+  // Violation pulse halo
+  if (data.inViolation) {
+    const phase = (Date.now() % 1200) / 1200
+    g.setStrokeStyle({ width: 2, color: 0xef4444, alpha: 0.6 * (1 - phase) })
+    g.circle(x, y, 6 + phase * 8)
+    g.stroke()
+  }
+
+  // Blip
+  if (isGround) {
+    g.rect(x - 2, y - 2, 4, 4)
+  } else {
+    g.circle(x, y, 3)
+  }
+  g.fill(color)
+
+  // Vector
+  if (!isGround) {
+    const rad = data.heading * (Math.PI / 180)
+    const dist1MinNM = (data.speed / 60)
+    const lx = x + Math.sin(rad) * dist1MinNM * zoom
+    const ly = y - Math.cos(rad) * dist1MinNM * zoom
+    g.setStrokeStyle({ width: 1, color })
+    g.moveTo(x, y)
+    g.lineTo(lx, ly)
+    g.stroke()
+  }
+
+  // Leader-line datablock
+  if (!isGround || data.isSelected) {
+    text.visible = true
+    const anchorX = x + 14
+    const anchorY = y - 14
+    g.setStrokeStyle({ width: 1, color, alpha: 0.5 })
+    g.moveTo(x + 4, y - 4)
+    g.lineTo(anchorX - 2, anchorY + 2)
+    g.stroke()
+
+    text.position.set(anchorX + 2, anchorY - 6)
+    text.style.fill = color
+
+    const altStr = data.altitude < 100 ? 'GND' : Math.round(data.altitude / 100).toString().padStart(3, '0')
+    const spdStr = Math.round(data.speed / 10).toString().padStart(2, '0')
+    const cAltStr = data.clearedAltitude ? Math.round(data.clearedAltitude / 100).toString().padStart(3, '0') : ''
+    const cSpdStr = data.clearedSpeed ? Math.round(data.clearedSpeed / 10).toString().padStart(2, '0') : ''
+
+    let label = `${data.callsign}\n${altStr} ${spdStr}`
+    if (cAltStr || cSpdStr) {
+      label += `\nC:${cAltStr} ${cSpdStr}`
+    }
+    text.text = label
+  } else {
+    text.visible = false
+  }
+}
 
 export default function RadarCanvas() {
   const { state, selectAircraft } = useGame()
@@ -19,6 +145,8 @@ export default function RadarCanvas() {
   const staticLayerRef = useRef<PIXI.Graphics | null>(null)
   const dynamicLayerRef = useRef<PIXI.Container | null>(null)
   const aircraftSpritesRef = useRef<Map<string, { g: PIXI.Graphics, text: PIXI.Text }>>(new Map())
+  const demoSpritesRef = useRef<Map<string, { g: PIXI.Graphics, text: PIXI.Text }>>(new Map())
+  const tutorialDemoRef = useRef<readonly TutorialDemoAircraft[] | null>(null)
 
   // Zoom and pan state (refs to avoid re-render, read synchronously in draw calls)
   const zoomRef = useRef(15)
@@ -283,11 +411,51 @@ export default function RadarCanvas() {
     const mapY = (y: number) => cy - y * zoom + oy
 
     const sprites = aircraftSpritesRef.current
+    const demoSprites = demoSpritesRef.current
+    const demo = tutorialDemoRef.current
 
-    // Identify current IDs
+    if (demo) {
+      // A tutorial demo is active: hide real traffic (without touching
+      // gameState — it's still there, just not drawn this frame) and draw
+      // only the staged mock aircraft.
+      for (const sprite of sprites.values()) {
+        sprite.g.visible = false
+        sprite.text.visible = false
+      }
+
+      const currentDemoIds = new Set(demo.map(d => d.id))
+      for (const [id, sprite] of demoSprites.entries()) {
+        if (!currentDemoIds.has(id)) {
+          sprite.g.destroy()
+          sprite.text.destroy()
+          demoSprites.delete(id)
+        }
+      }
+
+      for (const d of demo) {
+        let sprite = demoSprites.get(d.id)
+        if (!sprite) {
+          const g = new PIXI.Graphics()
+          const text = new PIXI.Text({ text: '', style: { fontFamily: 'SF Mono', fontSize: 10, fill: 0xffffff, align: 'left' } })
+          container.addChild(g)
+          container.addChild(text)
+          sprite = { g, text }
+          demoSprites.set(d.id, sprite)
+        }
+        sprite.g.visible = true
+        sprite.text.visible = true
+        drawAircraftBody(sprite.g, sprite.text, d, mapX, mapY, zoom, null)
+      }
+      return
+    }
+
+    // No demo active: hide any leftover demo sprites and draw real traffic.
+    for (const sprite of demoSprites.values()) {
+      sprite.g.visible = false
+      sprite.text.visible = false
+    }
+
     const currentIds = new Set(state.aircraft.keys())
-
-    // Remove dead aircraft
     for (const [id, sprite] of sprites.entries()) {
       if (!currentIds.has(id)) {
         sprite.g.destroy()
@@ -296,7 +464,6 @@ export default function RadarCanvas() {
       }
     }
 
-    // Update / Create aircraft
     for (const ac of state.aircraft.values()) {
       let sprite = sprites.get(ac.id)
       if (!sprite) {
@@ -320,94 +487,10 @@ export default function RadarCanvas() {
         sprite = { g, text }
         sprites.set(ac.id, sprite)
       }
-
-      const x = mapX(ac.x)
-      const y = mapY(ac.y)
-      const isGround = [AircraftPhase.PARKED, AircraftPhase.TAXI_IN, AircraftPhase.TAXI_OUT, AircraftPhase.HOLD_SHORT, AircraftPhase.LINE_UP].includes(ac.phase)
-
-      let color = 0x38bdf8 // cyan
-      if (ac.isSelected) color = 0xffffff
-      if (ac.urgent) color = 0xeab308
-      if (ac.inViolation) color = 0xef4444
-      if (isGround) color = 0x10b981
-
-      const { g, text } = sprite
-      g.clear()
-      g.hitArea = new PIXI.Circle(x, y, 9)
-
-      // Trail
-      if (ac.trail.length > 1) {
-        g.setStrokeStyle({ width: 1, color, alpha: 0.4 })
-        g.moveTo(mapX(ac.trail[0].x), mapY(ac.trail[0].y))
-        for (let i = 1; i < ac.trail.length; i++) {
-          g.lineTo(mapX(ac.trail[i].x), mapY(ac.trail[i].y))
-        }
-        g.stroke()
-      }
-
-      // Hover ring (from the React-level hit-test, not a stale PIXI handler)
-      if (hoveredIdRef.current === ac.id && !ac.isSelected) {
-        g.setStrokeStyle({ width: 1, color: 0xe2e8f0, alpha: 0.6 })
-        g.circle(x, y, 7)
-        g.stroke()
-      }
-
-      // Violation pulse halo — PRD calls for a red circle on violating
-      // aircraft; a breathing ring reads far more urgently than a static one.
-      if (ac.inViolation) {
-        const phase = (Date.now() % 1200) / 1200
-        g.setStrokeStyle({ width: 2, color: 0xef4444, alpha: 0.6 * (1 - phase) })
-        g.circle(x, y, 6 + phase * 8)
-        g.stroke()
-      }
-
-      // Blip
-      if (isGround) {
-        g.rect(x - 2, y - 2, 4, 4)
-      } else {
-        g.circle(x, y, 3)
-      }
-      g.fill(color)
-
-      // Vector
-      if (!isGround) {
-        const rad = ac.heading * (Math.PI / 180)
-        const dist1MinNM = (ac.speed / 60)
-        const lx = x + Math.sin(rad) * dist1MinNM * zoom
-        const ly = y - Math.cos(rad) * dist1MinNM * zoom
-        g.setStrokeStyle({ width: 1, color })
-        g.moveTo(x, y)
-        g.lineTo(lx, ly)
-        g.stroke()
-      }
-
-      // Leader-line datablock — a short stub from the target to the block,
-      // matching real ATC scope convention instead of a floating label.
-      if (!isGround || ac.isSelected) {
-        text.visible = true
-        const anchorX = x + 14
-        const anchorY = y - 14
-        g.setStrokeStyle({ width: 1, color, alpha: 0.5 })
-        g.moveTo(x + 4, y - 4)
-        g.lineTo(anchorX - 2, anchorY + 2)
-        g.stroke()
-
-        text.position.set(anchorX + 2, anchorY - 6)
-        text.style.fill = color
-
-        const altStr = ac.altitude < 100 ? 'GND' : Math.round(ac.altitude / 100).toString().padStart(3, '0')
-        const spdStr = Math.round(ac.speed / 10).toString().padStart(2, '0')
-        const cAltStr = ac.clearedAltitude ? Math.round(ac.clearedAltitude / 100).toString().padStart(3, '0') : ''
-        const cSpdStr = ac.clearedSpeed ? Math.round(ac.clearedSpeed / 10).toString().padStart(2, '0') : ''
-
-        let label = `${ac.callsign}\n${altStr} ${spdStr}`
-        if (cAltStr || cSpdStr) {
-          label += `\nC:${cAltStr} ${cSpdStr}`
-        }
-        text.text = label
-      } else {
-        text.visible = false
-      }
+      sprite.g.visible = true
+      sprite.text.visible = true
+      const isGround = GROUND_PHASES.includes(ac.phase)
+      drawAircraftBody(sprite.g, sprite.text, { ...ac, isGround }, mapX, mapY, zoom, hoveredIdRef.current)
     }
   }
 
@@ -730,17 +813,24 @@ export default function RadarCanvas() {
       }
     }
 
+    const onDemoUpdate = (e: Event) => {
+      const detail = (e as CustomEvent<readonly TutorialDemoAircraft[] | null>).detail
+      tutorialDemoRef.current = detail ?? null
+    }
+
     window.addEventListener('radar-center', onCenter)
     window.addEventListener('radar-reset-view', onResetView)
     window.addEventListener('radar-zoom-in', onZoomIn)
     window.addEventListener('radar-zoom-out', onZoomOut)
     window.addEventListener('radar-toggle-ruler', onToggleRuler)
+    window.addEventListener('tutorial-demo-aircraft', onDemoUpdate)
     return () => {
       window.removeEventListener('radar-center', onCenter)
       window.removeEventListener('radar-reset-view', onResetView)
       window.removeEventListener('radar-zoom-in', onZoomIn)
       window.removeEventListener('radar-zoom-out', onZoomOut)
       window.removeEventListener('radar-toggle-ruler', onToggleRuler)
+      window.removeEventListener('tutorial-demo-aircraft', onDemoUpdate)
     }
   }, [])
 

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import StatusBar from './components/StatusBar'
 import FlightStrips from './components/FlightStrips'
 import CommandPanel from './components/CommandPanel'
@@ -9,6 +10,7 @@ import BriefingScreen from './components/BriefingScreen'
 import MissionTracker from './components/MissionTracker'
 import GuidePanel from './components/GuidePanel'
 import TutorialOverlay from './components/TutorialOverlay'
+import TutorialMenu from './components/TutorialMenu'
 import PauseMenu from './components/PauseMenu'
 import { GameProvider, useGame } from './state/GameContext'
 import { useGameLoop } from './state/useGameLoop'
@@ -26,9 +28,47 @@ const LAYOUT = {
 
 function GameUI() {
   useGameLoop()
-  const { state, muted, toggleMute } = useGame()
+  const { state, muted, toggleMute, togglePause } = useGame()
   const { ttsAvailable } = useAudio(muted, toggleMute)
   useKeyboardShortcuts()
+
+  const [tutorialMenuOpen, setTutorialMenuOpen] = useState(false)
+  const [activeTutorialTopicId, setActiveTutorialTopicId] = useState<string | null>(null)
+  const weTutorialPausedRef = useRef(false)
+
+  // T key: fully close whatever tutorial UI is open, or open the menu if
+  // nothing is. (Esc while inside a topic steps back to the menu instead —
+  // handled by TutorialOverlay itself via onBack.)
+  useEffect(() => {
+    const onToggle = () => {
+      if (activeTutorialTopicId !== null || tutorialMenuOpen) {
+        setActiveTutorialTopicId(null)
+        setTutorialMenuOpen(false)
+      } else {
+        setTutorialMenuOpen(true)
+      }
+    }
+    window.addEventListener('toggle-tutorial', onToggle)
+    return () => window.removeEventListener('toggle-tutorial', onToggle)
+  }, [activeTutorialTopicId, tutorialMenuOpen])
+
+  const tutorialUIOpen = tutorialMenuOpen || activeTutorialTopicId !== null
+
+  // Auto-pause a running session for as long as any tutorial UI is open;
+  // only resume it on close if this effect was the one that paused it, so a
+  // player who paused manually first doesn't get surprise-resumed.
+  useEffect(() => {
+    if (tutorialUIOpen) {
+      if (state.sessionStarted && !state.paused) {
+        togglePause()
+        weTutorialPausedRef.current = true
+      }
+    } else if (weTutorialPausedRef.current) {
+      togglePause()
+      weTutorialPausedRef.current = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tutorialMenuOpen, activeTutorialTopicId])
 
   const mainH = `calc(100vh - ${LAYOUT.STATUS_BAR_H}px - ${LAYOUT.COMMAND_INPUT_H}px - ${LAYOUT.RADIO_LOG_H}px)`
 
@@ -85,8 +125,20 @@ function GameUI() {
         </div>
 
         <EndScreen />
-        <TutorialOverlay />
-        <PauseMenu />
+        <TutorialMenu
+          open={tutorialMenuOpen}
+          onSelect={(topicId) => { setActiveTutorialTopicId(topicId); setTutorialMenuOpen(false) }}
+          onClose={() => setTutorialMenuOpen(false)}
+        />
+        <TutorialOverlay
+          topicId={activeTutorialTopicId}
+          onBack={() => { setActiveTutorialTopicId(null); setTutorialMenuOpen(true) }}
+        />
+        {/* Suppressed while tutorial UI is open: the tutorial system pauses
+            the session itself, and PauseMenu's own "state.paused" check would
+            otherwise mount it underneath the tutorial overlay simultaneously
+            (visually bleeding through smaller, centered tutorial cards). */}
+        {!tutorialUIOpen && <PauseMenu />}
       </div>
     </>
   )
