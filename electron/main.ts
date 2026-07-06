@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain } from 'electron'
 import path from 'path'
 
 const DEV_URL = 'http://localhost:5173'
@@ -37,6 +37,8 @@ function createWindow() {
 }
 
 app.whenReady().then(createWindow)
+
+ipcMain.on('app-quit', () => app.quit())
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
