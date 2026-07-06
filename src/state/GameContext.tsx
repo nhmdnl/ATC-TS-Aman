@@ -17,12 +17,16 @@ export interface GameContextType {
   resetGame: () => void
   setDifficulty: (level: DifficultyLevel) => void
   startSession: () => void
+  muted: boolean
+  toggleMute: () => void
 }
 
 const GameContext = createContext<GameContextType | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<GameStateSnapshot>(gameState.snapshot())
+  const [muted, setMuted] = useState(false)
+  const toggleMute = () => setMuted(m => !m)
 
   // Initial load
   useEffect(() => {
@@ -91,7 +95,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     togglePause,
     resetGame,
     setDifficulty,
-    startSession
+    startSession,
+    muted,
+    toggleMute
   }
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

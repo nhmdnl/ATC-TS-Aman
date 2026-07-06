@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { eventBus } from '../engine/event-bus'
 import { GameEventType, RadioSpeaker } from '../engine/types'
 import type { GameEvent } from '../engine/types'
@@ -21,7 +21,7 @@ class AudioEngine {
     if (this.muted || !this.ctx) return
     const osc = this.ctx.createOscillator()
     const gain = this.ctx.createGain()
-    
+
     osc.type = type
     osc.frequency.setValueAtTime(freq1, this.ctx.currentTime)
     if (freq2) {
@@ -49,7 +49,7 @@ class AudioEngine {
   playSuccess() {
     if (this.muted || !this.ctx) return
     const t = this.ctx.currentTime
-    
+
     const osc1 = this.ctx.createOscillator()
     const gain1 = this.ctx.createGain()
     osc1.frequency.value = 523.25 // C5
@@ -74,8 +74,14 @@ class AudioEngine {
 
 const engine = new AudioEngine()
 
-export function useAudio() {
-  const [muted, setMuted] = useState(false)
+export function useAudio(muted: boolean, toggleMute: () => void) {
+  // Keep the engine's internal flag (checked by playBeep/playSuccess) in sync
+  // with the GameContext-owned mute state, and cut off any in-flight speech
+  // the instant the player mutes.
+  useEffect(() => {
+    engine.muted = muted
+    if (muted) window.speechSynthesis.cancel()
+  }, [muted])
 
   useEffect(() => {
     // Need user interaction to start AudioContext usually, but we initialize here
@@ -123,12 +129,15 @@ export function useAudio() {
       }
     })
 
+    // Single source of truth for "the mute button/key was pressed" — the M
+    // key and the pause-menu MUTE button both just dispatch this event, so
+    // there is exactly one place that decides what toggling mute means.
+    const onToggleMute = () => toggleMute()
+    window.addEventListener('toggle-mute', onToggleMute)
+
     const handleKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'm') {
-        const newMute = !engine.muted
-        engine.muted = newMute
-        setMuted(newMute)
-        if (newMute) window.speechSynthesis.cancel()
+        window.dispatchEvent(new CustomEvent('toggle-mute'))
       }
     }
     window.addEventListener('keydown', handleKey)
@@ -139,9 +148,8 @@ export function useAudio() {
       unsubScore()
       window.removeEventListener('click', handleInteraction)
       window.removeEventListener('keydown', handleInteraction)
+      window.removeEventListener('toggle-mute', onToggleMute)
       window.removeEventListener('keydown', handleKey)
     }
-  }, [muted])
-
-  return { muted }
+  }, [muted, toggleMute])
 }

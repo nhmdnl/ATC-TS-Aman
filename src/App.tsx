@@ -25,9 +25,9 @@ const LAYOUT = {
 
 function GameUI() {
   useGameLoop()
-  useAudio()
+  const { state, muted, toggleMute } = useGame()
+  useAudio(muted, toggleMute)
   useKeyboardShortcuts()
-  const { state } = useGame()
 
   const mainH = `calc(100vh - ${LAYOUT.STATUS_BAR_H}px - ${LAYOUT.COMMAND_INPUT_H}px - ${LAYOUT.RADIO_LOG_H}px)`
 
