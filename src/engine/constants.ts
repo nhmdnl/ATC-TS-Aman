@@ -99,6 +99,13 @@ export const READBACK_DELAY_MIN_MS = 1500
 /** Max pilot readback delay in ms */
 export const READBACK_DELAY_MAX_MS = 2500
 
+// ─── AI Controller Pacing ─────────────────────────────────────────────────────
+
+/** Minimum real time between two AI-issued commands for the same aircraft —
+ *  keeps the AI from machine-gunning a command the instant a phase changes,
+ *  matching a human-like decision cadence. */
+export const AI_MIN_DECISION_INTERVAL_MS = 4000
+
 // ─── Simulation Timing ───────────────────────────────────────────────────────
 
 /** Simulation tick interval (ms) — 1 Hz */
