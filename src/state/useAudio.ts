@@ -7,6 +7,10 @@ import { gameState } from '../engine/game-state'
 class AudioEngine {
   private ctx: AudioContext | null = null
   public muted = false
+  private cachedVoice: SpeechSynthesisVoice | null = null
+  private voicesListenerAttached = false
+  private pendingUtterances = 0
+  private static readonly MAX_PENDING = 3   // ATC+pilot pairs, roughly 1.5 exchanges deep
 
   init() {
     if (!this.ctx) {
@@ -15,6 +19,32 @@ class AudioEngine {
     if (this.ctx.state === 'suspended') {
       this.ctx.resume()
     }
+    if ('speechSynthesis' in window) {
+      this.resolveVoice()
+      // getVoices() can return empty synchronously before the browser has
+      // finished loading its voice list — re-resolve when that happens.
+      // Guarded so repeated init() calls (StrictMode, re-mounts) don't stack
+      // up duplicate listeners.
+      if (!this.voicesListenerAttached) {
+        this.voicesListenerAttached = true
+        window.speechSynthesis.addEventListener('voiceschanged', () => this.resolveVoice())
+      }
+    }
+  }
+
+  private resolveVoice(): void {
+    const voices = window.speechSynthesis.getVoices()
+    // Prefer a local (non-network) English voice for latency + offline
+    // reliability; fall back to any English voice, then to whatever's first.
+    this.cachedVoice = voices.length === 0 ? null : (
+      voices.find(v => v.localService && v.lang.startsWith('en')) ??
+      voices.find(v => v.lang.startsWith('en')) ??
+      voices[0]
+    )
+  }
+
+  hasVoice(): boolean {
+    return this.cachedVoice !== null
   }
 
   playBeep(freq1: number, freq2: number | null, durationMs: number, type: OscillatorType = 'sine') {
@@ -44,6 +74,40 @@ class AudioEngine {
 
   playAlert() {
     this.playBeep(800, 600, 150, 'square')
+  }
+
+  /**
+   * Speak an ATC line followed by a pilot readback, using the cached voice.
+   * Silently does nothing if muted, TTS is unsupported, no voice was ever
+   * resolved, or the pending-pair backlog is already at capacity — in every
+   * case the radio log (text) already has both lines regardless, so nothing
+   * informational is lost, only the audio for the overflow.
+   */
+  speak(atcText: string, pilotText: string): void {
+    if (this.muted || !('speechSynthesis' in window) || !this.cachedVoice) return
+    if (this.pendingUtterances >= AudioEngine.MAX_PENDING) return
+
+    this.pendingUtterances++
+    const release = () => { this.pendingUtterances = Math.max(0, this.pendingUtterances - 1) }
+
+    try {
+      const u1 = new SpeechSynthesisUtterance(atcText)
+      u1.voice = this.cachedVoice
+      u1.rate = 1.1
+      u1.pitch = 1.0
+
+      const u2 = new SpeechSynthesisUtterance(pilotText)
+      u2.voice = this.cachedVoice
+      u2.rate = 1.15
+      u2.pitch = 0.9 // slightly different voice
+      u2.onend = release
+      u2.onerror = release
+
+      window.speechSynthesis.speak(u1)
+      window.speechSynthesis.speak(u2) // queues after u1
+    } catch {
+      release() // TTS unavailable — beeps and the log still work
+    }
   }
 
   playSuccess() {
@@ -104,19 +168,9 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
         gameState.addRadioMessage({ timestamp: Date.now(), speaker: 'PILOT', message: p.pilot, station: e.payload.callsign as string })
       }, 1500)
 
-      // Best-effort speech on top
-      if (!muted && 'speechSynthesis' in window) {
-        try {
-          const u1 = new SpeechSynthesisUtterance(p.atc)
-          u1.rate = 1.1
-          u1.pitch = 1.0
-          const u2 = new SpeechSynthesisUtterance(p.pilot)
-          u2.rate = 1.15
-          u2.pitch = 0.9 // slightly different voice
-          window.speechSynthesis.speak(u1)
-          window.speechSynthesis.speak(u2) // queues after u1
-        } catch { /* TTS unavailable — beeps and the log still work */ }
-      }
+      // Best-effort speech on top — engine.speak() handles the mute check,
+      // voice availability, and backlog cap internally.
+      engine.speak(p.atc, p.pilot)
     })
 
     const unsubViolation = eventBus.on(GameEventType.SEPARATION_VIOLATION, () => {
