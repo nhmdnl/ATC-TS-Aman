@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { eventBus } from '../engine/event-bus'
 import { GameEventType, RadioSpeaker } from '../engine/types'
 import type { GameEvent } from '../engine/types'
@@ -146,6 +146,8 @@ class AudioEngine {
 const engine = new AudioEngine()
 
 export function useAudio(muted: boolean, toggleMute: () => void) {
+  const [ttsAvailable, setTtsAvailable] = useState(false)
+
   // Keep the engine's internal flag (checked by playBeep/playSuccess) in sync
   // with the GameContext-owned mute state, and cut off any in-flight speech
   // the instant the player mutes.
@@ -159,7 +161,10 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
 
   useEffect(() => {
     // Need user interaction to start AudioContext usually, but we initialize here
-    const handleInteraction = () => engine.init()
+    const handleInteraction = () => {
+      engine.init()
+      setTtsAvailable(engine.hasVoice())
+    }
     window.addEventListener('click', handleInteraction, { once: true })
     window.addEventListener('keydown', handleInteraction, { once: true })
 
@@ -206,6 +211,11 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
     }
     window.addEventListener('keydown', handleKey)
 
+    const onVoicesChanged = () => setTtsAvailable(engine.hasVoice())
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged)
+    }
+
     return () => {
       unsubCommand()
       unsubViolation()
@@ -214,6 +224,11 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
       window.removeEventListener('keydown', handleInteraction)
       window.removeEventListener('toggle-mute', onToggleMute)
       window.removeEventListener('keydown', handleKey)
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged)
+      }
     }
   }, [muted, toggleMute])
+
+  return { ttsAvailable }
 }

@@ -2,7 +2,7 @@ import React from 'react'
 import { useGame } from '../state/GameContext'
 import { AircraftPhase } from '../engine/types'
 
-export default function StatusBar() {
+export default function StatusBar({ ttsAvailable }: { ttsAvailable: boolean }) {
   const { state, togglePause } = useGame()
 
   const h = Math.floor(state.elapsedMs / 3600000)
@@ -31,8 +31,12 @@ export default function StatusBar() {
           <span style={{ color: '#64748B' }}>|</span>
           <span style={{ color: '#eab308' }}>GND: {groundCount}</span>
         </div>
-        
-        <button 
+
+        {!ttsAvailable && (
+          <span style={{ color: '#94A3B8' }}>TTS: CAPTIONS ONLY</span>
+        )}
+
+        <button
           onClick={togglePause}
           style={{
             background: state.paused ? '#ef4444' : '#1e293b',

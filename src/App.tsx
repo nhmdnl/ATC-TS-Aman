@@ -27,7 +27,7 @@ const LAYOUT = {
 function GameUI() {
   useGameLoop()
   const { state, muted, toggleMute } = useGame()
-  useAudio(muted, toggleMute)
+  const { ttsAvailable } = useAudio(muted, toggleMute)
   useKeyboardShortcuts()
 
   const mainH = `calc(100vh - ${LAYOUT.STATUS_BAR_H}px - ${LAYOUT.COMMAND_INPUT_H}px - ${LAYOUT.RADIO_LOG_H}px)`
@@ -39,7 +39,7 @@ function GameUI() {
       <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: CSS_COLORS.bg.primary, color: CSS_COLORS.text.primary }}>
         {/* Status Bar */}
         <div id="status-bar-container" style={{ height: LAYOUT.STATUS_BAR_H, flexShrink: 0, zIndex: 10 }}>
-          <StatusBar />
+          <StatusBar ttsAvailable={ttsAvailable} />
         </div>
 
         {/* Main: air-strip | radar | commands */}
