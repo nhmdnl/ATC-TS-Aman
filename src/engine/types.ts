@@ -417,6 +417,7 @@ export interface GameStateSnapshot {
   readonly airport: Readonly<Airport> | null
   readonly radioMessages: ReadonlyArray<RadioMessage>
   readonly wind: Readonly<Wind>
+  readonly playerStations: ReadonlyArray<ControllerStation>
 }
 
 // ─── Wind ─────────────────────────────────────────────────────────────────────

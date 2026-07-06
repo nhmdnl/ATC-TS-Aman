@@ -11,6 +11,7 @@ import type {
   GameStateSnapshot,
   TaxiwayGraph,
 } from './types'
+import { ControllerStation } from './types'
 import {
   INITIAL_SCORE,
   MIN_SCORE,
@@ -53,6 +54,10 @@ export class GameState {
   sessionStartTime: number = 0
   sessionStarted: boolean = false
   sessionEnded: boolean = false
+  /** Which stations the player personally controls this session; any station
+   *  not in this list is driven by ai-controller.ts. Defaults to all three
+   *  (today's behavior) unless narrowed at the briefing screen. */
+  playerStations: ControllerStation[] = [ControllerStation.GROUND, ControllerStation.TOWER, ControllerStation.APPROACH]
 
   // ── Airport ──
   airport: Airport | null = null
@@ -175,6 +180,7 @@ export class GameState {
     this.sessionStartTime = Date.now()
     this.sessionStarted = false
     this.sessionEnded = false
+    this.playerStations = [ControllerStation.GROUND, ControllerStation.TOWER, ControllerStation.APPROACH]
     this.lastSpawnTime = 0
     this.occupiedGateIds.clear()
     this.separationCooldowns.clear()
@@ -197,6 +203,7 @@ export class GameState {
       airport: this.airport,
       radioMessages: [...this.radioLog],
       wind: { ...this.wind },
+      playerStations: [...this.playerStations],
     }
   }
 
