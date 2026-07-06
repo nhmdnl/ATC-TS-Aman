@@ -9,6 +9,7 @@ import BriefingScreen from './components/BriefingScreen'
 import MissionTracker from './components/MissionTracker'
 import GuidePanel from './components/GuidePanel'
 import TutorialOverlay from './components/TutorialOverlay'
+import PauseMenu from './components/PauseMenu'
 import { GameProvider, useGame } from './state/GameContext'
 import { useGameLoop } from './state/useGameLoop'
 import { useAudio } from './state/useAudio'
@@ -85,6 +86,7 @@ function GameUI() {
 
         <EndScreen />
         <TutorialOverlay />
+        <PauseMenu />
       </div>
     </>
   )
