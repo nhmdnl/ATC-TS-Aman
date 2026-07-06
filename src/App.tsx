@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import StatusBar from './components/StatusBar'
 import FlightStrips from './components/FlightStrips'
 import CommandPanel from './components/CommandPanel'
@@ -53,6 +53,18 @@ function GameUI() {
   }, [activeTutorialTopicId, tutorialMenuOpen])
 
   const tutorialUIOpen = tutorialMenuOpen || activeTutorialTopicId !== null
+
+  const handleTutorialSelect = useCallback((topicId: string) => {
+    setActiveTutorialTopicId(topicId)
+    setTutorialMenuOpen(false)
+  }, [])
+  const handleTutorialMenuClose = useCallback(() => {
+    setTutorialMenuOpen(false)
+  }, [])
+  const handleTutorialBack = useCallback(() => {
+    setActiveTutorialTopicId(null)
+    setTutorialMenuOpen(true)
+  }, [])
 
   // Auto-pause a running session for as long as any tutorial UI is open;
   // only resume it on close if this effect was the one that paused it, so a
@@ -124,15 +136,20 @@ function GameUI() {
           </div>
         </div>
 
-        <EndScreen />
+        {/* Suppressed while tutorial UI is open: same bleed-through issue as
+            PauseMenu below — EndScreen is a full-screen overlay at zIndex
+            1000 mounted whenever a session has ended, and the T shortcut is
+            not gated on session-end state, so it would otherwise render
+            underneath the tutorial overlay simultaneously. */}
+        {!tutorialUIOpen && <EndScreen />}
         <TutorialMenu
           open={tutorialMenuOpen}
-          onSelect={(topicId) => { setActiveTutorialTopicId(topicId); setTutorialMenuOpen(false) }}
-          onClose={() => setTutorialMenuOpen(false)}
+          onSelect={handleTutorialSelect}
+          onClose={handleTutorialMenuClose}
         />
         <TutorialOverlay
           topicId={activeTutorialTopicId}
-          onBack={() => { setActiveTutorialTopicId(null); setTutorialMenuOpen(true) }}
+          onBack={handleTutorialBack}
         />
         {/* Suppressed while tutorial UI is open: the tutorial system pauses
             the session itself, and PauseMenu's own "state.paused" check would

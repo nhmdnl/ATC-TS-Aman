@@ -35,6 +35,11 @@ interface DrawableAircraft {
   readonly clearedAltitude?: number | null
   readonly clearedSpeed?: number | null
   readonly trail?: ReadonlyArray<{ x: number; y: number }>
+  /** Always show the leader-line datablock even when isGround and not
+   *  selected. Used for staged tutorial demo aircraft, which are never
+   *  selectable, so ground-phase demos would otherwise render as an
+   *  unlabeled blip even while a step narrates its callsign. */
+  readonly forceLabel?: boolean
 }
 
 /** Draws one aircraft's blip, trail, hover ring, violation pulse, vector,
@@ -109,7 +114,7 @@ function drawAircraftBody(
   }
 
   // Leader-line datablock
-  if (!isGround || data.isSelected) {
+  if (!isGround || data.isSelected || data.forceLabel) {
     text.visible = true
     const anchorX = x + 14
     const anchorY = y - 14
@@ -444,7 +449,7 @@ export default function RadarCanvas() {
         }
         sprite.g.visible = true
         sprite.text.visible = true
-        drawAircraftBody(sprite.g, sprite.text, d, mapX, mapY, zoom, null)
+        drawAircraftBody(sprite.g, sprite.text, { ...d, forceLabel: true }, mapX, mapY, zoom, null)
       }
       return
     }
