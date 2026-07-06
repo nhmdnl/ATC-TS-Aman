@@ -1,0 +1,46 @@
+{
+  "name": "atc-aman",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ATC Aman — real-time air traffic control simulation",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron . --dev --disable-gpu --no-sandbox\"",
+    "build": "vite build && tsc -p tsconfig.main.json",
+    "preview": "vite preview",
+    "package": "npm run build && electron-builder",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit"
+  },
+  "dependencies": {
+    "pixi.js": "^8.6.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "electron": "^35.7.5",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.2",
+    "vitest": "^4.1.9",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.atc.aman",
+    "productName": "ATC Aman",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "index.html"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  }
+}
