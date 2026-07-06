@@ -47,6 +47,13 @@ class AudioEngine {
     return this.cachedVoice !== null
   }
 
+  /** Reset the pending-speech backlog counter — call immediately after
+   *  cancel(), since canceled/queued utterances may not fire onend/onerror,
+   *  which would otherwise leak pendingUtterances permanently. */
+  resetPendingSpeech(): void {
+    this.pendingUtterances = 0
+  }
+
   playBeep(freq1: number, freq2: number | null, durationMs: number, type: OscillatorType = 'sine') {
     if (this.muted || !this.ctx) return
     const osc = this.ctx.createOscillator()
@@ -144,7 +151,10 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
   // the instant the player mutes.
   useEffect(() => {
     engine.muted = muted
-    if (muted && 'speechSynthesis' in window) window.speechSynthesis.cancel()
+    if (muted && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel()
+      engine.resetPendingSpeech()
+    }
   }, [muted])
 
   useEffect(() => {
