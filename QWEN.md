@@ -18,7 +18,7 @@
 
 ---
 
-## Project Status (2026-07-05) — FEATURE-COMPLETE
+## Project Status (2026-07-07) — FEATURE-COMPLETE
 
 The full loop is verified end-to-end in the running Electron app (via CDP automation):
 briefing menu → START → gameplay (departure taxi/lineup/takeoff/handoff through the real
@@ -26,6 +26,12 @@ command pipeline, radio log filling with ATC + pilot readbacks) → session expi
 EndScreen (grade, 5 dimensions, career stats) → PLAY AGAIN → briefing again.
 Arrival lifecycle (APPROACH → FINAL → LANDING → ROLLOUT → TAXI_IN → ARRIVED, plus
 go-around) is locked in by an integration test against real HHAS data.
+
+2026-07-07: four UX additions landed on `feature/four-ux-additions` (18 plan tasks,
+plans in `docs/superpowers/plans/2026-07-06-*.md`): pause menu, TTS quality,
+tutorial expansion, and controller-position selection with AI-run stations.
+AI-station behavior verified live via CDP (GROUND-only session: AI issued
+CLEARED_APPROACH + CONTACT_TOWER unaided; AI outcomes excluded from scoring).
 
 ### ✅ Shipped (fully implemented)
 
@@ -50,10 +56,14 @@ go-around) is locked in by an integration test against real HHAS data.
 | **Mission tracker (O)** | ✅ | Live score/grade/time/traffic, dimension bars, objectives, recent comms |
 | **Guide panel (G)** | ✅ | Tabbed reference: commands, procedures, scoring, controls |
 | **Tutorial (T)** | ✅ | 8-step spotlight walkthrough of all UI regions |
+| **Tutorial menu** | ✅ | TUTORIALS on briefing screen + topic picker (`TutorialMenu.tsx`, content in `src/data/tutorialContent.ts`): UI Basics, ATC Fundamentals, Handling Incidents, Ground/Tower/Approach; auto-pauses sim, EndScreen suppressed during tutorial |
+| **Pause menu** | ✅ | Resume/restart/mute/main-menu/quit-to-desktop (`PauseMenu.tsx`); mute lifted into GameContext; quit via IPC `app.quit()` |
+| **TTS quality** | ✅ | Cached voice selection, speech backlog cap (reset on mute), `TTS: CAPTIONS ONLY` status-bar indicator when unavailable |
+| **Controller stations / AI** | ✅ | Briefing-screen station picker (`playerStations`, ≥1 enforced); `ai-controller.ts` runs textbook commands for unselected GND/TWR/APP stations (after separation check, safety-aware CLEARED_LAND); AI outcomes excluded from scoring; CommandPanel tabs filtered to player stations; StatusBar YOU/AI readout |
 | **EndScreen** | ✅ | Grade badge, all 5 dimension bars, duration, career stats, PLAY AGAIN |
 | **State management** | ✅ | React context + rAF render loop |
 | **Layout** | ✅ | 5-container: air-strip | radar | commands (with GND/TWR/APP tabs) | input | comms |
-| **Tests** | ✅ | Vitest, 156 tests incl. executor regression + arrival-lifecycle integration, all passing |
+| **Tests** | ✅ | Vitest, 170 tests incl. executor regression, arrival-lifecycle + AI-controller integration, all passing |
 
 ### 🚧 Remaining (polish / stretch)
 
@@ -110,7 +120,9 @@ atc-aman/
 │   │   ├── CommandInput.tsx  # Below radar — text input (secondary)
 │   │   ├── RadioLog.tsx      # Bottom — scrollable event log
 │   │   ├── EndScreen.tsx     # Full-screen session results overlay
-│   │   ├── BriefingScreen.tsx # Difficulty selection overlay
+│   │   ├── BriefingScreen.tsx # Difficulty + station selection overlay
+│   │   ├── PauseMenu.tsx     # Pause overlay: resume/restart/mute/menu/quit
+│   │   ├── TutorialMenu.tsx  # Tutorial topic picker (from briefing screen)
 │   │   ├── MissionTracker.tsx # O — live HUD overlay
 │   │   ├── GuidePanel.tsx    # G — tabbed reference overlay
 │   │   └── TutorialOverlay.tsx # T — spotlight walkthrough
@@ -125,7 +137,8 @@ atc-aman/
 │   │   ├── phase-transitions.ts # Auto phase state machine
 │   │   ├── simulation-tick.ts # 1 Hz tick orchestrator
 │   │   ├── airport-loader.ts # .airport JSON parser
-│   │   ├── scoring.ts        # Score event handler
+│   │   ├── ai-controller.ts  # Textbook autopilot for non-player stations
+│   │   ├── scoring.ts        # Score event handler (player-station attribution)
 │   │   ├── mission-system.ts # Tutorial chained missions
 │   │   ├── career-system.ts  # XP/levels persistence
 │   │   ├── commands/
@@ -134,7 +147,7 @@ atc-aman/
 │   │   │   ├── command-executor.ts
 │   │   │   ├── command-validators.ts
 │   │   │   └── phraseology.ts
-│   │   └── __tests__/        # 156 tests (unit + lifecycle integration)
+│   │   └── __tests__/        # 170 tests (unit + lifecycle/AI integration)
 │   ├── state/
 │   │   ├── GameContext.tsx
 │   │   ├── useGameLoop.ts
@@ -144,6 +157,7 @@ atc-aman/
 │   ├── styles/
 │   │   └── index.css
 │   └── data/
+│       ├── tutorialContent.ts     # Tutorial topic content (TutorialMenu)
 │       └── airports/
 │           └── hhas.airport.json  # HHAS in spstudio editor format
 └── dist/                     # Vite build output (gitignored)
@@ -172,7 +186,7 @@ atc-aman/
 npm run dev           # Vite HMR + Electron
 npm run build         # Production build
 npm run lint          # TypeScript check (tsc --noEmit)
-npm test              # Vitest (156 tests)
+npm test              # Vitest (170 tests)
 npm run package       # Electron builder distribution
 ```
 
