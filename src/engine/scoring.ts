@@ -24,6 +24,14 @@ export function initializeScoringSystem(): void {
 
 function handleScoreEvent(reason: ScoreReason, e: GameEvent): void {
   const callsign = (e.payload.callsign as string) || 'UNKNOWN'
+
+  // AI-controlled outcome — not the player's to be scored on. aircraft.controller
+  // at the moment any score-relevant event fires already reflects whoever is
+  // currently responsible, whether the triggering command came from the
+  // player or from ai-controller.ts.
+  const aircraft = gameState.getAircraftByCallsign(callsign)
+  if (aircraft && !gameState.playerStations.includes(aircraft.controller)) return
+
   const delta = SCORE_DELTAS[reason]
   
   // Apply raw score
