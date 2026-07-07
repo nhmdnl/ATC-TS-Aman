@@ -5,6 +5,13 @@ release/
 .DS_Store
 *.log
 
+# Licensed chart material (Navigraph/Jeppesen approach plates etc.) —
+# keep source charts here for reference; they must NEVER be committed
+# or redistributed. Only independently-stated simulation parameters
+# belong in the source tree.
+charts/
+*.pdf
+
 # Local tool/runtime state — not project source
 .claude/
 .impeccable/

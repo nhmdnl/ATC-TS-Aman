@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "ATC Aman — real-time air traffic control simulation",
+  "license": "MIT",
+  "author": "Nahom Daniel Negash",
+  "contributors": [
+    "Claude (Anthropic)"
+  ],
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron . --dev --disable-gpu --no-sandbox\"",
@@ -34,13 +39,21 @@
   "build": {
     "appId": "com.atc.aman",
     "productName": "ATC Aman",
+    "copyright": "Copyright © 2026 Nahom Daniel Negash",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
       "index.html"
     ],
+    "extraFiles": [
+      "LICENSE",
+      "THIRD-PARTY-NOTICES.txt"
+    ],
     "directories": {
       "output": "release"
+    },
+    "nsis": {
+      "license": "build/eula.txt"
     }
   }
 }

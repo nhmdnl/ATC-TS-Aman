@@ -1,0 +1,30 @@
+ATC AMAN — END USER LICENSE AGREEMENT
+
+ATC Aman is a hobby project, developed with love for the author's only
+brother. It is free, open-source software.
+
+1. LICENSE
+   This software is licensed under the MIT License,
+   Copyright (c) 2026 Nahom Daniel Negash.
+   You are free to use, copy, modify, and redistribute it under the terms
+   of that license (see the LICENSE file installed with this application).
+   Bundled third-party components are listed in THIRD-PARTY-NOTICES.txt.
+
+2. SIMULATION ONLY — NOT FOR REAL-WORLD USE
+   ATC Aman is a game. It is NOT suitable for, and must never be used for,
+   real-world aviation, navigation, flight planning, or air traffic control
+   training. Procedures, frequencies, and airport data are simplified and
+   may be inaccurate or out of date.
+
+3. PRIVACY
+   *** NO COLLECTION OF DATA. NO NETWORK CALLS. ***
+   This application collects no personal data, contains no telemetry or
+   analytics, and makes no network connections. All progress (scores,
+   career data) is stored locally on your own machine and never leaves it.
+
+4. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM,
+   DAMAGES OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
+
+By installing or using ATC Aman you acknowledge the terms above.
