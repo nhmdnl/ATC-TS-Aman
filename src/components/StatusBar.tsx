@@ -1,6 +1,14 @@
 import React from 'react'
 import { useGame } from '../state/GameContext'
-import { AircraftPhase } from '../engine/types'
+import { AircraftPhase, ControllerStation } from '../engine/types'
+
+const STATION_ORDER: ControllerStation[] = [ControllerStation.GROUND, ControllerStation.TOWER, ControllerStation.APPROACH]
+const STATION_SHORT_LABELS: Record<ControllerStation, string> = {
+  [ControllerStation.GROUND]: 'GND',
+  [ControllerStation.TOWER]: 'TWR',
+  [ControllerStation.APPROACH]: 'APP',
+  [ControllerStation.AREA]: 'AREA',
+}
 
 export default function StatusBar({ ttsAvailable }: { ttsAvailable: boolean }) {
   const { state, togglePause } = useGame()
@@ -35,6 +43,17 @@ export default function StatusBar({ ttsAvailable }: { ttsAvailable: boolean }) {
         {!ttsAvailable && (
           <span style={{ color: '#94A3B8' }}>TTS: CAPTIONS ONLY</span>
         )}
+
+        <div style={{ display: 'flex', gap: 6, color: '#64748B' }}>
+          {STATION_ORDER.map((s) => (
+            <span key={s}>
+              {STATION_SHORT_LABELS[s]}:{' '}
+              <span style={{ color: state.playerStations.includes(s) ? '#22c55e' : '#eab308' }}>
+                {state.playerStations.includes(s) ? 'YOU' : 'AI'}
+              </span>
+            </span>
+          ))}
+        </div>
 
         <button
           onClick={togglePause}
