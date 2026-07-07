@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useGame } from '../state/GameContext'
 import type { DifficultyLevel } from '../engine/types'
+import { ControllerStation } from '../engine/types'
 import { DIFFICULTY_PRESETS, CSS_COLORS } from '../engine/constants'
 
 const DIFF_ORDER: DifficultyLevel[] = ['easy', 'medium', 'hard']
@@ -11,14 +12,35 @@ const DIFF_LABELS: Record<DifficultyLevel, string> = {
   hard: 'HARD',
 }
 
+const STATION_ORDER: ControllerStation[] = [ControllerStation.GROUND, ControllerStation.TOWER, ControllerStation.APPROACH]
+
+const STATION_LABELS: Record<ControllerStation, string> = {
+  [ControllerStation.GROUND]: 'GROUND',
+  [ControllerStation.TOWER]: 'TOWER',
+  [ControllerStation.APPROACH]: 'APPROACH',
+  [ControllerStation.AREA]: 'AREA', // never shown — not a player-selectable station
+}
+
 export default function BriefingScreen() {
-  const { setDifficulty, startSession } = useGame()
+  const { setDifficulty, setPlayerStations, startSession } = useGame()
   const [selected, setSelected] = useState<DifficultyLevel>('medium')
+  const [stations, setStations] = useState<ControllerStation[]>(STATION_ORDER)
 
   const preset = DIFFICULTY_PRESETS[selected]
 
+  const toggleStation = (station: ControllerStation) => {
+    setStations(prev => {
+      if (prev.includes(station)) {
+        if (prev.length === 1) return prev // at least one must stay selected
+        return prev.filter(s => s !== station)
+      }
+      return [...prev, station]
+    })
+  }
+
   const handleStart = () => {
     setDifficulty(selected)
+    setPlayerStations(stations)
     startSession()
   }
 
@@ -71,6 +93,41 @@ export default function BriefingScreen() {
                 {DIFF_LABELS[d]}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ color: CSS_COLORS.text.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            Your Stations
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {STATION_ORDER.map((s) => {
+              const active = stations.includes(s)
+              return (
+                <button
+                  key={s}
+                  onClick={() => toggleStation(s)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 0',
+                    background: active ? '#0EA5E9' : '#1D2430',
+                    color: active ? '#FFF' : CSS_COLORS.text.secondary,
+                    border: active ? '1px solid #0EA5E9' : '1px solid #1E293B',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontWeight: active ? 700 : 400,
+                    fontSize: 12,
+                    fontFamily: 'inherit',
+                    transition: 'all 0.1s',
+                  }}
+                >
+                  {STATION_LABELS[s]}
+                </button>
+              )
+            })}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 10, color: CSS_COLORS.text.muted }}>
+            Unselected stations are handled automatically.
           </div>
         </div>
 
