@@ -62,6 +62,17 @@ export default function CommandPanel() {
   const [paramValue, setParamValue] = useState('')
   const paramInputRef = useRef<HTMLInputElement>(null)
 
+  const visibleTabs = STATION_TABS.filter((tab) => state.playerStations.includes(tab.station))
+
+  // If the player narrows their stations while a now-hidden tab is active
+  // (or on first mount, since the default activeStation is TOWER regardless
+  // of what was actually selected), snap to the first station still visible.
+  useEffect(() => {
+    if (!state.playerStations.includes(activeStation) && visibleTabs.length > 0) {
+      setActiveStation(visibleTabs[0].station)
+    }
+  }, [state.playerStations, activeStation, visibleTabs])
+
   const selectedAircraft = Array.from(state.aircraft.values()).find((ac) => ac.isSelected) ?? null
 
   const availableCommands = CONTROLLER_COMMANDS[activeStation]
@@ -243,25 +254,27 @@ export default function CommandPanel() {
         .cp-mini-btn:hover { background: #1e293b !important; }
       `}</style>
 
-      {/* Tab bar */}
-      <div style={S.tabBar}>
-        {STATION_TABS.map((tab) => {
-          const active = activeStation === tab.station
-          return (
-            <button
-              key={tab.station}
-              className={active ? 'cp-tab-btn-active' : 'cp-tab-btn'}
-              style={S.tabBtn(active)}
-              onClick={() => {
-                setActiveStation(tab.station)
-                setPendingCmd(null)
-              }}
-            >
-              {tab.label} {tab.frequency.toFixed(1)}
-            </button>
-          )
-        })}
-      </div>
+      {/* Tab bar — only shown when there is more than one station to switch between */}
+      {visibleTabs.length > 1 && (
+        <div style={S.tabBar}>
+          {visibleTabs.map((tab) => {
+            const active = activeStation === tab.station
+            return (
+              <button
+                key={tab.station}
+                className={active ? 'cp-tab-btn-active' : 'cp-tab-btn'}
+                style={S.tabBtn(active)}
+                onClick={() => {
+                  setActiveStation(tab.station)
+                  setPendingCmd(null)
+                }}
+              >
+                {tab.label} {tab.frequency.toFixed(1)}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Content */}
       <div style={S.content}>
