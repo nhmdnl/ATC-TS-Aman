@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { gameState } from '../game-state'
+import { eventBus } from '../event-bus'
+import { GameEventType } from '../types'
 import { moveAircraft, headingToRadians } from '../movement'
 import { findRunwayById, loadAirport } from '../airport-loader'
 import { processPhaseTransitions } from '../phase-transitions'
@@ -84,6 +86,10 @@ describe('nextExpectedCommand', () => {
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.APPROACH, clearedForApproach: true }))).toBe(CommandType.CONTACT_TOWER)
   })
 
+  it('returns null for APPROACH once the tower handoff is already done (no re-issue)', () => {
+    expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.APPROACH, clearedForApproach: true, handedOff: true }))).toBeNull()
+  })
+
   it('returns CLEARED_LAND for FINAL when not in violation', () => {
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.FINAL, inViolation: false }))).toBe(CommandType.CLEARED_LAND)
   })
@@ -92,15 +98,19 @@ describe('nextExpectedCommand', () => {
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.FINAL, inViolation: true }))).toBeNull()
   })
 
-  it('returns CONTACT_GROUND for TAXI_IN', () => {
-    expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.TAXI_IN }))).toBe(CommandType.CONTACT_GROUND)
+  it('returns null for FINAL once already cleared to land (no re-issue)', () => {
+    expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.FINAL, clearedToLand: true }))).toBeNull()
   })
 
   it('returns null for phases with nothing left to command', () => {
+    expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.ENTERING }))).toBeNull()
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.TAXI_OUT }))).toBeNull()
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.TAKEOFF_ROLL }))).toBeNull()
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.LANDING }))).toBeNull()
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.ROLLOUT }))).toBeNull()
+    // TAXI_IN needs no command: PHASE_CONTROLLER already moved it to GROUND
+    // and the ROLLOUT transition aimed it at its gate.
+    expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.TAXI_IN }))).toBeNull()
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.ARRIVED }))).toBeNull()
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.DEPARTED }))).toBeNull()
     expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.MISSED }))).toBeNull()
@@ -121,6 +131,11 @@ describe('runAiControllers — integration, real HHAS data + real command pipeli
   it('carries an arrival from APPROACH to ARRIVED with zero player-issued commands', () => {
     gameState.airport = loadAirport(hhasData)
     gameState.playerStations = [] // nothing is player-controlled — the AI must do everything
+
+    const issued: CommandType[] = []
+    const unsubscribe = eventBus.on(GameEventType.COMMAND_ISSUED, (event) => {
+      issued.push(event.payload.commandType as CommandType)
+    })
 
     const rwy = gameState.airport.runways[0]
     const rad = headingToRadians(rwy.trueHeading)
@@ -146,6 +161,14 @@ describe('runAiControllers — integration, real HHAS data + real command pipeli
       vi.advanceTimersByTime(4100)
     }
 
+    unsubscribe()
     expect(aircraft.phase).toBe(AircraftPhase.ARRIVED)
+    // The satisfied-command guards make the AI issue each command exactly
+    // once — without them this arrival generates ~146 commands instead of 3.
+    expect(issued).toEqual([
+      CommandType.CLEARED_APPROACH,
+      CommandType.CONTACT_TOWER,
+      CommandType.CLEARED_LAND,
+    ])
   })
 })

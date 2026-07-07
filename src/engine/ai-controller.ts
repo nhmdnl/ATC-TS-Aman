@@ -9,8 +9,13 @@ import { AI_MIN_DECISION_INTERVAL_MS } from './constants'
  * would issue for this aircraft's current phase — the "textbook" action.
  * Returns null when there is nothing to do this tick: either the phase is
  * mid-transition and movement/phase-transitions will advance it on their
- * own (TAXI_OUT, TAKEOFF_ROLL, LANDING, ROLLOUT), or it's a terminal phase
- * (DEPARTED, ARRIVED, MISSED).
+ * own (ENTERING auto-transitions to APPROACH at 8 NM; TAXI_OUT, TAKEOFF_ROLL,
+ * LANDING, ROLLOUT likewise; TAXI_IN is already under GROUND via
+ * PHASE_CONTROLLER and taxis to its gate unaided), a terminal phase
+ * (DEPARTED, ARRIVED, MISSED), or the phase's one command has already been
+ * issued and satisfied (guards below — without them the AI would re-issue
+ * idempotent commands every AI_MIN_DECISION_INTERVAL_MS forever, spamming
+ * the radio log and per-command scoring).
  *
  * Every command returned here is already legal for the phase per
  * PHASE_COMMANDS/CONTROLLER_COMMANDS in constants.ts, so it can never be
@@ -27,13 +32,19 @@ export function nextExpectedCommand(aircraft: Aircraft): CommandType | null {
     case AircraftPhase.CLIMBING:
       return CommandType.CONTACT_DEPARTURE
     case AircraftPhase.APPROACH:
-      return aircraft.clearedForApproach ? CommandType.CONTACT_TOWER : CommandType.CLEARED_APPROACH
+      if (!aircraft.clearedForApproach) return CommandType.CLEARED_APPROACH
+      // handedOff flips true when CONTACT_TOWER executes and never resets,
+      // so it gates "tower handoff already done" for the rest of APPROACH.
+      return aircraft.handedOff ? null : CommandType.CONTACT_TOWER
     case AircraftPhase.FINAL:
       // The one safety-aware branch: never clear a landing into an active
-      // conflict. Retried on a later tick once the violation clears.
-      return aircraft.inViolation ? null : CommandType.CLEARED_LAND
-    case AircraftPhase.TAXI_IN:
-      return CommandType.CONTACT_GROUND
+      // conflict. Retried on a later tick once the violation clears; if it
+      // persists to the threshold, phase-transitions forces MISSED anyway.
+      if (aircraft.inViolation || aircraft.clearedToLand) return null
+      return CommandType.CLEARED_LAND
+    // TAXI_IN: nothing to issue. The ROLLOUT→TAXI_IN transition already set
+    // controller = GROUND (PHASE_CONTROLLER) and aimed the taxi at the gate,
+    // so CONTACT_GROUND would be a pure no-op radio call here.
     default:
       return null
   }
