@@ -2,6 +2,7 @@ import { GameState } from './game-state'
 import { moveAircraft } from './movement'
 import { processPhaseTransitions, checkAircraftRemoval } from './phase-transitions'
 import { separationChecker, clearViolationFlags } from './separation'
+import { runAiControllers } from './ai-controller'
 import { spawnArrival, spawnDeparture } from './aircraft-factory'
 import { findRunwayById, getAvailableGates, getArrivalSpawnPoints } from './airport-loader'
 import { GameEventType, AircraftPhase, RadioSpeaker } from './types'
@@ -67,13 +68,18 @@ export function tick(state: GameState, dtSeconds: number): void {
   // 6. Separation Checking
   separationChecker.checkSeparation(state.allAircraft(), nowMs)
 
-  // 7. Session Expiry Check
+  // 7. AI Controller Decisions — after separation checking so inViolation
+  // flags are current for this tick (nextExpectedCommand's FINAL branch
+  // checks it).
+  runAiControllers(state, nowMs)
+
+  // 8. Session Expiry Check
   if (state.isSessionExpired() && !state.sessionEnded) {
     state.sessionEnded = true
     eventBus.emit(GameEventType.SESSION_ENDED, { score: state.score, grade: state.getGrade() })
   }
 
-  // 8. Flush queued events
+  // 9. Flush queued events
   eventBus.flush()
 }
 
