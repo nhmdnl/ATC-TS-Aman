@@ -84,12 +84,12 @@ Insert into `tick()` in `src/engine/simulation-tick.ts` at the correct stage (or
 
 ## Sharp edges (all verified against source 2026-07-10)
 
-1. **Pending readback timers survive reset.** `processCommand` schedules execution via `setTimeout` (`command-registry.ts:53`) and nothing calls `clearTimeout`; `gameState.reset()` (`game-state.ts:171`) doesn't cancel them. A reset mid-delay + a new aircraft reusing the callsign = stale command executes on the wrong session. Fix path: collect timeout ids, clear on reset.
-2. **Two pause paths.** Spacebar mutates `gameState.paused` directly (`useKeyboardShortcuts.ts:40`); `GameContext.togglePause` (`GameContext.tsx:72`) also pushes a snapshot. Neither emits `SIM_PAUSED`/`SIM_RESUMED` (those enum values are currently decorative). Prefer `togglePause` in new code.
-3. **Snapshots are shallow per-aircraft.** `snapshot()` copies the Map (`game-state.ts:193`) but shares `Aircraft` object references — components can observe mid-tick field mutations. Protects against add/remove only.
-4. **Module-level listener wiring.** `initializeScoringSystem()` runs at the top level of `GameContext.tsx:10` — once per module load (StrictMode does *not* double it), but a Vite HMR reload of that module re-registers listeners → doubled scoring in dev after hot edits. Symptom: scores change twice per event → restart the dev server.
-5. **`AircraftList.tsx` is dead code.** Nothing imports it; `FlightStrips.tsx` superseded it. Delete it or wire it in — don't extend it by accident.
-6. **All arrivals get the same gate.** Unassigned arrivals receive `airport.gates[0]` at ROLLOUT→TAXI_IN (`phase-transitions.ts:98`). Unflagged simplification; make gate assignment smarter here.
+1. **Two pause paths.** Spacebar mutates `gameState.paused` directly (`useKeyboardShortcuts.ts:40`); `GameContext.togglePause` (`GameContext.tsx:72`) also pushes a snapshot. Neither emits `SIM_PAUSED`/`SIM_RESUMED` (those enum values are currently decorative). Prefer `togglePause` in new code.
+2. **Snapshots are shallow per-aircraft.** `snapshot()` copies the Map (`game-state.ts:193`) but shares `Aircraft` object references — components can observe mid-tick field mutations. Protects against add/remove only.
+3. **Module-level listener wiring.** `initializeScoringSystem()` runs at the top level of `GameContext.tsx:10` — once per module load (StrictMode does *not* double it), but a Vite HMR reload of that module re-registers listeners → doubled scoring in dev after hot edits. Symptom: scores change twice per event → restart the dev server.
+4. **`AircraftList.tsx` is dead code.** Nothing imports it; `FlightStrips.tsx` superseded it. Delete it or wire it in — don't extend it by accident.
+5. **All arrivals get the same gate.** Unassigned arrivals receive `airport.gates[0]` at ROLLOUT→TAXI_IN (`phase-transitions.ts:98`). Unflagged simplification; make gate assignment smarter here.
+6. **Stale readback timers across reset — fixed 2026-07-11.** Deferred command execution checks `gameState.sessionGeneration` (bumped in `reset()`) and no-ops if the session changed. New deferred work should use the same guard. Regression test: `command-registry.test.ts`.
 7. **Engine/UI sync tables are manual.** `types.ts`, `constants.ts`, `command-validators.ts`, and `ai-controller.ts` each hold a slice of "which command/phase/controller goes together" with no type-level enforcement — `constants.test.ts` is the only guard.
 
 ## Deliberate debt (`ponytail:` comments in source)

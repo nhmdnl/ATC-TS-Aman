@@ -88,6 +88,10 @@ CLEARED_APPROACH + CONTACT_TOWER unaided; AI outcomes excluded from scoring).
 - PixiJS init silently failed under CSP; briefing raced the sim loop; `npm run dev`
   loaded stale `dist/` (missing `--dev`); canvas never resized; zoom clamp hid the
   airport diagram.
+- (2026-07-11) Pending readback `setTimeout`s survived `gameState.reset()` — a reset
+  mid-delay could execute a stale command on a new session's aircraft reusing the
+  callsign. Fixed with a `sessionGeneration` counter guard; regression test in
+  `command-registry.test.ts`.
 
 ---
 

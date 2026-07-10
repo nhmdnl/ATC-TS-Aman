@@ -50,7 +50,11 @@ export function processCommand(command: Command, airport: Airport): CommandResul
   
   // We use setTimeout here because it's a UI-level delay, though in a pure ECS we'd decrement it in tick()
   // Doing it here is simpler since execution is side-effect heavy
+  const generation = gameState.sessionGeneration
   setTimeout(() => {
+    // Session was reset mid-delay — this timer belongs to a dead session and
+    // must not touch a new aircraft that happens to reuse the callsign
+    if (gameState.sessionGeneration !== generation) return
     // Re-fetch aircraft in case it was removed during delay
     const ac = gameState.getAircraftByCallsign(command.targetCallsign)
     if (ac) {

@@ -54,6 +54,10 @@ export class GameState {
   sessionStartTime: number = 0
   sessionStarted: boolean = false
   sessionEnded: boolean = false
+  /** Bumped on every reset(). Pending readback setTimeouts capture this at
+   *  schedule time and no-op if it changed — a stale timer must never execute
+   *  a command on a later session's aircraft (callsigns can be reused). */
+  sessionGeneration: number = 0
   /** Which stations the player personally controls this session; any station
    *  not in this list is driven by ai-controller.ts. Defaults to all three
    *  (today's behavior) unless narrowed at the briefing screen. */
@@ -180,6 +184,7 @@ export class GameState {
     this.sessionStartTime = Date.now()
     this.sessionStarted = false
     this.sessionEnded = false
+    this.sessionGeneration++
     this.playerStations = [ControllerStation.GROUND, ControllerStation.TOWER, ControllerStation.APPROACH]
     this.lastSpawnTime = 0
     this.occupiedGateIds.clear()
