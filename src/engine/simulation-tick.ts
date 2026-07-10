@@ -4,7 +4,7 @@ import { processPhaseTransitions, checkAircraftRemoval } from './phase-transitio
 import { separationChecker, clearViolationFlags } from './separation'
 import { runAiControllers } from './ai-controller'
 import { spawnArrival, spawnDeparture } from './aircraft-factory'
-import { findRunwayById, getAvailableGates, getArrivalSpawnPoints } from './airport-loader'
+import { findRunwayById, getAvailableGates, getArrivalSpawnPoints, selectActiveRunway } from './airport-loader'
 import { GameEventType, AircraftPhase, RadioSpeaker } from './types'
 import { eventBus } from './event-bus'
 import { MVA_FT, GROUND_ALTITUDE_THRESHOLD_FT } from './constants'
@@ -116,9 +116,8 @@ function spawnOneArrival(state: GameState): void {
   const point = points[Math.floor(Math.random() * points.length)]
   const ac = spawnArrival(point)
   
-  // Assign active runway (simplified: just pick first runway)
-  // ponytail: always picks first runway — active runway logic when wind-based runway selection is needed
-  ac.assignedRunway = state.airport.runways[0]?.id || null
+  // Assign the wind-favored active runway
+  ac.assignedRunway = selectActiveRunway(state.airport, state.wind)?.id ?? null
   
   state.addAircraft(ac)
   eventBus.emit(GameEventType.AIRCRAFT_SPAWNED, { callsign: ac.callsign, flightType: 'arrival' })
@@ -130,7 +129,8 @@ function spawnOneDeparture(state: GameState): void {
   if (availableGates.length === 0) return
   
   const gate = availableGates[Math.floor(Math.random() * availableGates.length)]
-  const runway = state.airport.runways[0]?.id || ''
+  // Departures use the same wind-favored runway as arrivals — never opposite ends
+  const runway = selectActiveRunway(state.airport, state.wind)?.id ?? ''
   const ac = spawnDeparture(gate, runway)
   
   state.addAircraft(ac)

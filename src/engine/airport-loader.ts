@@ -1,4 +1,4 @@
-import type { Airport, TaxiwayGraph, RunwayData, GateData, SpawnPointData, AirportDiagram, DiagramPoint } from './types'
+import type { Airport, TaxiwayGraph, RunwayData, GateData, SpawnPointData, AirportDiagram, DiagramPoint, Wind } from './types'
 
 function computeHeading(dx: number, dy: number): number {
   // dy is inverted in our canvas (usually), but let's trust math.atan2
@@ -254,6 +254,29 @@ export function getFrequency(airport: Airport, stationName: string): number | nu
 
 export function getAvailableGates(airport: Airport, occupiedGateIds: Set<string>): GateData[] {
   return airport.gates.filter(g => !occupiedGateIds.has(g.id))
+}
+
+/**
+ * Active runway: the end of the longest strip with the most headwind.
+ * Only the longest strip is considered so light winds never divert traffic
+ * to a short secondary runway. Calm or tied wind keeps the first-listed end
+ * (the previous runways[0] default).
+ * ponytail: no ILS preference or crosswind limits — add if ops realism matters
+ */
+export function selectActiveRunway(airport: Airport, wind: Wind): RunwayData | null {
+  if (airport.runways.length === 0) return null
+  const maxLength = Math.max(...airport.runways.map(r => r.length))
+  const candidates = airport.runways.filter(r => r.length === maxLength)
+  let best = candidates[0]
+  let bestHeadwind = -Infinity
+  for (const r of candidates) {
+    const headwind = wind.speed * Math.cos(((wind.direction - r.trueHeading) * Math.PI) / 180)
+    if (headwind > bestHeadwind) {
+      bestHeadwind = headwind
+      best = r
+    }
+  }
+  return best
 }
 
 export function getArrivalSpawnPoints(airport: Airport): SpawnPointData[] {

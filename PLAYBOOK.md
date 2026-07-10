@@ -87,8 +87,8 @@ Insert into `tick()` in `src/engine/simulation-tick.ts` at the correct stage (or
 1. **Two pause paths.** Spacebar mutates `gameState.paused` directly (`useKeyboardShortcuts.ts:40`); `GameContext.togglePause` (`GameContext.tsx:72`) also pushes a snapshot. Neither emits `SIM_PAUSED`/`SIM_RESUMED` (those enum values are currently decorative). Prefer `togglePause` in new code.
 2. **Snapshots are shallow per-aircraft.** `snapshot()` copies the Map (`game-state.ts:193`) but shares `Aircraft` object references — components can observe mid-tick field mutations. Protects against add/remove only.
 3. **Module-level listener wiring.** `initializeScoringSystem()` runs at the top level of `GameContext.tsx:10` — once per module load (StrictMode does *not* double it), but a Vite HMR reload of that module re-registers listeners → doubled scoring in dev after hot edits. Symptom: scores change twice per event → restart the dev server.
-4. **`AircraftList.tsx` is dead code.** Nothing imports it; `FlightStrips.tsx` superseded it. Delete it or wire it in — don't extend it by accident.
-5. **All arrivals get the same gate.** Unassigned arrivals receive `airport.gates[0]` at ROLLOUT→TAXI_IN (`phase-transitions.ts:98`). Unflagged simplification; make gate assignment smarter here.
+4. **Gate assignment — fixed 2026-07-11.** Arrivals now take the first *free* gate at ROLLOUT→TAXI_IN and mark it in `gameState.occupiedGateIds` (freed by `removeAircraft`). All-gates-occupied falls back to double-parking at gate 1 (`ponytail:` in `phase-transitions.ts`).
+5. **Runway selection is wind-based — since 2026-07-11.** `selectActiveRunway` (`airport-loader.ts`) picks the into-wind end of the *longest* strip; arrivals, departures, and CLEARED_APPROACH all use it, so traffic never runs opposite ends. Calm wind = first-listed end. (`AircraftList.tsx` dead code was also deleted the same day.)
 6. **Stale readback timers across reset — fixed 2026-07-11.** Deferred command execution checks `gameState.sessionGeneration` (bumped in `reset()`) and no-ops if the session changed. New deferred work should use the same guard. Regression test: `command-registry.test.ts`.
 7. **Engine/UI sync tables are manual.** `types.ts`, `constants.ts`, `command-validators.ts`, and `ai-controller.ts` each hold a slice of "which command/phase/controller goes together" with no type-level enforcement — `constants.test.ts` is the only guard.
 
@@ -100,11 +100,11 @@ Insert into `tick()` in `src/engine/simulation-tick.ts` at the correct stage (or
 | `movement.ts:56` | Instant heading snap on taxiways → pathfinding when taxiway graph is connected |
 | `airport-loader.ts:89` | HHAS traced under scale, `SCALE` fudge constant (~971 units = 3000 m runway) → re-trace at true scale |
 | `airport-loader.ts:203` | Diagram taxiways are render-only polylines → build routable graph |
-| `command-executor.ts:50` | Always picks first runway → wind-based active-runway logic |
-| `command-executor.ts:99` | Hardcoded HHAS missed approach → load from airport data for multi-airport |
-| `phase-transitions.ts:76` | Same hardcoded missed approach (second copy) |
-| `simulation-tick.ts:47` | MVA check hardcoded 8800 ft floor → per-quadrant MVA from airport data |
-| `simulation-tick.ts:120` | Always picks first runway (second copy of the runway simplification) |
+| `command-executor.ts` (GO_AROUND) | Hardcoded HHAS missed approach → load from airport data for multi-airport |
+| `phase-transitions.ts` (threshold check) | Same hardcoded missed approach (second copy) |
+| `phase-transitions.ts` (ROLLOUT gate pick) | All gates occupied → double-park at gate 1 → holding/queueing if it matters |
+| `simulation-tick.ts` (MVA check) | Hardcoded 8800 ft floor → per-quadrant MVA from airport data |
+| `airport-loader.ts` (`selectActiveRunway`) | No ILS preference or crosswind limits → add if ops realism matters |
 | `electron/preload.ts:3` | Two IPC channels → expand for game-state sync / file dialogs |
 | `electron/main.ts:32` | Hardcoded dev/prod switch → config when staging env exists |
 

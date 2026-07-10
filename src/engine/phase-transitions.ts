@@ -10,6 +10,8 @@ import {
 } from './constants'
 import { distanceNM, headingToRadians } from './movement'
 import { eventBus } from './event-bus'
+import { gameState } from './game-state'
+import { getAvailableGates } from './airport-loader'
 
 /**
  * Process automatic phase transitions based on distance, altitude, and speed.
@@ -93,9 +95,13 @@ export function processPhaseTransitions(aircraft: Aircraft, runway: RunwayData |
     case AircraftPhase.ROLLOUT:
       if (aircraft.speed <= 5) {
         aircraft.phase = AircraftPhase.TAXI_IN
-        // Pick a gate if none assigned
+        // Pick a free gate if none assigned, and mark it occupied so a
+        // departure can't spawn into it (removeAircraft frees it again)
+        // ponytail: all gates occupied → double-park at gate 1; holding/queueing if it matters
         if (!aircraft.assignedGate && airport.gates.length > 0) {
-           aircraft.assignedGate = airport.gates[0].id
+          const free = getAvailableGates(airport, gameState.occupiedGateIds)
+          aircraft.assignedGate = (free[0] ?? airport.gates[0]).id
+          gameState.occupiedGateIds.add(aircraft.assignedGate)
         }
         // Aim the taxi at the gate — moveTaxi goes nowhere without a target
         const gate = airport.gates.find(g => g.id === aircraft.assignedGate)

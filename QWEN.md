@@ -72,7 +72,12 @@ CLEARED_APPROACH + CONTACT_TOWER unaided; AI outcomes excluded from scoring).
 | **Headless Linux polish** | Low | Suppress Gtk/fontconfig warnings (Electron runtime flags, not app code) |
 | **Taxiway routing** | Low | `ponytail:` diagram taxiways are render-only polylines; straight-line taxi today |
 | **HHAS re-trace at true scale** | Low | `ponytail:` loader uses SCALE=0.001668 fudge; re-trace in spstudio at meter scale → 1/1852 |
-| **Wind-based runway selection** | Low | `ponytail:` first runway always active |
+
+(2026-07-11) **Wind-based runway selection shipped** — `selectActiveRunway` in
+`airport-loader.ts` picks the into-wind end of the longest strip for arrivals,
+departures, and CLEARED_APPROACH alike. Arrivals also now take the first *free*
+gate (occupancy-tracked) instead of everyone taxiing to G1. Dead `AircraftList.tsx`
+deleted.
 
 ### 🔥 Bugs found & fixed during E2E verification (2026-07-05)
 

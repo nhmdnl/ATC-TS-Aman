@@ -2,8 +2,9 @@ import type { Command, Aircraft, Airport } from '../types'
 import { CommandType, AircraftPhase, ControllerStation, GameEventType } from '../types'
 import { PHASE_CONTROLLER } from '../constants'
 import { headingToRadians } from '../movement'
-import { findRunwayById } from '../airport-loader'
+import { findRunwayById, selectActiveRunway } from '../airport-loader'
 import { eventBus } from '../event-bus'
+import { gameState } from '../game-state'
 
 /** Command-driven phase change: keeps controller in sync (same contract as phase-transitions). */
 function changePhase(aircraft: Aircraft, newPhase: AircraftPhase): void {
@@ -47,10 +48,9 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
 
     case CommandType.CLEARED_APPROACH:
       aircraft.clearedForApproach = true
-      // ponytail: always picks first runway — active runway logic when wind-based
-      // runway selection is needed
-      if (!aircraft.assignedRunway && airport && airport.runways.length > 0) {
-        aircraft.assignedRunway = airport.runways[0].id
+      // Spawn normally pre-assigns the runway; this covers hand-built aircraft
+      if (!aircraft.assignedRunway && airport) {
+        aircraft.assignedRunway = selectActiveRunway(airport, gameState.wind)?.id ?? null
       }
       break
 

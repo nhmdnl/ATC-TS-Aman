@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { loadAirport, findRunwayById } from '../airport-loader'
+import { loadAirport, findRunwayById, selectActiveRunway } from '../airport-loader'
 import { moveAircraft, headingToRadians } from '../movement'
 import { processPhaseTransitions } from '../phase-transitions'
+import { gameState } from '../game-state'
 import { executeCommand } from '../commands/command-executor'
 import { AircraftPhase, CommandType, ControllerStation } from '../types'
 import type { Aircraft, Command } from '../types'
@@ -72,7 +73,9 @@ function makeArrival(x: number, y: number, heading: number, altitude: number): A
 describe('arrival lifecycle (integration, real HHAS data)', () => {
   it('completes APPROACH → ARRIVED with approach + landing clearance', () => {
     const airport = loadAirport(hhasData)
-    const rwy = airport.runways[0]
+    // Use the same active-runway pick the engine makes, so CLEARED_APPROACH
+    // assigns the runway this aircraft is actually lined up on
+    const rwy = selectActiveRunway(airport, gameState.wind)!
 
     // Start 8 NM out on the extended centerline, on glideslope (~318 ft/NM),
     // pointed at the runway.
@@ -106,7 +109,7 @@ describe('arrival lifecycle (integration, real HHAS data)', () => {
 
   it('goes around from FINAL when not cleared to land', () => {
     const airport = loadAirport(hhasData)
-    const rwy = airport.runways[0]
+    const rwy = selectActiveRunway(airport, gameState.wind)!
     const rad = headingToRadians(rwy.trueHeading)
     const aircraft = makeArrival(
       rwy.thresholdX - Math.cos(rad) * 4,
@@ -125,5 +128,23 @@ describe('arrival lifecycle (integration, real HHAS data)', () => {
 
     expect(aircraft.phase).toBe(AircraftPhase.MISSED)
     expect(aircraft.missedHeading).toBe(170)
+  })
+
+  it('assigns the first free gate at ROLLOUT → TAXI_IN and marks it occupied', () => {
+    const airport = loadAirport(hhasData)
+    gameState.occupiedGateIds.clear()
+    gameState.occupiedGateIds.add('G1') // e.g. a departure is still boarding there
+
+    const rwy = selectActiveRunway(airport, gameState.wind)!
+    const aircraft = makeArrival(rwy.thresholdX, rwy.thresholdY, rwy.trueHeading, rwy.elevationFt)
+    aircraft.phase = AircraftPhase.ROLLOUT
+    aircraft.speed = 5
+
+    processPhaseTransitions(aircraft, rwy, airport)
+
+    expect(aircraft.phase).toBe(AircraftPhase.TAXI_IN)
+    expect(aircraft.assignedGate).toBe('G2')
+    expect(gameState.occupiedGateIds.has('G2')).toBe(true)
+    gameState.occupiedGateIds.clear()
   })
 })

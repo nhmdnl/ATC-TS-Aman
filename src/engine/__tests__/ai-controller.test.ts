@@ -3,7 +3,7 @@ import { gameState } from '../game-state'
 import { eventBus } from '../event-bus'
 import { GameEventType } from '../types'
 import { moveAircraft, headingToRadians } from '../movement'
-import { findRunwayById, loadAirport } from '../airport-loader'
+import { findRunwayById, loadAirport, selectActiveRunway } from '../airport-loader'
 import { processPhaseTransitions } from '../phase-transitions'
 import { nextExpectedCommand, runAiControllers } from '../ai-controller'
 import { AircraftPhase, CommandType, ControllerStation } from '../types'
@@ -137,7 +137,7 @@ describe('runAiControllers — integration, real HHAS data + real command pipeli
       issued.push(event.payload.commandType as CommandType)
     })
 
-    const rwy = gameState.airport.runways[0]
+    const rwy = selectActiveRunway(gameState.airport, gameState.wind)!
     const rad = headingToRadians(rwy.trueHeading)
     const aircraft = makeAircraft({
       x: rwy.thresholdX - Math.cos(rad) * 8,
