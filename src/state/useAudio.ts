@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react'
 import { eventBus } from '../engine/event-bus'
-import { GameEventType, RadioSpeaker } from '../engine/types'
+import { GameEventType, RadioSpeaker, ControllerStation } from '../engine/types'
 import type { GameEvent } from '../engine/types'
 import { gameState } from '../engine/game-state'
 
 class AudioEngine {
   private ctx: AudioContext | null = null
   public muted = false
-  private cachedVoice: SpeechSynthesisVoice | null = null
+  private voicePool: SpeechSynthesisVoice[] = []
   private voicesListenerAttached = false
   private pendingUtterances = 0
   private static readonly MAX_PENDING = 3   // ATC+pilot pairs, roughly 1.5 exchanges deep
+  // Fixed station→pool-index order so each controller keeps one voice all session.
+  private static readonly STATION_ORDER = [
+    ControllerStation.GROUND,
+    ControllerStation.TOWER,
+    ControllerStation.APPROACH,
+    ControllerStation.AREA,
+  ]
 
   init() {
     if (!this.ctx) {
@@ -34,17 +41,41 @@ class AudioEngine {
 
   private resolveVoice(): void {
     const voices = window.speechSynthesis.getVoices()
-    // Prefer a local (non-network) English voice for latency + offline
-    // reliability; fall back to any English voice, then to whatever's first.
-    this.cachedVoice = voices.length === 0 ? null : (
-      voices.find(v => v.localService && v.lang.startsWith('en')) ??
-      voices.find(v => v.lang.startsWith('en')) ??
-      voices[0]
-    )
+    // Prefer local (non-network) English voices for latency + offline
+    // reliability; fall back to any English voice, then to whatever exists.
+    // On Windows (the deployment target) this keeps the full SAPI/OneCore set
+    // (David, Zira, Mark, ...). Sorted by name so pool indices — and therefore
+    // per-role voice assignment — are stable across sessions and across the
+    // async voiceschanged re-fires Windows does on startup.
+    const localEnglish = voices.filter(v => v.localService && v.lang.startsWith('en'))
+    const english = voices.filter(v => v.lang.startsWith('en'))
+    const pool = localEnglish.length > 0 ? localEnglish : english.length > 0 ? english : voices
+    this.voicePool = [...pool].sort((a, b) => a.name.localeCompare(b.name))
   }
 
   hasVoice(): boolean {
-    return this.cachedVoice !== null
+    return this.voicePool.length > 0
+  }
+
+  /** One fixed voice per controller station (Ground/Tower/Approach/Area). */
+  private atcVoice(controller: ControllerStation): SpeechSynthesisVoice {
+    const idx = Math.max(0, AudioEngine.STATION_ORDER.indexOf(controller))
+    return this.voicePool[idx % this.voicePool.length]
+  }
+
+  /** Deterministic per-callsign voice so each aircraft sounds consistent.
+   *  Offset past the controller block when the pool is big enough, so a
+   *  pilot never shares a voice with the station they're talking to. */
+  private pilotVoice(callsign: string): SpeechSynthesisVoice {
+    let hash = 0
+    for (let i = 0; i < callsign.length; i++) {
+      hash = (hash * 31 + callsign.charCodeAt(i)) >>> 0
+    }
+    const reserved = AudioEngine.STATION_ORDER.length
+    if (this.voicePool.length > reserved) {
+      return this.voicePool[reserved + (hash % (this.voicePool.length - reserved))]
+    }
+    return this.voicePool[hash % this.voicePool.length]
   }
 
   /** Reset the pending-speech backlog counter — call immediately after
@@ -84,14 +115,15 @@ class AudioEngine {
   }
 
   /**
-   * Speak an ATC line followed by a pilot readback, using the cached voice.
+   * Speak an ATC line followed by a pilot readback, with a distinct voice
+   * per controller station and per aircraft callsign (voice pool permitting).
    * Silently does nothing if muted, TTS is unsupported, no voice was ever
    * resolved, or the pending-pair backlog is already at capacity — in every
    * case the radio log (text) already has both lines regardless, so nothing
    * informational is lost, only the audio for the overflow.
    */
-  speak(atcText: string, pilotText: string): void {
-    if (this.muted || !('speechSynthesis' in window) || !this.cachedVoice) return
+  speak(atcText: string, pilotText: string, controller: ControllerStation, callsign: string): void {
+    if (this.muted || !('speechSynthesis' in window) || this.voicePool.length === 0) return
     if (this.pendingUtterances >= AudioEngine.MAX_PENDING) return
 
     this.pendingUtterances++
@@ -99,14 +131,14 @@ class AudioEngine {
 
     try {
       const u1 = new SpeechSynthesisUtterance(atcText)
-      u1.voice = this.cachedVoice
+      u1.voice = this.atcVoice(controller)
       u1.rate = 1.1
       u1.pitch = 1.0
 
       const u2 = new SpeechSynthesisUtterance(pilotText)
-      u2.voice = this.cachedVoice
+      u2.voice = this.pilotVoice(callsign)
       u2.rate = 1.15
-      u2.pitch = 0.9 // slightly different voice
+      u2.pitch = 0.9 // keeps roles apart even on a single-voice pool (Linux dev)
       u2.onend = release
       u2.onerror = release
 
@@ -185,7 +217,12 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
 
       // Best-effort speech on top — engine.speak() handles the mute check,
       // voice availability, and backlog cap internally.
-      engine.speak(p.atc, p.pilot)
+      engine.speak(
+        p.atc,
+        p.pilot,
+        (e.payload.controller as ControllerStation) ?? ControllerStation.TOWER,
+        e.payload.callsign as string,
+      )
     })
 
     const unsubViolation = eventBus.on(GameEventType.SEPARATION_VIOLATION, () => {

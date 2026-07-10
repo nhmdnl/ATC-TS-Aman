@@ -38,6 +38,7 @@ export function processCommand(command: Command, airport: Airport): CommandResul
   eventBus.emit(GameEventType.COMMAND_ISSUED, {
     callsign: aircraft.callsign,
     commandType: command.type,
+    controller: aircraft.controller,
     phraseology
   })
 

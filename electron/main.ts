@@ -3,6 +3,12 @@ import path from 'path'
 
 const DEV_URL = 'http://localhost:5173'
 
+// Linux only: Chromium keeps Web Speech disabled unless speech-dispatcher is
+// explicitly enabled — without this, speechSynthesis.getVoices() is always
+// empty even with speechd + espeak-ng installed. No-op on Windows/macOS,
+// which use their native TTS backends.
+app.commandLine.appendSwitch('enable-speech-dispatcher')
+
 let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
