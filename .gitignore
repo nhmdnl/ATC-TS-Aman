@@ -15,3 +15,8 @@ charts/
 # Local tool/runtime state — not project source
 .claude/
 .impeccable/
+.qwen/
+.superpowers/
+.tokensave/
+graphify-out/
+bun.lock

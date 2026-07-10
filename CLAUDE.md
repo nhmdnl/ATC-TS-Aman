@@ -8,7 +8,7 @@ ATC Aman — a single-player, real-time air traffic control simulation for Asmar
 
 HHAS is the only supported airport. All simulation parameters (runways, navaids, frequencies, missed approach procedures, MVA, step-downs) are meant to come from Navigraph approach plates, not generic/invented values.
 
-A detailed, actively-maintained project status doc lives in `QWEN.md` (shipped features, remaining work, key design decisions) — read it for current state before starting non-trivial work. `PRD_GDD.md` is the design/requirements source of truth for game mechanics (commands, scoring dimensions, separation minima, difficulty presets, phraseology).
+A detailed, actively-maintained project status doc lives in `QWEN.md` (shipped features, remaining work, key design decisions) — read it for current state before starting non-trivial work. `PRD_GDD.md` is the design/requirements source of truth for game mechanics (commands, scoring dimensions, separation minima, difficulty presets, phraseology). `PLAYBOOK.md` has step-by-step change playbooks (add a command/phase/event), a symptom→file bug-hunting map, verified sharp edges, and the test/debt ledgers — consult it before feature work or bug hunts.
 
 ## Commands
 
@@ -39,17 +39,43 @@ The codebase splits into a framework-agnostic **simulation engine** (`src/engine
 
 Simulation physics only advances on a fixed ~1 Hz cadence inside that same rAF loop (`SIM_TICK_INTERVAL_MS` gate in `useGameLoop`), while the snapshot/React re-render happens every frame for smooth UI. When changing simulation rate or interpolation, both loops live in `useGameLoop.ts`.
 
+### Aircraft phase state machine
+
+All phases are declared in `AircraftPhase` (`src/engine/types.ts`). Transitions are handled in `phase-transitions.ts` and movement physics per-phase in `movement.ts`.
+
+Departures: `PARKED` → `TAXI_OUT` → `HOLD_SHORT` → `LINE_UP` → `TAKEOFF_ROLL` → `CLIMBING` → `DEPARTED`
+
+Arrivals: `ENTERING` → `APPROACH` → `FINAL` → `LANDING` → `ROLLOUT` → `TAXI_IN` → `ARRIVED`
+
+Missed approach: any arrival phase can transition to `MISSED`, which then re-enters `ENTERING`/`APPROACH`.
+
 ### Simulation tick (`src/engine/simulation-tick.ts`)
 
 `tick(state, dtSeconds)` is the per-second orchestrator, run in a fixed order: spawn aircraft → clear violation flags → for each aircraft: move (`movement.ts`) → phase transitions (`phase-transitions.ts`) → MVA violation check → removal check → separation check across all aircraft (`separation.ts`) → session-expiry check → flush queued events. Order matters (e.g. violation flags must be cleared before the per-aircraft loop re-evaluates them). New per-tick behavior should be inserted into this function at the appropriate stage rather than bolted on elsewhere.
 
 ### Command pipeline
 
+Commands live in `src/engine/commands/` (four files: `command-registry.ts`, `command-validators.ts`, `phraseology.ts`, `command-executor.ts`) plus the text-input parser `command-parser.ts`.
+
 Player-issued commands flow: `command-registry.ts` (`processCommand`) → validate (`command-validators.ts`, checks controller privilege/phase/params against the aircraft and airport) → generate ATC phraseology (`phraseology.ts`) → emit `COMMAND_ISSUED` immediately → schedule real execution via `setTimeout` after a random `READBACK_DELAY_MIN_MS`–`READBACK_DELAY_MAX_MS` delay (simulates pilot readback/reaction time) → `command-executor.ts` mutates the aircraft when the delay fires. Because execution is deferred and re-fetches the aircraft by callsign after the timeout, aircraft can be removed mid-delay — executor code must tolerate a missing aircraft. Command types are declared in `command-registry.ts`'s registry.
 
 ### Event bus (`src/engine/event-bus.ts`)
 
 Typed pub/sub (`GameEventType` enum) with two dispatch modes: `emit()` fires synchronously to listeners immediately; `queueEvent()` buffers until `flush()` is called (done once per tick, at the end of `simulation-tick.ts`). Use immediate `emit` for things that must be reflected before the tick continues (e.g. command issuance); use the queue for events that should be batched to end-of-tick. Scoring (`scoring.ts`), mission system (`mission-system.ts`), and radio log all subscribe to this bus rather than being called directly.
+
+Key `GameEventType` values: `COMMAND_ISSUED`, `COMMAND_REJECTED`, `PHASE_CHANGED`, `TAKEOFF`, `LANDING`, `MISSED_APPROACH`, `ARRIVED_GATE`, `HANDOFF`, `SEPARATION_VIOLATION`, `AIRCRAFT_SPAWNED`, `AIRCRAFT_REMOVED`, `SCORE_CHANGED`, `SESSION_ENDED`.
+
+### Controller stations and AI
+
+`ControllerStation` enum has four values: `GROUND`, `TOWER`, `APPROACH`, `AREA`. `gameState.playerStations` is the subset the human controls; `ai-controller.ts` issues textbook commands each tick for any station *not* in that set. The player picks their stations on `BriefingScreen.tsx` before starting.
+
+### Audio / TTS (`src/state/useAudio.ts`)
+
+Uses the browser's **Web Speech API** (`window.speechSynthesis`) — no external service. ATC voice: rate 1.1, pilot voice: rate 1.15 with lower pitch. Backlog is capped at 3 message pairs to prevent queue buildup. The radio log (text) is written independently of TTS so muting or a zero-voices environment (Linux) doesn't break the log. Mute state lives in `GameContext` (`muted` / `toggleMute`).
+
+### Radar rendering (`src/components/RadarCanvas.tsx`)
+
+PixiJS 8 canvas — airport diagram, aircraft sprites, range rings, sweep line, data tags, velocity vectors, and trails. Keyboard shortcuts for viewport (see below) fire `CustomEvent`s on `window` that `RadarCanvas` listens to; this avoids threading Pixi state through React context.
 
 ### Airport data
 
@@ -62,6 +88,24 @@ Comments prefixed `ponytail:` mark a known, deliberate simplification with an ex
 ### Electron shell
 
 `electron/main.ts` creates the `BrowserWindow` and switches between loading the Vite dev server (`NODE_ENV=development` or `--dev` flag) and the built `dist/index.html`. `electron/preload.ts` is the context-isolated IPC bridge (`window.electronAPI`, typed in `src/types/electron.d.ts`). The renderer (`src/`) has no direct Node/Electron access outside what's exposed there.
+
+## Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Space` | Pause / resume |
+| `Escape` | Deselect aircraft |
+| `Tab` | Cycle selected aircraft |
+| `C` | Center radar viewport |
+| `R` | Toggle ruler |
+| `T` | Toggle tutorial overlay |
+| `O` | Toggle mission tracker |
+| `G` | Toggle guide panel |
+| `+` / `-` | Zoom in / out |
+| `0` | Reset viewport |
+| `/` | Focus command input |
+
+Shortcuts are suppressed when a text input is focused. Viewport actions dispatch `CustomEvent`s on `window`; `RadarCanvas` listens for them.
 
 ## Conventions
 

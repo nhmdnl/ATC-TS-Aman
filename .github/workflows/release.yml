@@ -1,0 +1,30 @@
+name: Release
+
+# Tag a version to ship: git tag v0.2.0 && git push --tags
+# Builds the Windows NSIS installer on a real Windows runner (the deploy
+# target is Windows SAPI; local Linux builds of the .exe stay a fallback).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run package -- --publish never
+      - name: Create GitHub release with installer
+        shell: bash
+        run: gh release create "$GITHUB_REF_NAME" release/*.exe --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
