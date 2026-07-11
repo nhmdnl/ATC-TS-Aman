@@ -1,4 +1,4 @@
-import type { Airport, TaxiwayGraph, RunwayData, GateData, SpawnPointData, AirportDiagram, DiagramPoint, Wind } from './types'
+import type { Airport, TaxiwayGraph, TaxiwayData, RunwayData, GateData, SpawnPointData, AirportDiagram, DiagramPoint, Wind } from './types'
 
 function computeHeading(dx: number, dy: number): number {
   // dy is inverted in our canvas (usually), but let's trust math.atan2
@@ -18,11 +18,15 @@ export function loadAirport(data: any): Airport {
     throw new Error('Airport data must be an object')
   }
 
-  // Support both custom format (version 1) and editor format (version "1.0")
+  // Support custom format (version 1) and editor formats ("1.0" legacy scale, "1.1" meter-true)
   if (data.version === 1) {
     return loadV1Airport(data)
   } else if (data.version === "1.0") {
-    return loadEditorAirport(data)
+    // ponytail: the HHAS "1.0" file was traced under scale (~971 units for the
+    // real 3000 m runway), so this fudge compensates. "1.1" files are meter-true.
+    return loadEditorAirport(data, 0.001668)
+  } else if (data.version === "1.1") {
+    return loadEditorAirport(data, 1 / 1852)
   }
 
   throw new Error(`Unsupported airport version: ${data.version}`)
@@ -44,7 +48,9 @@ function loadV1Airport(data: any): Airport {
     displacedThresholdFt: r.displaced_threshold_ft || 0,
     ils: r.ils || null,
     pattern: r.pattern || 'left',
-    stepdowns: r.stepdowns || []
+    stepdowns: r.stepdowns || [],
+    missedHeading: r.missed_heading ?? null,
+    missedAltitude: r.missed_altitude ?? null
   }))
 
   return {
@@ -75,7 +81,7 @@ function loadV1Airport(data: any): Airport {
   }
 }
 
-function loadEditorAirport(data: any): Airport {
+function loadEditorAirport(data: any, SCALE: number): Airport {
   const objects = data.objects || []
   const runways: RunwayData[] = []
   const gates: GateData[] = []
@@ -84,12 +90,6 @@ function loadEditorAirport(data: any): Airport {
   const diagramAprons: DiagramPoint[][] = []
   const diagramBuildings: DiagramPoint[][] = []
   const diagramLabels: Array<{ text: string; x: number; y: number }> = []
-
-  // Scale factor: assume editor units to NM.
-  // ponytail: the HHAS file was traced under scale (~971 units for the real 3000 m
-  // runway), so this fudge compensates. Files drawn to true meter scale in the
-  // editor need SCALE = 1/1852 instead — recalibrate when re-tracing HHAS.
-  const SCALE = 0.001668
 
   // We need an origin to center the airport. Let's find the first runway and use its position as origin.
   const firstRwy = objects.find((o: any) => o.type === 'runway')
@@ -114,6 +114,8 @@ function loadEditorAirport(data: any): Airport {
 
       const idFwd = obj.identifiers?.forward || '09'
       const idRev = obj.identifiers?.reverse || '27'
+      const opsFwd = obj.ops?.forward
+      const opsRev = obj.ops?.reverse
 
       runways.push({
         id: idFwd,
@@ -128,9 +130,11 @@ function loadEditorAirport(data: any): Airport {
         endX: ex,
         endY: ey,
         displacedThresholdFt: 0,
-        ils: null,
-        pattern: 'left',
-        stepdowns: []
+        ils: opsFwd?.ils ? { frequency: 0, available: true } : null,
+        pattern: opsFwd?.pattern || 'left',
+        stepdowns: [],
+        missedHeading: opsFwd?.missedHeading ?? null,
+        missedAltitude: opsFwd?.missedAltitude ?? null
       })
 
       runways.push({
@@ -146,9 +150,21 @@ function loadEditorAirport(data: any): Airport {
         endX: sx,
         endY: sy,
         displacedThresholdFt: 0,
-        ils: null,
-        pattern: 'left',
-        stepdowns: []
+        ils: opsRev?.ils ? { frequency: 0, available: true } : null,
+        pattern: opsRev?.pattern || 'left',
+        stepdowns: [],
+        missedHeading: opsRev?.missedHeading ?? null,
+        missedAltitude: opsRev?.missedAltitude ?? null
+      })
+    } else if (obj.type === 'spawn' && obj.position) {
+      const p = toNM(obj.position)
+      spawnPoints.push({
+        id: obj.name || `ARR_${spawnPoints.length + 1}`,
+        type: 'arrival',
+        x: p.x,
+        y: p.y,
+        heading: obj.heading ?? 0,
+        altitude: obj.altitude ?? 12000
       })
     } else if (obj.type === 'taxiway' && Array.isArray(obj.points) && obj.points.length >= 2) {
       diagramTaxiways.push({
@@ -169,8 +185,9 @@ function loadEditorAirport(data: any): Airport {
     }
   })
 
-  // Mock essential data if not present in the editor JSON
-  if (gates.length === 0) {
+  // Mock gates only for legacy "1.0" files; a "1.1" file with no gates is an
+  // editor-side validation error, not something to paper over here.
+  if (gates.length === 0 && data.version === '1.0') {
     gates.push({ id: 'G1', x: 0.1, y: 0.1, taxiwayId: 'A' })
     gates.push({ id: 'G2', x: 0.2, y: 0.1, taxiwayId: 'A' })
   }
@@ -182,27 +199,48 @@ function loadEditorAirport(data: any): Airport {
     spawnPoints.push({ id: 'ARR_W', type: 'arrival', x: -15, y: 0, heading: 90, altitude: 12000 })
   }
 
-  const frequencies = [
-    { name: 'ATIS', frequency: 126.4, callsign: 'Asmara ATIS' },
-    { name: 'GROUND', frequency: 121.9, callsign: 'Asmara Ground' },
-    { name: 'TOWER', frequency: 118.1, callsign: 'Asmara Tower' },
-    { name: 'APPROACH', frequency: 120.7, callsign: 'Asmara Approach' }
-  ]
+  const airportName = data.metadata?.name || 'Unknown Airport'
+  const frequencies = Array.isArray(data.metadata?.frequencies) && data.metadata.frequencies.length > 0
+    ? data.metadata.frequencies.map((f: any) => ({
+        name: f.name,
+        frequency: f.frequency,
+        callsign: f.callsign || `${airportName} ${f.name}`
+      }))
+    : [
+        { name: 'ATIS', frequency: 126.4, callsign: `${airportName} ATIS` },
+        { name: 'GROUND', frequency: 121.9, callsign: `${airportName} Ground` },
+        { name: 'TOWER', frequency: 118.1, callsign: `${airportName} Tower` },
+        { name: 'APPROACH', frequency: 120.7, callsign: `${airportName} Approach` }
+      ]
+
+  // Editor-derived taxi graph ("1.1"): one routable TaxiwayData carrying all
+  // nodes/edges — buildTaxiwayGraph consumes it unchanged.
+  const taxiways: TaxiwayData[] = []
+  if (data.taxiGraph && Array.isArray(data.taxiGraph.nodes) && data.taxiGraph.nodes.length > 0) {
+    taxiways.push({
+      id: 'TAXI',
+      width: 23,
+      surface: 'asphalt',
+      nodes: data.taxiGraph.nodes.map((n: any) => {
+        const p = toNM(n)
+        return { id: n.id, x: p.x, y: p.y, kind: n.kind, ref: n.ref }
+      }),
+      edges: (data.taxiGraph.edges || []).map((e: any) => ({ from: e.from, to: e.to }))
+    })
+  }
 
   return {
     version: 1,
     metadata: {
       icao: data.metadata?.icao || 'UNKN',
       iata: data.metadata?.iata || '',
-      name: data.metadata?.name || 'Unknown Airport',
+      name: airportName,
       country: data.metadata?.country || '',
       elevationFt: data.metadata?.elevation || 0,
       magneticVariation: data.metadata?.magneticVariation || 0
     },
     runways,
-    // ponytail: diagram taxiways are render-only polylines — building a routable
-    // TaxiwayData node/edge graph from them is the upgrade path for real taxi routing
-    taxiways: [],
+    taxiways,
     gates,
     parking: [],
     frequencies,
@@ -240,6 +278,17 @@ export function buildTaxiwayGraph(airport: Airport): TaxiwayGraph {
 
 export function findRunwayById(airport: Airport, id: string): RunwayData | null {
   return airport.runways.find(r => r.id === id) || null
+}
+
+/**
+ * Published missed approach for a runway, falling back to a generic climb
+ * straight ahead to pattern-ish altitude when the airport file has no ops data.
+ */
+export function missedApproachParams(runway: RunwayData): { heading: number; altitude: number } {
+  return {
+    heading: runway.missedHeading ?? runway.trueHeading,
+    altitude: runway.missedAltitude ?? runway.elevationFt + 4000,
+  }
 }
 
 export function findGateById(airport: Airport, id: string): GateData | null {

@@ -53,15 +53,19 @@ export function turnToward(currentHeading: number, targetHeading: number, maxTur
 // ─── Movement Sub-Functions ──────────────────────────────────────────────────
 
 function moveTaxi(aircraft: Aircraft, dtSeconds: number): void {
-  // ponytail: instant heading snap on taxiways — pathfinding when taxiway graph is connected
   const target = aircraft.taxiTarget
   if (!target) return // Nowhere to go
 
   const dist = distanceNM(aircraft.x, aircraft.y, target.x, target.y)
   const taxiSpeedKnots = aircraft.clearedSpeed ?? aircraft.type.taxiSpeed
-  
+
   if (dist < 0.01) {
-    // Snap to target if very close
+    // Reached the current waypoint — advance along the route, or stop at the end
+    if (aircraft.taxiRoute && aircraft.taxiRouteIndex < aircraft.taxiRoute.length - 1) {
+      aircraft.taxiRouteIndex++
+      aircraft.taxiTarget = aircraft.taxiRoute[aircraft.taxiRouteIndex]
+      return // keep rolling toward the next waypoint on the next tick
+    }
     aircraft.x = target.x
     aircraft.y = target.y
     aircraft.speed = 0

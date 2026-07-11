@@ -11,7 +11,8 @@ import {
 import { distanceNM, headingToRadians } from './movement'
 import { eventBus } from './event-bus'
 import { gameState } from './game-state'
-import { getAvailableGates } from './airport-loader'
+import { getAvailableGates, missedApproachParams } from './airport-loader'
+import { buildTaxiRoute } from './taxi-routing'
 
 /**
  * Process automatic phase transitions based on distance, altitude, and speed.
@@ -24,12 +25,19 @@ export function processPhaseTransitions(aircraft: Aircraft, runway: RunwayData |
     // ── DEPARTURES ──
 
     case AircraftPhase.TAXI_OUT:
-      if (runway) {
+      if (aircraft.taxiRoute && aircraft.taxiRoute.length > 0) {
+        // Routed taxi: the route ends at the runway's hold-short node
+        const end = aircraft.taxiRoute[aircraft.taxiRoute.length - 1]
+        if (distanceNM(aircraft.x, aircraft.y, end.x, end.y) < HOLD_SHORT_DISTANCE_NM) {
+          aircraft.phase = AircraftPhase.HOLD_SHORT
+          aircraft.speed = 0 // Stop at hold short
+        }
+      } else if (runway) {
         // Find hold short point (approx 0.05 NM before threshold along centerline)
         const rad = headingToRadians(runway.trueHeading)
         const hsX = runway.thresholdX - Math.cos(rad) * 0.05
         const hsY = runway.thresholdY - Math.sin(rad) * 0.05
-        
+
         if (distanceNM(aircraft.x, aircraft.y, hsX, hsY) < HOLD_SHORT_DISTANCE_NM) {
           aircraft.phase = AircraftPhase.HOLD_SHORT
           aircraft.speed = 0 // Stop at hold short
@@ -74,10 +82,11 @@ export function processPhaseTransitions(aircraft: Aircraft, runway: RunwayData |
             aircraft.phase = AircraftPhase.MISSED
             aircraft.urgent = false
             
-            // Default missed approach params from PRD §16
-            // ponytail: hardcoded HHAS missed approach — load from airport data when multi-airport support added
-            aircraft.missedHeading = 170
-            aircraft.missedAltitude = 11500
+            // Published missed approach from the airport file (generic
+            // straight-ahead climb when the runway has no ops data)
+            const missed = missedApproachParams(runway)
+            aircraft.missedHeading = missed.heading
+            aircraft.missedAltitude = missed.altitude
             
             eventBus.emit(GameEventType.MISSED_APPROACH, { callsign: aircraft.callsign })
           }
@@ -103,10 +112,23 @@ export function processPhaseTransitions(aircraft: Aircraft, runway: RunwayData |
           aircraft.assignedGate = (free[0] ?? airport.gates[0]).id
           gameState.occupiedGateIds.add(aircraft.assignedGate)
         }
-        // Aim the taxi at the gate — moveTaxi goes nowhere without a target
+        // Route to the gate along the taxiway graph when available; the gate
+        // position itself is appended so the aircraft leaves the graph at the
+        // gate node and parks on the stand. Fallback: straight-line taxi.
         const gate = airport.gates.find(g => g.id === aircraft.assignedGate)
         if (gate) {
-          aircraft.taxiTarget = { x: gate.x, y: gate.y }
+          const route = gameState.taxiwayGraph
+            ? buildTaxiRoute(airport, gameState.taxiwayGraph, aircraft.x, aircraft.y, { kind: 'gate', ref: gate.id })
+            : null
+          if (route) {
+            route.push({ x: gate.x, y: gate.y })
+            aircraft.taxiRoute = route
+            aircraft.taxiRouteIndex = 0
+            aircraft.taxiTarget = route[0]
+          } else {
+            aircraft.taxiRoute = null
+            aircraft.taxiTarget = { x: gate.x, y: gate.y }
+          }
         }
       }
       break

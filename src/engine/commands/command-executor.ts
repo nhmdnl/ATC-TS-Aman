@@ -2,7 +2,8 @@ import type { Command, Aircraft, Airport } from '../types'
 import { CommandType, AircraftPhase, ControllerStation, GameEventType } from '../types'
 import { PHASE_CONTROLLER } from '../constants'
 import { headingToRadians } from '../movement'
-import { findRunwayById, selectActiveRunway } from '../airport-loader'
+import { findRunwayById, selectActiveRunway, missedApproachParams } from '../airport-loader'
+import { buildTaxiRoute } from '../taxi-routing'
 import { eventBus } from '../event-bus'
 import { gameState } from '../game-state'
 
@@ -63,16 +64,30 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
       if (command.params.runway) {
         aircraft.assignedRunway = command.params.runway
       }
-      // Drive toward the hold-short point; the TAXI_OUT → HOLD_SHORT phase
-      // transition stops the aircraft there (same 0.05 NM offset as
-      // phase-transitions' hold-short check).
+      // Route along the taxiway graph to the runway's hold-short node when the
+      // airport file carries one; otherwise fall back to a straight-line taxi
+      // toward the hold-short point (same 0.05 NM offset as phase-transitions'
+      // hold-short check).
       if (airport && aircraft.assignedRunway) {
-        const rwy = findRunwayById(airport, aircraft.assignedRunway)
-        if (rwy) {
-          const rad = headingToRadians(rwy.trueHeading)
-          aircraft.taxiTarget = {
-            x: rwy.thresholdX - Math.cos(rad) * 0.05,
-            y: rwy.thresholdY - Math.sin(rad) * 0.05,
+        const route = gameState.taxiwayGraph
+          ? buildTaxiRoute(airport, gameState.taxiwayGraph, aircraft.x, aircraft.y, {
+              kind: 'hold-short',
+              ref: aircraft.assignedRunway,
+            })
+          : null
+        if (route) {
+          aircraft.taxiRoute = route
+          aircraft.taxiRouteIndex = 0
+          aircraft.taxiTarget = route[0]
+        } else {
+          const rwy = findRunwayById(airport, aircraft.assignedRunway)
+          if (rwy) {
+            const rad = headingToRadians(rwy.trueHeading)
+            aircraft.taxiRoute = null
+            aircraft.taxiTarget = {
+              x: rwy.thresholdX - Math.cos(rad) * 0.05,
+              y: rwy.thresholdY - Math.sin(rad) * 0.05,
+            }
           }
         }
       }
@@ -96,9 +111,12 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
       // Commanded go-around from short final / the flare: break off now rather
       // than waiting for the threshold check in phase-transitions.
       if (aircraft.phase === AircraftPhase.FINAL || aircraft.phase === AircraftPhase.LANDING) {
-        // ponytail: hardcoded HHAS missed approach — load from airport data when multi-airport support added
-        aircraft.missedHeading = 170
-        aircraft.missedAltitude = 11500
+        const rwy = airport && aircraft.assignedRunway ? findRunwayById(airport, aircraft.assignedRunway) : null
+        if (rwy) {
+          const missed = missedApproachParams(rwy)
+          aircraft.missedHeading = missed.heading
+          aircraft.missedAltitude = missed.altitude
+        }
         aircraft.urgent = false
         changePhase(aircraft, AircraftPhase.MISSED)
       }

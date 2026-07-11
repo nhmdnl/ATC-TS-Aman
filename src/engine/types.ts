@@ -159,12 +159,20 @@ export interface RunwayData {
     readonly dme: number         // NM
     readonly altitude: number    // ft MSL
   }>
+  /** Published missed approach; null falls back to runway heading / elevation+4000 */
+  readonly missedHeading: number | null
+  readonly missedAltitude: number | null
 }
+
+export type TaxiwayNodeKind = 'endpoint' | 'intersection' | 'gate' | 'runway-entry' | 'hold-short'
 
 export interface TaxiwayNode {
   readonly id: string
   readonly x: number             // NM
   readonly y: number             // NM
+  readonly kind?: TaxiwayNodeKind
+  /** gate name for 'gate' nodes; runway ident pair ("07/25") for runway-entry/hold-short */
+  readonly ref?: string
 }
 
 export interface TaxiwayEdge {

@@ -1,8 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { executeCommand } from '../commands/command-executor'
 import { validateCommand } from '../commands/command-validators'
 import { AircraftPhase, CommandType, ControllerStation } from '../types'
 import type { Aircraft, Airport, Command } from '../types'
+import { buildTaxiwayGraph } from '../airport-loader'
+import { moveAircraft } from '../movement'
+import { processPhaseTransitions } from '../phase-transitions'
+import { gameState } from '../game-state'
+import { HOLD_SHORT_DISTANCE_NM } from '../constants'
 
 /** Build a minimal valid Aircraft for testing */
 function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
@@ -77,6 +82,8 @@ function makeAirport(): Airport {
         ils: null,
         pattern: 'left',
         stepdowns: [],
+        missedHeading: 170,
+        missedAltitude: 11500,
       },
     ],
     taxiways: [],
@@ -160,8 +167,8 @@ describe('executeCommand — arrival phase wiring', () => {
     expect(aircraft.assignedRunway).toBe('25')
   })
 
-  it('GO_AROUND on FINAL breaks off to MISSED with missed-approach params', () => {
-    const aircraft = makeAircraft({ flightType: 'arrival', phase: AircraftPhase.FINAL, controller: ControllerStation.TOWER, clearedToLand: true, urgent: false, altitude: 8200, speed: 140 })
+  it('GO_AROUND on FINAL breaks off to MISSED with the runway\'s published missed-approach params', () => {
+    const aircraft = makeAircraft({ flightType: 'arrival', phase: AircraftPhase.FINAL, controller: ControllerStation.TOWER, clearedToLand: true, urgent: false, altitude: 8200, speed: 140, assignedRunway: '07' })
     executeCommand(cmd(CommandType.GO_AROUND), aircraft, makeAirport())
     expect(aircraft.phase).toBe(AircraftPhase.MISSED)
     expect(aircraft.clearedToLand).toBe(false)
@@ -175,5 +182,75 @@ describe('executeCommand — arrival phase wiring', () => {
     expect(aircraft.controller).toBe(ControllerStation.TOWER)
     expect(aircraft.phase).toBe(AircraftPhase.APPROACH)
     expect(aircraft.handedOff).toBe(true)
+  })
+})
+
+describe('executeCommand — routed taxi along the taxiway graph', () => {
+  /** Airport with a routable graph: gate node → mid → hold-short of 07/25 */
+  function makeRoutedAirport(): Airport {
+    const base = makeAirport()
+    return {
+      ...base,
+      taxiways: [
+        {
+          id: 'TAXI',
+          width: 23,
+          surface: 'asphalt',
+          nodes: [
+            { id: 'n0', x: 0.1, y: 0.15, kind: 'gate', ref: 'G1' },
+            { id: 'n1', x: -0.3, y: 0 },
+            { id: 'n2', x: -0.72, y: -0.22, kind: 'hold-short', ref: '07/25' },
+          ],
+          edges: [
+            { from: 'n0', to: 'n1' },
+            { from: 'n1', to: 'n2' },
+          ],
+        },
+      ],
+    }
+  }
+
+  afterEach(() => {
+    gameState.taxiwayGraph = null
+  })
+
+  it('TAXI sets a route ending at the runway hold-short node and the aircraft follows it there', () => {
+    const airport = makeRoutedAirport()
+    gameState.taxiwayGraph = buildTaxiwayGraph(airport)
+    const aircraft = makeAircraft({ x: 0.1, y: 0.15 })
+
+    executeCommand(cmd(CommandType.TAXI, { runway: '07' }), aircraft, airport)
+
+    expect(aircraft.phase).toBe(AircraftPhase.TAXI_OUT)
+    expect(aircraft.taxiRoute).not.toBeNull()
+    const end = aircraft.taxiRoute![aircraft.taxiRoute!.length - 1]
+    expect(end).toEqual({ x: -0.72, y: -0.22 })
+
+    // Follow the route: waypoints advance and the aircraft stops at hold-short
+    const runway = airport.runways[0]
+    for (let t = 0; t < 600 && aircraft.phase !== AircraftPhase.HOLD_SHORT; t++) {
+      moveAircraft(aircraft, 1, runway)
+      processPhaseTransitions(aircraft, runway, airport)
+    }
+    expect(aircraft.phase).toBe(AircraftPhase.HOLD_SHORT)
+    expect(aircraft.speed).toBe(0)
+    // It stopped at the hold-short node (within the transition trigger radius),
+    // not at the straight-line fallback point near the threshold
+    expect(Math.hypot(aircraft.x - -0.72, aircraft.y - -0.22)).toBeLessThan(HOLD_SHORT_DISTANCE_NM + 0.01)
+    // ...and passed through the mid waypoint (route index advanced past it)
+    expect(aircraft.taxiRouteIndex).toBe(aircraft.taxiRoute!.length - 1)
+  })
+
+  it('TAXI falls back to the straight-line hold-short target when no graph exists', () => {
+    const airport = makeRoutedAirport()
+    gameState.taxiwayGraph = null
+    const aircraft = makeAircraft({ x: 0.1, y: 0.15 })
+
+    executeCommand(cmd(CommandType.TAXI, { runway: '07' }), aircraft, airport)
+
+    expect(aircraft.taxiRoute).toBeNull()
+    const rwy = airport.runways[0]
+    const dist = Math.hypot(aircraft.taxiTarget!.x - rwy.thresholdX, aircraft.taxiTarget!.y - rwy.thresholdY)
+    expect(dist).toBeCloseTo(0.05, 5)
   })
 })
