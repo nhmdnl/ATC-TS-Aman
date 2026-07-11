@@ -20,3 +20,8 @@ charts/
 .tokensave/
 graphify-out/
 bun.lock
+.remember/
+.github/
+.tokensave/
+.superpowers/
+.release/
