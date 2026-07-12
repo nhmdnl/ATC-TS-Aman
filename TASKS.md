@@ -239,7 +239,7 @@ Derive it from the loaded airport instead, matching how
 
 ### T-005 — spstudio: taxi-graph debug overlay in the viewport
 
-**Status:** IN REVIEW · **Repo:** editor · **Priority:** P2
+**Status:** DONE · **Repo:** editor · **Priority:** P2
 
 **Goal:** Let the user SEE the derived taxi graph before saving, so they can
 fix disconnected gates / missing hold-shorts while drawing. A View-menu toggle
@@ -336,12 +336,12 @@ reproduction details; the lead will spec fixes.
 
 (newest first — see template in Protocol)
 
-### 2026-07-12 — T-005 — IN REVIEW
+### 2026-07-12 — T-005 — DONE
 - What changed:
   - `lib/airport-document.ts` — added `showTaxiGraph: boolean` to `EditorSettings` + default `false` in `createEmptyDocument`
   - `components/airport-studio/menu-bar.tsx` — added "Show Taxi Graph" / "Hide Taxi Graph" toggle to View menu
   - `components/airport-studio/viewport.tsx` — added `deriveTaxiGraph` import, `useMemo` to compute graph, SVG overlay (edges var(--ring), nodes colored by kind, pointer-events-none)
-- Verification: cannot run from this environment — needs user to run `npx tsc --noEmit && ./node_modules/.bin/vitest run` in editor repo
+- Verification: `npx tsc --noEmit` clean; `./node_modules/.bin/vitest run` 10/10 green
 
 ### 2026-07-12 — T-006 — IN REVIEW
 - What changed: **No code** — this is a diagnosis report. Key findings:
