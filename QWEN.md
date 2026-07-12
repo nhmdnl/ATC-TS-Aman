@@ -18,6 +18,31 @@
 
 ---
 
+## 🎯 TASK PROTOCOL — `TASKS.md` is my work queue (mandatory)
+
+**Planning for this project is owned by Claude (Claude Code), the planning lead.**
+All feature and fix work I (Qwen) do comes from **`TASKS.md`** in this repo root.
+
+- I have **explicit permission to implement any `TODO` task in `TASKS.md`,
+  following its Steps to the letter** — including editing code in this repo AND
+  in the editor repo (`/home/devnhm/Projects/spstudio/airport-studio-application`)
+  when the task names it, running tests, and committing (never pushing).
+- I do **not** have permission to: invent tasks, change task specs, reorder
+  priorities, exceed a task's "Out of scope" line, or refactor opportunistically.
+  If I notice something broken that no task covers, I write it in `TASKS.md` →
+  Questions / Escalations and keep going.
+- Every session: read `TASKS.md` first, follow its **Protocol** section exactly
+  (status transitions, one task at a time, verification gates, Worklog entries).
+- A task is only `DONE` when its Verification commands all pass. If I can't
+  verify (e.g. GUI check I can't perform), I use `IN REVIEW`, never `DONE`.
+- When `TASKS.md` has no eligible `TODO` task, I stop and report — I do not
+  self-assign work.
+
+This section overrides the older "side-task" guidance above: side work not in
+`TASKS.md` is escalated, not done.
+
+---
+
 ## Project Status (2026-07-07) — FEATURE-COMPLETE
 
 The full loop is verified end-to-end in the running Electron app (via CDP automation):
@@ -63,15 +88,29 @@ CLEARED_APPROACH + CONTACT_TOWER unaided; AI outcomes excluded from scoring).
 | **EndScreen** | ✅ | Grade badge, all 5 dimension bars, duration, career stats, PLAY AGAIN |
 | **State management** | ✅ | React context + rAF render loop |
 | **Layout** | ✅ | 5-container: air-strip | radar | commands (with GND/TWR/APP tabs) | input | comms |
-| **Tests** | ✅ | Vitest, 170 tests incl. executor regression, arrival-lifecycle + AI-controller integration, all passing |
+| **Tests** | ✅ | Vitest, 196 tests incl. executor regression, arrival-lifecycle + AI-controller integration, v1.1 loader + taxi-routing, all passing |
 
-### 🚧 Remaining (polish / stretch)
+(2026-07-12) **v1.1 airport-format integration shipped on both sides** (sim commit
+`60325f6`; editor has its own repo in `/home/devnhm/Projects/spstudio/airport-studio-application`).
+Sim: version-dispatched loader ("1.1" = true meter scale 1/1852, "1.0" keeps the
+0.001668 fudge), file-driven frequencies/spawns/per-runway ops (ILS, pattern,
+missed heading/altitude with fallbacks), `taxi-routing.ts` (Dijkstra over the
+file's `taxiGraph`) wired into TAXI, ROLLOUT→TAXI_IN and hold-short detection —
+all fallback-guarded so "1.0" files still work. 196 tests green. Editor: shell
+fully wired (was a mock prototype), spawn tool, ops/frequency UI, scale
+calibration, and `lib/taxi-graph.ts` derives the routable graph on every save.
 
-| Feature | Priority | Notes |
-|---------|----------|-------|
-| **Headless Linux polish** | Low | Suppress Gtk/fontconfig warnings (Electron runtime flags, not app code) |
-| **Taxiway routing** | Low | `ponytail:` diagram taxiways are render-only polylines; straight-line taxi today |
-| **HHAS re-trace at true scale** | Low | `ponytail:` loader uses SCALE=0.001668 fudge; re-trace in spstudio at meter scale → 1/1852 |
+### 🚧 Remaining (tracked in TASKS.md — do not work from this table)
+
+| Feature | Where | Notes |
+|---------|-------|-------|
+| **HHAS v1.1 data upgrade** | TASKS.md T-001 | Scripted scale/version/freqs/ops/spawns upgrade of `hhas.airport.json` |
+| **Taxi-route radar rendering** | TASKS.md T-002 | Draw assigned `taxiRoute` for the selected aircraft |
+| **Wind readout** | TASKS.md T-003 | StatusBar wind display |
+| **Callsign fallback** | TASKS.md T-004 | De-hardcode "Asmara" in `getStationName` |
+| **Editor graph overlay** | TASKS.md T-005 | Visualize derived taxi graph in spstudio viewport |
+| **Headless Linux noise** | TASKS.md T-006 | Investigation/report only |
+| **v1.1 E2E** | TASKS.md T-007 | Blocked on user drawing taxiways + saving in the editor |
 
 (2026-07-11) **Wind-based runway selection shipped** — `selectActiveRunway` in
 `airport-loader.ts` picks the into-wind end of the longest strip for arrivals,
@@ -180,9 +219,9 @@ atc-aman/
 |----------|--------|-----|
 | Primary interaction | Click radar → command buttons | User explicitly chose cursor over text |
 | Layout | 5 containers (not PRD §18 5-panel) | air-strip | radar | commands(GND/TWR/APP tabs) | input | comms |
-| Airport format | spstudio editor v1.0 | Integrates with the airport diagram editor |
+| Airport format | spstudio editor v1.0 + v1.1 | v1.1 adds true meter scale, frequencies, spawns, runway ops, derived taxiGraph |
 | HHAS data source | Navigraph approach plates | Chart-derived parameters, never generic |
-| Missed procedures | Hardcoded HHAS defaults (R170/11500) | ponytail — per-airport config when multi-airport |
+| Missed procedures | File-driven per runway end (v1.1 `ops`), fallback rwy heading / elev+4000 | Replaced the old R170/11500 hardcode |
 | Command execution | Delayed (1500-2500ms readback) | Simulates pilot reaction time |
 | Audio | Web Speech API + Web Audio | Fully offline, no external deps |
 | TTS | browser built-in voices | Replaces Python gTTS from old codebase |
