@@ -212,7 +212,7 @@ optional.
 
 ### T-004 — Derive the station-callsign fallback from airport data
 
-**Status:** TODO · **Repo:** sim · **Priority:** P2
+**Status:** DONE · **Repo:** sim · **Priority:** P2
 
 **Goal:** `getStationName` in `src/engine/commands/command-registry.ts:69`
 falls back to a hardcoded `"Asmara …"` string when no frequency entry matches.
@@ -335,6 +335,12 @@ reproduction details; the lead will spec fixes.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-07-12 — T-004 — DONE
+- What changed:
+  - `src/engine/commands/command-registry.ts` — replaced hardcoded `"Asmara"` in `getStationName` fallback with `airport.metadata.name`
+  - `src/engine/__tests__/command-registry.test.ts` — new test: airport with no frequencies + fixture name "Test Field" asserts `phraseology.station` contains it, not "Asmara"
+- Verification: `npm test` 197/197 green; `npx tsc --noEmit` clean
 
 ### 2026-07-12 — T-003 — DONE
 - What changed:

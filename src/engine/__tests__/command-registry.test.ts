@@ -104,3 +104,35 @@ describe('processCommand — deferred execution across reset (integration, real 
     expect(reincarnated.clearedHeading).toBeNull()
   })
 })
+
+describe('getStationName fallback (airport with no frequencies)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    gameState.reset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    gameState.reset()
+  })
+
+  it('uses the airport metadata name instead of hardcoded "Asmara"', () => {
+    const testAirport = loadAirport({
+      version: '1.1',
+      metadata: { name: 'Test Field', icao: 'TFLD' },
+      layers: [],
+      objects: [],
+      editorSettings: {},
+      referenceImage: {},
+    })
+
+    gameState.airport = testAirport
+    gameState.addAircraft(makeAircraft())
+
+    const result = processCommand(vector, gameState.airport!)
+    expect(result.success).toBe(true)
+
+    // Fallback should use "Test Field", not "Asmara"
+    expect(result.phraseology?.station).toContain('Test Field')
+  })
+})

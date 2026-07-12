@@ -70,7 +70,8 @@ function getStationName(controller: ControllerStation, airport: Airport): string
   // First try airport frequencies
   const f = airport.frequencies.find(f => f.name.toUpperCase().includes(controller.toString().toUpperCase()))
   if (f) return f.callsign
-  
-  // Fallback
-  return `Asmara ${controller.toString().charAt(0).toUpperCase() + controller.toString().slice(1).toLowerCase()}`
+
+  // Fallback: derive from airport metadata like the loader does
+  const airportName = airport.metadata.name
+  return `${airportName} ${controller.toString().charAt(0).toUpperCase() + controller.toString().slice(1).toLowerCase()}`
 }
