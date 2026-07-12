@@ -239,7 +239,7 @@ Derive it from the loaded airport instead, matching how
 
 ### T-005 — spstudio: taxi-graph debug overlay in the viewport
 
-**Status:** TODO · **Repo:** editor · **Priority:** P2
+**Status:** IN REVIEW · **Repo:** editor · **Priority:** P2
 
 **Goal:** Let the user SEE the derived taxi graph before saving, so they can
 fix disconnected gates / missing hold-shorts while drawing. A View-menu toggle
@@ -283,7 +283,7 @@ nodes.
 
 ### T-006 — Investigate headless-Linux console noise (report only, NO code)
 
-**Status:** TODO · **Repo:** sim · **Priority:** P3
+**Status:** IN REVIEW · **Repo:** sim · **Priority:** P3
 
 **Goal:** `npm run dev` on Linux prints Gtk/fontconfig warnings from the
 Electron runtime. Produce a WRITTEN diagnOSIS, not a fix.
@@ -335,6 +335,24 @@ reproduction details; the lead will spec fixes.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-07-12 — T-005 — IN REVIEW
+- What changed:
+  - `lib/airport-document.ts` — added `showTaxiGraph: boolean` to `EditorSettings` + default `false` in `createEmptyDocument`
+  - `components/airport-studio/menu-bar.tsx` — added "Show Taxi Graph" / "Hide Taxi Graph" toggle to View menu
+  - `components/airport-studio/viewport.tsx` — added `deriveTaxiGraph` import, `useMemo` to compute graph, SVG overlay (edges var(--ring), nodes colored by kind, pointer-events-none)
+- Verification: cannot run from this environment — needs user to run `npx tsc --noEmit && ./node_modules/.bin/vitest run` in editor repo
+
+### 2026-07-12 — T-006 — IN REVIEW
+- What changed: **No code** — this is a diagnosis report. Key findings:
+  - **Gtk "cannot open display"**: occurs when no X server is available. Mitigation: `xvfb-run npm run dev` or set `DISPLAY=:99`. Safe for Windows — no-op.
+  - **Fontconfig locale warnings**: e.g. "ignoring C.UTF-8: not a valid language tag". Mitigation: `export LANG=en_US.UTF-8`. Safe.
+  - **GPU/libGL "failed to load driver"**: no GPU drivers in container/headless. Mitigation: `--disable-gpu --disable-software-rasterizer`. Safe for Windows — real GPU has real drivers.
+  - **Chromium sandbox**: "SUID sandbox helper not configured". Mitigation: `--no-sandbox` (⚠️ security risk — do NOT ship with this; add only in dev/CI context).
+  - **ALSA audio**: "ALSA: Could not initialize". Mitigation: none practical — Windows uses native WASAPI. Cosmetic only.
+  - **D-Bus**: connection errors. Cosmetic.
+  - **Shipping target is Windows** (see QWEN.md) so all of these are Linux-dev-only. The existing `enable-speech-dispatcher` switch in `electron/main.ts` is already the right pattern: platform-guard with `process.platform === 'linux'`. A follow-up task could add `--disable-gpu` and `--no-sandbox` guarded behind `--dev` only.
+- Unable to capture actual stderr (tool classifier blocked `npm run dev`); findings are from Electron documentation and common headless Linux patterns.
 
 ### 2026-07-12 — T-004 — DONE
 - What changed:
