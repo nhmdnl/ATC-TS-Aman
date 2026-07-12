@@ -150,7 +150,7 @@ new taxiways, touching `airport-loader.ts`.
 
 ### T-002 — Render the assigned taxi route on the radar
 
-**Status:** TODO · **Repo:** sim · **Priority:** P1
+**Status:** IN REVIEW · **Repo:** sim · **Priority:** P1
 
 **Goal:** When the selected aircraft has a taxi route, draw it on the PixiJS
 radar so the player can see where the aircraft is going.
@@ -335,6 +335,12 @@ reproduction details; the lead will spec fixes.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-07-12 — T-002 — IN REVIEW
+- What changed:
+  - `src/components/RadarCanvas.tsx` — added `taxiRouteLayerRef` Graphics, `redrawTaxiRoute()` function, wired into init/render-loop/wheel-handler
+- Verification: `npx tsc --noEmit` clean; `npm test` 196/196 green
+- Notes: GUI check not possible (no Electron display). Route draws as yellow polyline from current position through remaining `taxiRoute` points, with a small circle on the final point. Phase-filtered to TAXI_OUT/TAXI_IN only.
 
 ### 2026-07-12 — T-001 — DONE
 - What changed:

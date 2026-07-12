@@ -151,6 +151,7 @@ export default function RadarCanvas() {
   const dynamicLayerRef = useRef<PIXI.Container | null>(null)
   const aircraftSpritesRef = useRef<Map<string, { g: PIXI.Graphics, text: PIXI.Text }>>(new Map())
   const demoSpritesRef = useRef<Map<string, { g: PIXI.Graphics, text: PIXI.Text }>>(new Map())
+  const taxiRouteLayerRef = useRef<PIXI.Graphics | null>(null)
   const tutorialDemoRef = useRef<readonly TutorialDemoAircraft[] | null>(null)
 
   // Zoom and pan state (refs to avoid re-render, read synchronously in draw calls)
@@ -564,6 +565,43 @@ export default function RadarCanvas() {
     text.visible = true
   }
 
+  // Taxi route: draws the remaining taxiway path for the selected aircraft
+  function redrawTaxiRoute() {
+    const app = appRef.current
+    const g = taxiRouteLayerRef.current
+    if (!app || !g) return
+    g.clear()
+
+    const zoom = zoomRef.current
+    const ox = offsetXRef.current
+    const oy = offsetYRef.current
+    const cx = app.screen.width / 2
+    const cy = app.screen.height / 2
+    const mapX = (x: number) => cx + x * zoom + ox
+    const mapY = (y: number) => cy - y * zoom + oy
+
+    const ac = Array.from(state.aircraft.values()).find((a) => a.isSelected)
+    if (!ac || !ac.taxiRoute || ac.taxiRoute.length === 0) return
+    if (ac.phase !== AircraftPhase.TAXI_OUT && ac.phase !== AircraftPhase.TAXI_IN) return
+
+    const remaining = ac.taxiRoute.slice(ac.taxiRouteIndex)
+    if (remaining.length < 1) return
+
+    // Polyline from aircraft position through remaining route points
+    const pts = [{ x: ac.x, y: ac.y }, ...remaining]
+    g.setStrokeStyle({ width: 1, color: 0xf5d90a, alpha: 0.8 })
+    g.moveTo(mapX(pts[0].x), mapY(pts[0].y))
+    for (let i = 1; i < pts.length; i++) {
+      g.lineTo(mapX(pts[i].x), mapY(pts[i].y))
+    }
+    g.stroke()
+
+    // Small circle on the final point
+    const last = remaining[remaining.length - 1]
+    g.circle(mapX(last.x), mapY(last.y), 2)
+    g.fill(0xf5d90a)
+  }
+
   // HUD corner readouts: visible range, cursor bearing/distance, wind.
   // Screen-fixed, sit in the housing outside the glass — cheap enough to
   // update every frame alongside the rest of the render loop.
@@ -687,6 +725,10 @@ export default function RadarCanvas() {
       scopeContent.addChild(rangeLabelContainer)
       rangeLabelContainerRef.current = rangeLabelContainer
 
+      const taxiRouteG = new PIXI.Graphics()
+      scopeContent.addChild(taxiRouteG)
+      taxiRouteLayerRef.current = taxiRouteG
+
       const sweepG = new PIXI.Graphics()
       scopeContent.addChild(sweepG)
       sweepLayerRef.current = sweepG
@@ -771,6 +813,7 @@ export default function RadarCanvas() {
   useEffect(() => {
     redrawStatic()
     redrawDynamic()
+    redrawTaxiRoute()
     redrawSweep()
     redrawRuler()
     redrawCompass()
@@ -986,6 +1029,7 @@ export default function RadarCanvas() {
     // Redraw both layers with new zoom/offset
     redrawStatic()
     redrawDynamic()
+    redrawTaxiRoute()
     redrawCompass()
     updateHud()
   }
