@@ -189,7 +189,7 @@ hold-short markers.
 
 ### T-003 — Wind readout in the status bar
 
-**Status:** TODO · **Repo:** sim · **Priority:** P2
+**Status:** DONE · **Repo:** sim · **Priority:** P2
 
 **Goal:** Show current wind (already simulated, drives runway selection) in
 `StatusBar.tsx` so the player understands why a runway is active.
@@ -335,6 +335,11 @@ reproduction details; the lead will spec fixes.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-07-12 — T-003 — DONE
+- What changed:
+  - `src/components/StatusBar.tsx` — added `WND 340°/04KT` readout next to air/ground counts using `state.wind`
+- Verification: `npm test` 196/196 green; `npx tsc --noEmit` clean
 
 ### 2026-07-12 — T-002 — IN REVIEW
 - What changed:

@@ -38,6 +38,10 @@ export default function StatusBar({ ttsAvailable }: { ttsAvailable: boolean }) {
           <span style={{ color: '#22c55e' }}>AIR: {airborneCount}</span>
           <span style={{ color: '#64748B' }}>|</span>
           <span style={{ color: '#eab308' }}>GND: {groundCount}</span>
+          <span style={{ color: '#64748B' }}>|</span>
+          <span style={{ color: '#94a3b8', fontFamily: 'SF Mono, monospace' }}>
+            WND {Math.round(state.wind.direction).toString().padStart(3, '0')}°/{Math.round(state.wind.speed).toString().padStart(2, '0')}KT
+          </span>
         </div>
 
         {!ttsAvailable && (
