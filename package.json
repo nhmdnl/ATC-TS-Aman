@@ -10,7 +10,7 @@
   ],
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron . --dev --disable-gpu --no-sandbox\"",
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron . --dev --no-sandbox\"",
     "build": "vite build && tsc -p tsconfig.main.json",
     "preview": "vite preview",
     "package": "npm run build && electron-builder",

@@ -69,11 +69,17 @@ Both repos are in scope:
 
 ## Backlog (priority order)
 
+(empty — T-007/T-008 completed by lead 2026-07-12)
+
+---
+
+## Done
+
 ---
 
 ### T-007 — E2E verification of the v1.1 pipeline (after user edits HHAS)
 
-**Status:** TODO (unblocked 2026-07-12; step 1 already verified by lead) · **Repo:** sim · **Priority:** P1
+**Status:** DONE (executed by lead 2026-07-12 via CDP; see Worklog) · **Repo:** sim · **Priority:** P1
 
 **Editor step done by lead (2026-07-12):** the gates were already within
 44–47 m of Taxiway 1's centerline (gate-link max is 120 m), so no new
@@ -108,7 +114,7 @@ reproduction details; the lead will spec fixes.
 
 ### T-008 — Remove `--disable-gpu` from the dev script (measured follow-up to T-006)
 
-**Status:** TODO · **Repo:** sim · **Priority:** P3
+**Status:** DONE (executed by lead 2026-07-12; reassigned from Qwen by user; see Worklog) · **Repo:** sim · **Priority:** P3
 
 **Goal:** The dev script (`package.json:13`) launches Electron with
 `--disable-gpu --no-sandbox`. Lead measured a 25 s dev run on 2026-07-12:
@@ -139,10 +145,6 @@ earlier headless debugging.
 
 **Out of scope:** touching production/packaging config, adding
 `--enable-unsafe-swiftshader`, changing `--no-sandbox`.
-
----
-
-## Done
 
 ---
 
@@ -236,6 +238,41 @@ result.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-07-12 — LEAD (Claude) — T-007 + T-008 executed and verified
+User reassigned both tasks from Qwen to the lead.
+
+**T-008:** removed only `--disable-gpu` from the dev script (`--no-sandbox`
+kept; packaging config untouched). 25 s capture: `grep -c "software WebGL"`
+= 0 (was ×4), `GPU stall due to ReadPixels` gone (was ×4); remaining noise
+is only the pre-existing IBUS warning + DevTools Autofill errors. A
+GPU-fatal burst appears in the log at teardown only — it is fallout from
+`timeout`'s SIGTERM killing the zygote first, not a runtime crash (the app
+also ran ~10 min under CDP afterwards without GPU errors). Tests/typecheck
+untouched and green.
+
+**T-007 step 2 (live Electron app, CDP on :9222, GROUND-only session with
+AI TWR/APP):**
+- Departure taxi: spawned AAL8546 at G2, issued TAXI 25 through
+  `processCommand` — after readback delay it got a 7-point `taxiRoute`
+  (gate → gate-link nodes → taxiway → hold-short) and followed it
+  point-by-point (`taxiRouteIndex` advancing), stopped at hold-short; AI
+  tower then took it through LINE_UP → TAKEOFF_ROLL → DEPARTED unaided.
+- T-002 yellow route line: verified by screenshot on a second departure
+  (UAL7728, G5) — yellow polyline from the selected aircraft along the
+  taxiway to a circle at the hold-short point, shrinking as points are
+  consumed. Also visible on an arrival during TAXI_IN.
+- Arrival to gate: fast-forwarded KQA3792 onto RWY 25 in ROLLOUT (speed 4);
+  the real transition assigned free gate G3, built a graph route
+  (runway exit → hold-short node → taxiway → gate stub + gate position),
+  taxied it in, parked, ARRIVED, aircraft removed and gate freed.
+- GO_AROUND: placed ETH3759 on short final RWY 25 (TOWER temporarily added
+  to playerStations), issued GO_AROUND → phase MISSED with
+  `missedHeading: 170` / `missedAltitude: 11500` — the values from the
+  file's per-runway ops, not the old hardcodes. Radio log: "go around, I
+  say again, go around" / "Going around".
+- Note: transient "LOW ALTITUDE ALERT CHECK MVA" lines in the log were
+  fallout from the verification teleports, not a routing bug.
 
 ### 2026-07-12 — LEAD (Claude) — T-007 editor precondition completed
 - Did the "user GUI step" programmatically: gates were already within
