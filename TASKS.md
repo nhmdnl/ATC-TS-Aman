@@ -66,7 +66,7 @@ Both repos are in scope:
 
 ### T-001 — Upgrade `hhas.airport.json` to v1.1 via one-off script
 
-**Status:** TODO · **Repo:** sim · **Priority:** P1
+**Status:** DONE · **Repo:** sim · **Priority:** P1
 
 **Goal:** Bring the real HHAS file to the v1.1 format the sim already consumes
 (committed `60325f6`): true meter scale, version bump, frequencies, per-runway
@@ -335,6 +335,14 @@ reproduction details; the lead will spec fixes.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-07-12 — T-001 — DONE
+- What changed:
+  - `scripts/upgrade-hhas-v11.mjs` — new one-off upgrade script
+  - `src/data/airports/hhas.airport.json` — scaled to true meters, version "1.1", frequencies, ops, spawns
+  - `src/engine/__tests__/arrival-lifecycle.test.ts` — updated missed-heading/altitude expectations to 170/11500 (file now carries chart data)
+- Verification: `npm test` 196/196 green; `npx tsc --noEmit` clean; `git diff --stat` shows 3 tracked + 1 untracked file
+- Notes: referenceImage had no offsetX/offsetY/scale keys, so those guards were no-ops (correct). 12/30 ops set to `missedHeading: null, missedAltitude: null` per spec (fallback applies).
 
 ## Questions / Escalations
 

@@ -127,9 +127,9 @@ describe('arrival lifecycle (integration, real HHAS data)', () => {
     }
 
     expect(aircraft.phase).toBe(AircraftPhase.MISSED)
-    // HHAS "1.0" file carries no ops data → generic straight-ahead fallback
-    expect(aircraft.missedHeading).toBe(rwy.trueHeading)
-    expect(aircraft.missedAltitude).toBe(rwy.elevationFt + 4000)
+    // HHAS "1.1" file carries real ops data (170/11500 from the chart)
+    expect(aircraft.missedHeading).toBe(170)
+    expect(aircraft.missedAltitude).toBe(11500)
   })
 
   it('assigns the first free gate at ROLLOUT → TAXI_IN and marks it occupied', () => {
