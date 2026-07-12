@@ -73,16 +73,22 @@ Both repos are in scope:
 
 ### T-007 — E2E verification of the v1.1 pipeline (after user edits HHAS)
 
-**Status:** BLOCKED · **Blocked by:** user GUI step (see below) · **Repo:** sim · **Priority:** P1 once unblocked
+**Status:** TODO (unblocked 2026-07-12; step 1 already verified by lead) · **Repo:** sim · **Priority:** P1
 
-**The user must first:** open the (post-T-001) `hhas.airport.json` in the
-spstudio editor, draw the missing taxiways to connect all 5 gates to runway
-07/25 (use View → Show Taxi Graph to check connectivity live), clear the
-Validation panel warnings, and save — the editor embeds the derived
-`taxiGraph` on save. Unblock check: the saved file contains a `taxiGraph` key.
+**Editor step done by lead (2026-07-12):** the gates were already within
+44–47 m of Taxiway 1's centerline (gate-link max is 120 m), so no new
+taxiways were needed — the only gap was Taxiway 1's north end stopping
+~55 m short of the 07/25 centerline. The lead moved that endpoint onto the
+centerline and re-saved the file through the editor's own `serialize()`
+(validation clean, `referenceImage` preserved). `hhas.airport.json` now
+contains a `taxiGraph` key: 17 nodes / 16 edges — 1 runway-entry (07/25),
+1 hold-short at the 82.5 m setback, 5 gate nodes, all connected. A live
+smoke test through the sim's `loadAirport` + `buildTaxiRoute` routed
+G1 → 07 hold-short successfully.
 
-**Steps (once unblocked):**
-1. `npm test` and `npx tsc --noEmit` — green.
+**Steps:**
+1. ~~`npm test` and `npx tsc --noEmit` — green.~~ Done by lead 2026-07-12
+   (197 tests, both tsconfigs clean).
 2. `npm run dev`; verify via CDP automation (see QWEN.md status notes for the
    established CDP approach) or ask the user to observe:
    - a departure issued TAXI follows the taxiway polylines and stops at the
@@ -230,6 +236,20 @@ result.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-07-12 — LEAD (Claude) — T-007 editor precondition completed
+- Did the "user GUI step" programmatically: gates were already within
+  44–47 m of Taxiway 1 (link max 120 m); moved Taxiway 1's first point from
+  (1728.5, 416.8) onto the 07/25 centerline at (1727.5, 362.06) — it had
+  been ~55 m short, outside the width/2 + 15 m entry tolerance.
+- Re-saved via the editor's `serialize()` (temp vitest in spstudio, deleted
+  after): `documentIssues` clean, `taxiGraph` embedded (17 nodes / 16 edges:
+  runway-entry 07/25, hold-short at 82.5 m setback, 5 linked gates),
+  `referenceImage` preserved.
+- Sim verification: 197 tests green, both typechecks clean, and a temp live
+  smoke test routed G1 → 07 hold-short through `loadAirport` +
+  `buildTaxiRoute` (deleted after). T-007 is now TODO with step 1 done;
+  remaining work is the dev-run visual checks in step 2.
 
 ### 2026-07-12 — LEAD REVIEW (Claude) — T-001…T-006 adjudicated
 - T-001 **accepted** + data verified against the pre-upgrade file. One report
