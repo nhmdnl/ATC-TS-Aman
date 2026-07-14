@@ -31,9 +31,6 @@ export const SEPARATION_COOLDOWN_MS = 5000
 /** Minimum Vectoring Altitude — 8800 ft MSL (HHAS circling minima Cat C) */
 export const MVA_FT = 8800
 
-/** Altitude threshold below which aircraft are considered "on ground" for MVA */
-export const GROUND_ALTITUDE_THRESHOLD_FT = 100
-
 // ─── Spawning ─────────────────────────────────────────────────────────────────
 
 /** Distance from airport at which arrivals trigger ENTERING → APPROACH (NM) */

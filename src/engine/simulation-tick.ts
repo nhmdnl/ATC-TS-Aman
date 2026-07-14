@@ -7,7 +7,7 @@ import { spawnArrival, spawnDeparture, isSpawnPointClear } from './aircraft-fact
 import { findRunwayById, getAvailableGates, getArrivalSpawnPoints, selectActiveRunway } from './airport-loader'
 import { GameEventType, AircraftPhase, RadioSpeaker } from './types'
 import { eventBus } from './event-bus'
-import { MVA_FT, GROUND_ALTITUDE_THRESHOLD_FT } from './constants'
+import { MVA_FT } from './constants'
 
 /**
  * Main simulation tick function. Runs at 1 Hz.
@@ -37,13 +37,14 @@ export function tick(state: GameState, dtSeconds: number): void {
     processPhaseTransitions(aircraft, runway, state.airport)
 
     // 4. MVA Violation Check (PRD §15)
-    // CLIMBING/DEPARTED are exempt like TAKEOFF_ROLL: departures necessarily
-    // pass through the 7,661–8,800 ft band on climb-out and would alert on
-    // every takeoff (or on handoff, if it happens mid-band).
-    if (aircraft.altitude >= GROUND_ALTITUDE_THRESHOLD_FT && aircraft.altitude < MVA_FT &&
-        (aircraft.phase !== AircraftPhase.FINAL && aircraft.phase !== AircraftPhase.LANDING &&
-         aircraft.phase !== AircraftPhase.TAKEOFF_ROLL && aircraft.phase !== AircraftPhase.CLIMBING &&
-         aircraft.phase !== AircraftPhase.DEPARTED)) {
+    // The MVA is a vectoring floor: it only applies where the controller can
+    // descend/vector someone into terrain (ENTERING/APPROACH). Everything
+    // else legitimately occupies the 7,661–8,800 ft band — departures on
+    // climb-out, go-arounds, final/landing traffic, and aircraft on the
+    // ground (landed arrivals keep field elevation ~7,661 ft MSL, which
+    // used to false-alert every rollout/taxi-in).
+    if (aircraft.altitude < MVA_FT &&
+        (aircraft.phase === AircraftPhase.ENTERING || aircraft.phase === AircraftPhase.APPROACH)) {
       
       // Prevent spamming — only log if we didn't log recently
       // ponytail: MVA check uses hardcoded 8800 ft floor — per-quadrant from airport data when MVA varies by sector
