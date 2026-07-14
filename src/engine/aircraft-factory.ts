@@ -1,6 +1,19 @@
 import type { Aircraft, AircraftType, GateData, SpawnPointData } from './types'
 import { AircraftPhase, ControllerStation } from './types'
-import { AIRCRAFT_TYPES, AIRLINE_PREFIXES, PHASE_CONTROLLER } from './constants'
+import { AIRCRAFT_TYPES, AIRLINE_PREFIXES, PHASE_CONTROLLER, SEPARATION_NM, SEPARATION_FT } from './constants'
+import { distanceNM } from './movement'
+
+/**
+ * True when no existing traffic sits close enough to a spawn point that a
+ * new arrival there would violate (or immediately converge into) separation.
+ * 2× lateral minima: a follower spawned at exactly the minima converges
+ * before the player can intervene.
+ */
+export function isSpawnPointClear(point: SpawnPointData, traffic: Aircraft[]): boolean {
+  return !traffic.some(ac =>
+    distanceNM(ac.x, ac.y, point.x, point.y) < SEPARATION_NM * 2 &&
+    Math.abs(ac.altitude - point.altitude) < SEPARATION_FT)
+}
 
 /**
  * Generate a random callsign consisting of an airline prefix and a 3-4 digit flight number.

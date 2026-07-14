@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { spawnDeparture, spawnArrival } from '../aircraft-factory'
+import { spawnDeparture, spawnArrival, isSpawnPointClear } from '../aircraft-factory'
 import { AircraftPhase } from '../types'
 import type { GateData, SpawnPointData } from '../types'
 
@@ -214,6 +214,45 @@ describe('aircraft-factory', () => {
       const icaoPattern = /^[A-Z0-9]{2,4}$/
       expect(dep.type.icao).toMatch(icaoPattern)
       expect(arr.type.icao).toMatch(icaoPattern)
+    })
+  })
+
+  describe('isSpawnPointClear', () => {
+    const point: SpawnPointData = {
+      id: 'ENTRY-NE',
+      type: 'arrival',
+      x: 40,
+      y: 20,
+      heading: 220,
+      altitude: 12000,
+    }
+
+    function trafficAt(x: number, y: number, altitude: number) {
+      const ac = spawnArrival(point)
+      ac.x = x
+      ac.y = y
+      ac.altitude = altitude
+      return ac
+    }
+
+    it('is clear with no traffic', () => {
+      expect(isSpawnPointClear(point, [])).toBe(true)
+    })
+
+    it('is blocked by traffic at the point (would spawn in violation)', () => {
+      expect(isSpawnPointClear(point, [trafficAt(40.5, 20, 12000)])).toBe(false)
+    })
+
+    it('is blocked inside 2x lateral minima at same altitude', () => {
+      expect(isSpawnPointClear(point, [trafficAt(45, 20, 11800)])).toBe(false)
+    })
+
+    it('is clear when traffic is laterally far', () => {
+      expect(isSpawnPointClear(point, [trafficAt(50, 20, 12000)])).toBe(true)
+    })
+
+    it('is clear when traffic is vertically separated', () => {
+      expect(isSpawnPointClear(point, [trafficAt(40, 20, 10500)])).toBe(true)
     })
   })
 })

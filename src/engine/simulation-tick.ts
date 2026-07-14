@@ -3,7 +3,7 @@ import { moveAircraft } from './movement'
 import { processPhaseTransitions, checkAircraftRemoval } from './phase-transitions'
 import { separationChecker, clearViolationFlags } from './separation'
 import { runAiControllers } from './ai-controller'
-import { spawnArrival, spawnDeparture } from './aircraft-factory'
+import { spawnArrival, spawnDeparture, isSpawnPointClear } from './aircraft-factory'
 import { findRunwayById, getAvailableGates, getArrivalSpawnPoints, selectActiveRunway } from './airport-loader'
 import { GameEventType, AircraftPhase, RadioSpeaker } from './types'
 import { eventBus } from './event-bus'
@@ -110,9 +110,13 @@ function handleSpawning(state: GameState, nowMs: number): void {
 
 function spawnOneArrival(state: GameState): void {
   if (!state.airport) return
+  // Skip entry points with traffic nearby — spawning there creates an
+  // instant separation violation the player never had a chance to prevent
+  const traffic = state.allAircraft()
   const points = getArrivalSpawnPoints(state.airport)
-  if (points.length === 0) return
-  
+    .filter(p => isSpawnPointClear(p, traffic))
+  if (points.length === 0) return // all entries blocked — retry next spawn cycle
+
   const point = points[Math.floor(Math.random() * points.length)]
   const ac = spawnArrival(point)
   
