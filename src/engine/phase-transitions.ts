@@ -26,9 +26,13 @@ export function processPhaseTransitions(aircraft: Aircraft, runway: RunwayData |
 
     case AircraftPhase.TAXI_OUT:
       if (aircraft.taxiRoute && aircraft.taxiRoute.length > 0) {
-        // Routed taxi: the route ends at the runway's hold-short node
+        // Routed taxi: movement stops exactly on the route's final point (the
+        // hold-short node), so only transition once that point is being
+        // tracked and reached — a loose radius from any earlier waypoint
+        // parks the aircraft mid-taxiway, short of the hold-short line
         const end = aircraft.taxiRoute[aircraft.taxiRoute.length - 1]
-        if (distanceNM(aircraft.x, aircraft.y, end.x, end.y) < HOLD_SHORT_DISTANCE_NM) {
+        if (aircraft.taxiRouteIndex >= aircraft.taxiRoute.length - 1 &&
+            distanceNM(aircraft.x, aircraft.y, end.x, end.y) < 0.02) {
           aircraft.phase = AircraftPhase.HOLD_SHORT
           aircraft.speed = 0 // Stop at hold short
         }
