@@ -37,11 +37,13 @@ export function tick(state: GameState, dtSeconds: number): void {
     processPhaseTransitions(aircraft, runway, state.airport)
 
     // 4. MVA Violation Check (PRD §15)
-    // CLIMBING is exempt like TAKEOFF_ROLL: departures necessarily pass through
-    // the 7,661–8,800 ft band on climb-out and would alert on every takeoff.
+    // CLIMBING/DEPARTED are exempt like TAKEOFF_ROLL: departures necessarily
+    // pass through the 7,661–8,800 ft band on climb-out and would alert on
+    // every takeoff (or on handoff, if it happens mid-band).
     if (aircraft.altitude >= GROUND_ALTITUDE_THRESHOLD_FT && aircraft.altitude < MVA_FT &&
         (aircraft.phase !== AircraftPhase.FINAL && aircraft.phase !== AircraftPhase.LANDING &&
-         aircraft.phase !== AircraftPhase.TAKEOFF_ROLL && aircraft.phase !== AircraftPhase.CLIMBING)) {
+         aircraft.phase !== AircraftPhase.TAKEOFF_ROLL && aircraft.phase !== AircraftPhase.CLIMBING &&
+         aircraft.phase !== AircraftPhase.DEPARTED)) {
       
       // Prevent spamming — only log if we didn't log recently
       // ponytail: MVA check uses hardcoded 8800 ft floor — per-quadrant from airport data when MVA varies by sector

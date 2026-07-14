@@ -340,6 +340,9 @@ export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: Runw
       moveTakeoffRoll(aircraft, dtSeconds, runway)
       break
     case AircraftPhase.CLIMBING:
+    case AircraftPhase.DEPARTED:
+      // DEPARTED keeps the climb-out profile going so the aircraft actually
+      // flies out to the 25 NM removal boundary instead of freezing mid-air
       moveClimb(aircraft, dtSeconds)
       break
     case AircraftPhase.ENTERING:
@@ -360,7 +363,6 @@ export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: Runw
       break
     case AircraftPhase.PARKED:
     case AircraftPhase.HOLD_SHORT:
-    case AircraftPhase.DEPARTED:
     case AircraftPhase.ARRIVED:
       // No autonomous movement in these phases
       break
