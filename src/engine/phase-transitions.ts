@@ -65,7 +65,11 @@ export function processPhaseTransitions(aircraft: Aircraft, runway: RunwayData |
       break
 
     case AircraftPhase.APPROACH:
-      if (runway && distanceNM(aircraft.x, aircraft.y, runway.thresholdX, runway.thresholdY) < FINAL_DISTANCE_NM) {
+      // clearedForApproach gate: without it, an uncontrolled aircraft merely
+      // overflying the field flips to FINAL (tower control + urgent) by
+      // proximity alone, then flies away stuck in that phase
+      if (runway && aircraft.clearedForApproach &&
+          distanceNM(aircraft.x, aircraft.y, runway.thresholdX, runway.thresholdY) < FINAL_DISTANCE_NM) {
         aircraft.phase = AircraftPhase.FINAL
         // PRD §11: Urgent flag set on FINAL aircraft not cleared to land
         if (!aircraft.clearedToLand) {
@@ -182,6 +186,13 @@ export function checkAircraftRemoval(aircraft: Aircraft): boolean {
   }
 
   if (aircraft.phase === AircraftPhase.MISSED) {
+    return distanceNM(aircraft.x, aircraft.y, 0, 0) > 25
+  }
+
+  // Neglected arrivals that overfly the field and leave the radar area would
+  // otherwise live forever (ENTERING/APPROACH never expire on distance)
+  if (aircraft.flightType === 'arrival' &&
+      (aircraft.phase === AircraftPhase.ENTERING || aircraft.phase === AircraftPhase.APPROACH)) {
     return distanceNM(aircraft.x, aircraft.y, 0, 0) > 25
   }
 

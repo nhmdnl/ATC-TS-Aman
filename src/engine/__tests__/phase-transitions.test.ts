@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { loadAirport } from '../airport-loader'
+import { loadAirport, findRunwayById } from '../airport-loader'
 import { processPhaseTransitions, checkAircraftRemoval } from '../phase-transitions'
-import { spawnDeparture } from '../aircraft-factory'
+import { spawnDeparture, spawnArrival } from '../aircraft-factory'
 import { moveAircraft } from '../movement'
 import { AircraftPhase } from '../types'
 import type { Aircraft, GateData } from '../types'
@@ -49,6 +49,47 @@ describe('TAXI_OUT → HOLD_SHORT (routed taxi)', () => {
 
     expect(ac.phase).toBe(AircraftPhase.HOLD_SHORT)
     expect(ac.speed).toBe(0)
+  })
+})
+
+describe('APPROACH → FINAL requires approach clearance', () => {
+  function arrivalAtThreshold(): Aircraft {
+    const rwy = findRunwayById(airport, '07')!
+    const ac = spawnArrival({
+      id: 'ENTRY-S', type: 'arrival', x: 0, y: -14, heading: 360, altitude: 12000,
+    })
+    ac.phase = AircraftPhase.APPROACH
+    ac.assignedRunway = rwy.id
+    ac.x = rwy.thresholdX
+    ac.y = rwy.thresholdY - 0.5
+    return ac
+  }
+
+  it('an uncleared overflight near the threshold stays APPROACH (no false FINAL)', () => {
+    const ac = arrivalAtThreshold()
+    processPhaseTransitions(ac, findRunwayById(airport, '07')!, airport)
+    expect(ac.phase).toBe(AircraftPhase.APPROACH)
+    expect(ac.urgent).toBe(false)
+  })
+
+  it('a cleared-for-approach aircraft goes FINAL (urgent until cleared to land)', () => {
+    const ac = arrivalAtThreshold()
+    ac.clearedForApproach = true
+    processPhaseTransitions(ac, findRunwayById(airport, '07')!, airport)
+    expect(ac.phase).toBe(AircraftPhase.FINAL)
+    expect(ac.urgent).toBe(true)
+  })
+})
+
+describe('arrivals that leave the radar area are removed', () => {
+  it('removes an APPROACH arrival past 25 NM, keeps one inside', () => {
+    const ac = spawnArrival({
+      id: 'ENTRY-N', type: 'arrival', x: 0, y: 14, heading: 180, altitude: 12000,
+    })
+    ac.phase = AircraftPhase.APPROACH
+    expect(checkAircraftRemoval(ac)).toBe(false)
+    ac.y = -26
+    expect(checkAircraftRemoval(ac)).toBe(true)
   })
 })
 
