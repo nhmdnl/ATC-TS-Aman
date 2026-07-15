@@ -22,7 +22,7 @@ Line numbers below were verified 2026-07-10 — they drift; the named symbols do
 ```bash
 npm run typecheck                                  # renderer + electron main
 npx vitest run src/engine/__tests__/<file>.test.ts # targeted first
-npm test                                           # full suite (~170 tests, 9 files)
+npm test                                           # full suite (211 tests, 14 files)
 npm run dev                                        # E2E: briefing → pick stations → START
 ```
 
@@ -96,28 +96,35 @@ Insert into `tick()` in `src/engine/simulation-tick.ts` at the correct stage (or
 
 | Location | Simplification → upgrade path |
 |---|---|
-| `aircraft-factory.ts:9` | Flat random callsigns → sequential/realistic when flight schedule system added |
-| `movement.ts:56` | Instant heading snap on taxiways → pathfinding when taxiway graph is connected |
-| `airport-loader.ts:89` | HHAS traced under scale, `SCALE` fudge constant (~971 units = 3000 m runway) → re-trace at true scale |
-| `airport-loader.ts:203` | Diagram taxiways are render-only polylines → build routable graph |
-| `command-executor.ts` (GO_AROUND) | Hardcoded HHAS missed approach → load from airport data for multi-airport |
-| `phase-transitions.ts` (threshold check) | Same hardcoded missed approach (second copy) |
+| `aircraft-factory.ts` (`generateCallsign`) | Flat random callsigns → sequential/realistic when flight schedule system added |
+| `taxi-routing.ts:20` | Dijkstra with linear-scan frontier → priority queue if graphs grow past dozens of nodes |
+| `airport-loader.ts:25` | HHAS "1.0" file traced under scale (fudge factor for legacy format; v1.1 file is true-scale) |
+| `airport-loader.ts:313` (`selectActiveRunway`) | No ILS preference or crosswind limits → add if ops realism matters |
 | `phase-transitions.ts` (ROLLOUT gate pick) | All gates occupied → double-park at gate 1 → holding/queueing if it matters |
 | `simulation-tick.ts` (MVA check) | Hardcoded 8800 ft floor → per-quadrant MVA from airport data |
-| `airport-loader.ts` (`selectActiveRunway`) | No ILS preference or crosswind limits → add if ops realism matters |
 | `electron/preload.ts:3` | Two IPC channels → expand for game-state sync / file dialogs |
 | `electron/main.ts:32` | Hardcoded dev/prod switch → config when staging env exists |
+
+Resolved since 2026-07-10 (kept for history): taxiway pathfinding (Dijkstra taxi
+routing, v1.1 embedded graph), render-only taxiways (now routable), and both
+hardcoded missed-approach copies (now `missedApproachParams` from the airport
+file's per-runway ops data).
 
 ## Test map
 
 | File | Tests | Breaks when you change |
 |---|---|---|
 | `game-state.test.ts` | 43 | GameState API, snapshot shape, reset semantics |
-| `aircraft-factory.test.ts` | 32 | Spawn defaults, phases, flight types |
-| `constants.test.ts` | 28 | Any constant table (`SCORE_DELTAS`, `DIFFICULTY_PRESETS`, `PHASE_COMMANDS`, `PHASE_CONTROLLER`, `AIRBORNE_PHASES`, separation minima) |
+| `aircraft-factory.test.ts` | 37 | Spawn defaults, phases, flight types, spawn-point clearance |
+| `constants.test.ts` | 30 | Any constant table (`SCORE_DELTAS`, `DIFFICULTY_PRESETS`, `PHASE_COMMANDS`, `PHASE_CONTROLLER`, `AIRBORNE_PHASES`, separation minima) |
 | `movement.test.ts` | 25 | Heading/bearing/distance math, per-phase movement |
 | `separation.test.ts` | 14 | Violation detection, cooldown, ground exclusions |
 | `ai-controller.test.ts` | 12 | AI decision table (integration, real HHAS data) |
-| `command-executor.test.ts` | 10 | Executor phase wiring (incl. ESM `require()` crash regression) |
-| `arrival-lifecycle.test.ts` | 2 | Full arrival flow end-to-end incl. go-around (integration) |
+| `command-executor.test.ts` | 12 | Executor phase wiring (incl. ESM `require()` crash regression) |
+| `airport-loader.test.ts` | 11 | `.airport` parsing (v1.0/v1.1), runway selection, taxi graph |
+| `taxi-routing.test.ts` | 10 | Dijkstra routing, nearest-node snap, route building |
+| `phase-transitions.test.ts` | 6 | Routed hold-short trigger, FINAL clearance gate, area-exit removal, DEPARTED fly-out/removal |
+| `arrival-lifecycle.test.ts` | 3 | Full arrival flow end-to-end incl. go-around (integration) |
+| `simulation-tick.test.ts` | 3 | MVA alert scope (ENTERING/APPROACH only) |
+| `command-registry.test.ts` | 3 | Deferred execution, stale-readback session guard |
 | `scoring.test.ts` | 2 | Player-station score attribution |
