@@ -45,7 +45,7 @@ All phases are declared in `AircraftPhase` (`src/engine/types.ts`). Transitions 
 
 Departures: `PARKED` → `TAXI_OUT` → `HOLD_SHORT` → `LINE_UP` → `TAKEOFF_ROLL` → `CLIMBING` → `DEPARTED`
 
-Arrivals: `ENTERING` → `APPROACH` → `FINAL` → `LANDING` → `ROLLOUT` → `TAXI_IN` → `ARRIVED`
+Arrivals: `ENTERING` → `APPROACH` → `FINAL` → `LANDING` → `ROLLOUT` → `ARRIVED` (end of rollout teleports the aircraft to its gate; `TAXI_IN` exists in the enum but is currently unreachable)
 
 Missed approach: any arrival phase can transition to `MISSED`, which then re-enters `ENTERING`/`APPROACH`.
 

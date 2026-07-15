@@ -13,7 +13,6 @@ import { distanceNM, headingToRadians } from './movement'
 import { eventBus } from './event-bus'
 import { gameState } from './game-state'
 import { getAvailableGates, missedApproachParams } from './airport-loader'
-import { buildTaxiRoute } from './taxi-routing'
 
 /**
  * Process automatic phase transitions based on distance, altitude, and speed.
@@ -112,51 +111,26 @@ export function processPhaseTransitions(aircraft: Aircraft, runway: RunwayData |
 
     case AircraftPhase.ROLLOUT:
       if (aircraft.speed <= 5) {
-        aircraft.phase = AircraftPhase.TAXI_IN
-        // Pick a free gate if none assigned, and mark it occupied so a
-        // departure can't spawn into it (removeAircraft frees it again)
+        // Good landing → teleport straight to parking (user decision
+        // 2026-07-16: the routed taxi-in stalled at the runway edge and the
+        // arrival is done gameplay-wise once it's off the runway). TAXI_IN
+        // is currently unreachable; revisit if visible taxi-in returns.
+        // Pick a free gate and mark it occupied so a departure can't spawn
+        // into it (removeAircraft frees it again)
         // ponytail: all gates occupied → double-park at gate 1; holding/queueing if it matters
         if (!aircraft.assignedGate && airport.gates.length > 0) {
           const free = getAvailableGates(airport, gameState.occupiedGateIds)
           aircraft.assignedGate = (free[0] ?? airport.gates[0]).id
           gameState.occupiedGateIds.add(aircraft.assignedGate)
         }
-        // Route to the gate along the taxiway graph when available; the gate
-        // position itself is appended so the aircraft leaves the graph at the
-        // gate node and parks on the stand. Fallback: straight-line taxi.
         const gate = airport.gates.find(g => g.id === aircraft.assignedGate)
         if (gate) {
-          const route = gameState.taxiwayGraph
-            ? buildTaxiRoute(airport, gameState.taxiwayGraph, aircraft.x, aircraft.y, { kind: 'gate', ref: gate.id })
-            : null
-          if (route) {
-            route.push({ x: gate.x, y: gate.y })
-            aircraft.taxiRoute = route
-            aircraft.taxiRouteIndex = 0
-            aircraft.taxiTarget = route[0]
-          } else {
-            aircraft.taxiRoute = null
-            aircraft.taxiTarget = { x: gate.x, y: gate.y }
-          }
+          aircraft.x = gate.x
+          aircraft.y = gate.y
         }
-      }
-      break
-
-    case AircraftPhase.TAXI_IN:
-      if (aircraft.assignedGate) {
-        const gate = airport.gates.find(g => g.id === aircraft.assignedGate)
-        if (gate && distanceNM(aircraft.x, aircraft.y, gate.x, gate.y) < 0.02) {
-          aircraft.phase = AircraftPhase.ARRIVED
-          aircraft.speed = 0
-          eventBus.emit(GameEventType.ARRIVED_GATE, { callsign: aircraft.callsign })
-        }
-      } else {
-        // Fallback: arrived after 30 sec taxi if no gate
-        if (Date.now() - aircraft.spawnTime > 30000) {
-           aircraft.phase = AircraftPhase.ARRIVED
-           aircraft.speed = 0
-           eventBus.emit(GameEventType.ARRIVED_GATE, { callsign: aircraft.callsign })
-        }
+        aircraft.phase = AircraftPhase.ARRIVED
+        aircraft.speed = 0
+        eventBus.emit(GameEventType.ARRIVED_GATE, { callsign: aircraft.callsign })
       }
       break
   }
