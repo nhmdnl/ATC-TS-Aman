@@ -88,7 +88,7 @@ CLEARED_APPROACH + CONTACT_TOWER unaided; AI outcomes excluded from scoring).
 | **EndScreen** | ✅ | Grade badge, all 5 dimension bars, duration, career stats, PLAY AGAIN |
 | **State management** | ✅ | React context + rAF render loop |
 | **Layout** | ✅ | 5-container: air-strip | radar | commands (with GND/TWR/APP tabs) | input | comms |
-| **Tests** | ✅ | Vitest, 196 tests incl. executor regression, arrival-lifecycle + AI-controller integration, v1.1 loader + taxi-routing, all passing |
+| **Tests** | ✅ | Vitest, 211 tests (14 files) incl. executor regression, arrival-lifecycle + AI-controller integration, v1.1 loader + taxi-routing, 2026-07-16 playtest regressions, all passing |
 
 (2026-07-12) **v1.1 airport-format integration shipped on both sides** (sim commit
 `60325f6`; editor has its own repo in `/home/devnhm/Projects/spstudio/airport-studio-application`).
@@ -117,6 +117,28 @@ calibration, and `lib/taxi-graph.ts` derives the routable graph on every save.
 departures, and CLEARED_APPROACH alike. Arrivals also now take the first *free*
 gate (occupancy-tracked) instead of everyone taxiing to G1. Dead `AircraftList.tsx`
 deleted.
+
+### 🔥 Bugs found & fixed during overnight live playtest (2026-07-16)
+
+Five fixes, one commit each, all with regression tests (211 tests green):
+
+- `7dd12e0` — arrivals spawned on top of existing traffic → instant separation
+  violation. Spawn points now filtered by `isSpawnPointClear` (2× lateral
+  minima / standard vertical); cycle skipped if all entries blocked.
+- `92cb405` — routed taxi-out held short 0.1 NM early mid-taxiway; transition
+  now requires the route's *final* point reached (< 0.02 NM).
+- `d3c692b` — DEPARTED had no movement case: aircraft froze mid-air forever.
+  Now flies out via `moveClimb` until the 25 NM removal boundary.
+- `31990ea` — uncleaned overflights flipped to FINAL by proximity alone, then
+  flew away stuck. FINAL requires `clearedForApproach`; ENTERING/APPROACH
+  arrivals past 25 NM are removed.
+- `502873c` — false MVA alerts after landing / on go-around. MVA is a
+  vectoring floor: check applies only to ENTERING/APPROACH.
+
+Closed as not-bugs: score 0 (0-floor clamp under heavy penalties), SPEED
+"no-op" (DOM-timing measurement artifact), strip-click deselect (toggle UX).
+In-app verification of the fixed paths is delegated to the user (2026-07-16);
+the lead does no further automated playtesting.
 
 ### 🔥 Bugs found & fixed during E2E verification (2026-07-05)
 

@@ -239,6 +239,37 @@ result.
 
 (newest first — see template in Protocol)
 
+### 2026-07-16 — LEAD (Claude) — overnight live-playtest bug sweep — DONE
+Five bugs found via live CDP playtest, each fixed with a regression test
+(one commit per fix). 211/211 tests green, both typechecks clean after each.
+Remaining in-app verification is delegated to the user (checklist delivered
+in-session); no further automated playtesting by the lead.
+
+- **7dd12e0** — arrivals could spawn on top of existing traffic → instant,
+  unpreventable separation violation. Added `isSpawnPointClear` guard
+  (2× lateral minima / standard vertical) in `aircraft-factory.ts`; spawn
+  cycle skips when all entries are blocked. +5 tests.
+- **92cb405** — routed taxi-out held short 0.1 NM early, mid-taxiway. Routed
+  TAXI_OUT→HOLD_SHORT now requires tracking the route's final point and
+  dist < 0.02 NM (`phase-transitions.ts`). +2 tests.
+- **d3c692b** — DEPARTED aircraft had no movement case: froze mid-air forever,
+  never reaching the 25 NM removal boundary. DEPARTED now uses `moveClimb`
+  (`movement.ts`); also exempted mid-band handoffs from the MVA alert. +1 test.
+- **31990ea** — uncleaned overflights flipped to FINAL by threshold proximity
+  alone (tower control + urgent), then flew away stuck forever. FINAL now
+  requires `clearedForApproach`; ENTERING/APPROACH arrivals past 25 NM are
+  removed (`phase-transitions.ts`). +3 tests.
+- **502873c** — false "LOW ALTITUDE ALERT CHECK MVA" after landing (landed
+  arrivals keep field elevation ~7,661 ft, inside the 8,800 ft band) and on
+  go-arounds. MVA check now applies only to ENTERING/APPROACH — it's a
+  vectoring floor (`simulation-tick.ts`); deleted unused
+  `GROUND_ALTITUDE_THRESHOLD_FT`. +3 tests (new `simulation-tick.test.ts`).
+- **9bde359** — PLAYBOOK.md ledgers refreshed: debt table rewritten to the
+  8 current `ponytail:` comments, test map corrected (211 tests, 14 files).
+- Investigated and closed as NOT bugs: score 0 (baseline 1000 with a 0 floor —
+  heavy penalties, working as designed), SPEED command "no-op" (DOM-timing
+  measurement artifact), flight-strip click deselecting (toggle UX).
+
 ### 2026-07-12 — LEAD (Claude) — T-007 + T-008 executed and verified
 User reassigned both tasks from Qwen to the lead.
 
