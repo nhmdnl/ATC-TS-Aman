@@ -33,6 +33,11 @@ export const MVA_FT = 8800
 
 // ─── Spawning ─────────────────────────────────────────────────────────────────
 
+/** Aircraft leaving the field beyond this radius are removed — the 4th radar
+ *  ring (20 NM), visibly inside the display and safely outside the ~15 NM
+ *  arrival spawn radius */
+export const REMOVAL_RADIUS_NM = 20
+
 /** Distance from airport at which arrivals trigger ENTERING → APPROACH (NM) */
 export const APPROACH_TRIGGER_NM = 8
 

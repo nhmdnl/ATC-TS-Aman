@@ -88,7 +88,7 @@ describe('arrivals that leave the radar area are removed', () => {
     })
     ac.phase = AircraftPhase.APPROACH
     expect(checkAircraftRemoval(ac)).toBe(false)
-    ac.y = -26
+    ac.y = -21 // just past the 20 NM removal radius (4th radar ring)
     expect(checkAircraftRemoval(ac)).toBe(true)
   })
 })

@@ -6,7 +6,8 @@ import {
   THRESHOLD_DISTANCE_M,
   HOLD_SHORT_DISTANCE_NM,
   PHASE_CONTROLLER,
-  METERS_PER_NM
+  METERS_PER_NM,
+  REMOVAL_RADIUS_NM
 } from './constants'
 import { distanceNM, headingToRadians } from './movement'
 import { eventBus } from './event-bus'
@@ -180,20 +181,17 @@ export function checkAircraftRemoval(aircraft: Aircraft): boolean {
   if (aircraft.phase === AircraftPhase.ARRIVED) {
     return true
   }
-  
-  if (aircraft.phase === AircraftPhase.DEPARTED) {
-    return distanceNM(aircraft.x, aircraft.y, 0, 0) > 25
-  }
 
-  if (aircraft.phase === AircraftPhase.MISSED) {
-    return distanceNM(aircraft.x, aircraft.y, 0, 0) > 25
+  if (aircraft.phase === AircraftPhase.DEPARTED ||
+      aircraft.phase === AircraftPhase.MISSED) {
+    return distanceNM(aircraft.x, aircraft.y, 0, 0) > REMOVAL_RADIUS_NM
   }
 
   // Neglected arrivals that overfly the field and leave the radar area would
   // otherwise live forever (ENTERING/APPROACH never expire on distance)
   if (aircraft.flightType === 'arrival' &&
       (aircraft.phase === AircraftPhase.ENTERING || aircraft.phase === AircraftPhase.APPROACH)) {
-    return distanceNM(aircraft.x, aircraft.y, 0, 0) > 25
+    return distanceNM(aircraft.x, aircraft.y, 0, 0) > REMOVAL_RADIUS_NM
   }
 
   return false

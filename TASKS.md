@@ -69,7 +69,14 @@ Both repos are in scope:
 
 ## Backlog (priority order)
 
-(empty — T-007/T-008 completed by lead 2026-07-12)
+### T-009 — spstudio: designed ground pathways (user request, 2026-07-16 playtest)
+Taxi routes currently come from the auto-built taxi graph and show a slight
+visual offset from the drawn taxiways; landing/rollout also doesn't track the
+drawn runway exactly. The user wants ground pathways to be authored in
+airport-Studio at design time (explicit taxi/runway paths in the `.airport`
+file) so aircraft follow exactly what the designer drew. Scope: spstudio
+editor support for drawing pathways + engine consumption alongside/instead of
+the derived graph. Future work — not scheduled yet.
 
 ---
 
