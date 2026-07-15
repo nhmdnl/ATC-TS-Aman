@@ -19,7 +19,10 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
-    resizable: false,
+    // Fully resizable, but never below the design size — the side panels are
+    // fixed-width, so anything smaller crushes the radar
+    minWidth: 1280,
+    minHeight: 720,
     title: 'ATC Aman',
     backgroundColor: '#0E1116',
     webPreferences: {
