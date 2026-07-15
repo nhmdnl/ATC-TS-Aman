@@ -46,18 +46,17 @@ export function tick(state: GameState, dtSeconds: number): void {
     if (aircraft.altitude < MVA_FT &&
         (aircraft.phase === AircraftPhase.ENTERING || aircraft.phase === AircraftPhase.APPROACH)) {
       
-      // Prevent spamming — only log if we didn't log recently
+      // Alert once per aircraft — repeating every 10 s was radio spam
       // ponytail: MVA check uses hardcoded 8800 ft floor — per-quadrant from airport data when MVA varies by sector
       const mvaKey = `mva_${aircraft.id}`
-      const lastMvaLog = (state as any)[mvaKey] || 0
-      if (nowMs - lastMvaLog > 10000) {
+      if (!(state as any)[mvaKey]) {
         state.addRadioMessage({
           timestamp: nowMs,
           speaker: 'CRITICAL',
           message: `${aircraft.callsign} LOW ALTITUDE ALERT. CHECK MVA.`,
           station: 'SYSTEM'
         })
-        ;(state as any)[mvaKey] = nowMs
+        ;(state as any)[mvaKey] = true
       }
     }
 

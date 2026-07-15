@@ -32,8 +32,10 @@ describe('MVA low-altitude alert scope', () => {
     gameState.lastSpawnTime = Date.now() // suppress periodic spawn
   })
 
-  it('alerts for APPROACH traffic below the MVA floor', () => {
+  it('alerts once (not repeatedly) for APPROACH traffic below the MVA floor', () => {
     addArrivalInPhase(AircraftPhase.APPROACH, 8200)
+    tick(gameState, 1)
+    tick(gameState, 1)
     tick(gameState, 1)
     expect(mvaAlerts()).toBe(1)
   })
