@@ -80,6 +80,7 @@ Insert into `tick()` in `src/engine/simulation-tick.ts` at the correct stage (or
 | Score wrong / missing | `scoring.ts` — attribution is by `aircraft.controller` at event-fire time, **deliberate** (comment at `scoring.ts:28`); deltas in `SCORE_DELTAS` |
 | AI station misbehaving | `ai-controller.ts` `nextExpectedCommand` switch; AI only acts on stations not in `gameState.playerStations` |
 | Radar visual glitch | `RadarCanvas.tsx` (1000+ lines): init effect vs redraw effects; StrictMode double-init guard at line ~651 |
+| Radar canvas blank/white, rest of UI fine | WebGL unavailable — GPU process fell back to software (console shows "Failed to create WebGPU Context Provider"). On hybrid-GPU laptops a cold launch races the suspended dGPU's resume; `disable-gpu-process-crash-limit` switch + GPU-ready gate in `electron/main.ts` handle it (added 2026-07-18) |
 | False separation alerts | `separation.ts` ground-phase exclusions and alert cooldown |
 
 ## Sharp edges (all verified against source 2026-07-10)

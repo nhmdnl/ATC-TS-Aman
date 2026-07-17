@@ -9,6 +9,14 @@ const DEV_URL = 'http://localhost:5173'
 // which use their native TTS backends.
 app.commandLine.appendSwitch('enable-speech-dispatcher')
 
+// Hybrid-GPU laptops (dev machine: AMD iGPU + runtime-suspended NVIDIA):
+// launching while the discrete GPU is asleep crashes Chromium's GPU process
+// mid-resume; after 3 crashes Chromium permanently falls back to software
+// rendering, WebGL is gone for the whole session, and the radar canvas stays
+// blank. Let the GPU process keep retrying instead — it recovers ~2 s in.
+// No-op on machines where GPU init never fails.
+app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
+
 let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
@@ -45,7 +53,17 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(createWindow)
+// WebGL takes ~2 s to come up after a cold hybrid-GPU launch (see switch
+// above). Creating the window earlier lets PixiJS cache "no WebGL" and the
+// radar stays blank anyway — so wait, capped so a truly GPU-less machine
+// still gets a window (software UI beats no app).
+async function whenGpuReady(): Promise<void> {
+  for (let i = 0; i < 20 && app.getGPUFeatureStatus().webgl !== 'enabled'; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+}
+
+app.whenReady().then(whenGpuReady).then(createWindow)
 
 ipcMain.on('app-quit', () => app.quit())
 
