@@ -3,7 +3,7 @@ import { CommandType, AircraftPhase, ControllerStation, GameEventType } from '..
 import { PHASE_CONTROLLER } from '../constants'
 import { headingToRadians } from '../movement'
 import { findRunwayById, selectActiveRunway, missedApproachParams } from '../airport-loader'
-import { buildTaxiRoute } from '../taxi-routing'
+import { buildTaxiRoute, findNearestNodeByRef } from '../taxi-routing'
 import { eventBus } from '../event-bus'
 import { gameState } from '../game-state'
 
@@ -139,12 +139,33 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
       aircraft.controller = ControllerStation.GROUND
       break
 
-    case CommandType.LINE_UP_WAIT:
+    case CommandType.LINE_UP_WAIT: {
       changePhase(aircraft, AircraftPhase.LINE_UP)
+      // Taxi a real path onto the runway: hold-short bar → the nearest
+      // runway-entry node on the drawn centerline → backtrack to the
+      // threshold, so the roll always starts on the numbers with full length.
+      // Replaces the old aim-nowhere creep that lined up at an offset
+      // wherever the taxiway happened to meet the runway (T-009).
+      if (airport && aircraft.assignedRunway) {
+        const rwy = findRunwayById(airport, aircraft.assignedRunway)
+        if (rwy) {
+          const entry = findNearestNodeByRef(
+            airport, 'runway-entry', aircraft.assignedRunway, aircraft.x, aircraft.y)
+          const route = entry ? [{ x: entry.x, y: entry.y }] : []
+          route.push({ x: rwy.thresholdX, y: rwy.thresholdY })
+          aircraft.taxiRoute = route
+          aircraft.taxiRouteIndex = 0
+          aircraft.taxiTarget = route[0]
+        }
+      }
       break
+    }
 
     case CommandType.CLEARED_TAKEOFF:
       changePhase(aircraft, AircraftPhase.TAKEOFF_ROLL)
+      // Line-up route is done — nothing should keep steering to it
+      aircraft.taxiRoute = null
+      aircraft.taxiTarget = null
       break
 
     case CommandType.EXIT_RUNWAY:

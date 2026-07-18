@@ -80,6 +80,33 @@ export function findNodeByRef(airport: Airport, kind: TaxiwayNodeKind, ref: stri
 }
 
 /**
+ * Nearest matching node by kind + ref — airports can carry several entries
+ * for one runway, and line-up should use the one the aircraft is holding at.
+ */
+export function findNearestNodeByRef(
+  airport: Airport,
+  kind: TaxiwayNodeKind,
+  ref: string,
+  x: number,
+  y: number
+): TaxiwayNode | null {
+  let best: TaxiwayNode | null = null
+  let bestDist = Infinity
+  for (const twy of airport.taxiways) {
+    for (const node of twy.nodes) {
+      if (node.kind !== kind || !node.ref) continue
+      if (!(kind === 'gate' ? node.ref === ref : node.ref.split('/').includes(ref))) continue
+      const d = distanceNM(x, y, node.x, node.y)
+      if (d < bestDist) {
+        bestDist = d
+        best = node
+      }
+    }
+  }
+  return best
+}
+
+/**
  * Build a taxi route (point list) from a position to a hold-short node of a
  * runway or a gate node. Returns null when the airport has no routable graph
  * or the goal is unreachable — callers fall back to straight-line taxi.

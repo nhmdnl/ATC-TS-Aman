@@ -99,10 +99,24 @@ function moveTaxi(aircraft: Aircraft, dtSeconds: number): void {
 }
 
 function moveLineUp(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null): void {
+  // Follow the executor-built path (hold-short → runway entry → threshold),
+  // then swing onto runway heading and hold for takeoff clearance (T-009).
+  if (aircraft.taxiRoute && aircraft.taxiRoute.length > 0) {
+    const end = aircraft.taxiRoute[aircraft.taxiRoute.length - 1]
+    if (distanceNM(aircraft.x, aircraft.y, end.x, end.y) < 0.01) {
+      aircraft.speed = 0
+      if (runway) aircraft.heading = turnToward(aircraft.heading, runway.trueHeading, 30)
+      return
+    }
+    moveTaxi(aircraft, dtSeconds)
+    return
+  }
+
+  // Fallback (no graph in the airport file): legacy creep toward runway heading
   if (!runway) return
   const targetHeading = runway.trueHeading
   aircraft.heading = turnToward(aircraft.heading, targetHeading, 15)
-  
+
   // Move toward runway heading at taxi speed
   const taxiSpeedKnots = aircraft.type.taxiSpeed
   if (aircraft.speed < taxiSpeedKnots) {

@@ -241,6 +241,50 @@ describe('executeCommand — routed taxi along the taxiway graph', () => {
     expect(aircraft.taxiRouteIndex).toBe(aircraft.taxiRoute!.length - 1)
   })
 
+  it('LINE_UP_WAIT routes hold-short → runway entry → threshold, and the aircraft lines up on the numbers (T-009)', () => {
+    const base = makeRoutedAirport()
+    // Put a runway-entry node on the 07 centerline; the hold-short bar sits
+    // just off it on the taxiway stub. Centerline runs (-0.8,-0.3)→(0.8,0.3).
+    const airport: Airport = {
+      ...base,
+      taxiways: [{
+        ...base.taxiways[0],
+        nodes: [
+          ...base.taxiways[0].nodes,
+          { id: 'n3', x: -0.4, y: -0.15, kind: 'runway-entry', ref: '07/25' },
+        ],
+        edges: [...base.taxiways[0].edges, { from: 'n2', to: 'n3' }],
+      }],
+    }
+    const rwy = airport.runways[0]
+    const aircraft = makeAircraft({
+      phase: AircraftPhase.HOLD_SHORT, controller: ControllerStation.TOWER,
+      assignedRunway: '07', x: -0.45, y: -0.05, heading: 160,
+    })
+
+    executeCommand(cmd(CommandType.LINE_UP_WAIT), aircraft, airport)
+
+    expect(aircraft.phase).toBe(AircraftPhase.LINE_UP)
+    expect(aircraft.taxiRoute).toEqual([
+      { x: -0.4, y: -0.15 },
+      { x: rwy.thresholdX, y: rwy.thresholdY },
+    ])
+
+    // Follow the path: onto the centerline at the entry, backtrack to the
+    // threshold, stop aligned with the runway heading
+    for (let t = 0; t < 700; t++) {
+      moveAircraft(aircraft, 1, rwy)
+    }
+    expect(aircraft.speed).toBe(0)
+    expect(Math.hypot(aircraft.x - rwy.thresholdX, aircraft.y - rwy.thresholdY)).toBeLessThan(0.01)
+    expect(Math.abs(aircraft.heading - rwy.trueHeading)).toBeLessThan(1)
+
+    // CLEARED_TAKEOFF drops the line-up route so the roll isn't steered by it
+    executeCommand(cmd(CommandType.CLEARED_TAKEOFF), aircraft, airport)
+    expect(aircraft.taxiRoute).toBeNull()
+    expect(aircraft.taxiTarget).toBeNull()
+  })
+
   it('TAXI falls back to the straight-line hold-short target when no graph exists', () => {
     const airport = makeRoutedAirport()
     gameState.taxiwayGraph = null
