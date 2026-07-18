@@ -69,14 +69,29 @@ Both repos are in scope:
 
 ## Backlog (priority order)
 
-### T-009 — spstudio: designed ground pathways (user request, 2026-07-16 playtest)
+### T-011 — PRD leftovers + 0.2.0 release (user decision 2026-07-18) — target: next minor
+Bundle for the next minor version: (a) visibility/weather beyond wind (PRD
+user story, never implemented); (b) career-level gameplay unlocks (PRD marks
+the hook as future); (c) cut the 0.2.0 Windows release — version bump,
+CHANGELOG, tag per PLAYBOOK release flow — picking up everything landed since
+0.1.0 (gate teleport, MVA dedupe, resizable window, main menu, Linux GPU
+fixes, -500 score floor). Not scheduled.
+
+### T-009 — spstudio: designed ground pathways (user request, 2026-07-16 playtest; scoped for current sprint 2026-07-18)
 Taxi routes currently come from the auto-built taxi graph and show a slight
 visual offset from the drawn taxiways; landing/rollout also doesn't track the
 drawn runway exactly. The user wants ground pathways to be authored in
 airport-Studio at design time (explicit taxi/runway paths in the `.airport`
 file) so aircraft follow exactly what the designer drew. Scope: spstudio
 editor support for drawing pathways + engine consumption alongside/instead of
-the derived graph. Future work — not scheduled yet.
+the derived graph.
+
+**Sprint scope (user, 2026-07-18):** the departure chain specifically —
+authored paths for taxi → hold-short → line-up → takeoff. Today line-up
+snaps to a synthesized point at a visible offset near the runway midpoint;
+with designed paths the aircraft should follow the drawn route to the
+hold-short bar, onto the centerline at the threshold, and roll on the drawn
+centerline. Repo: `~/Projects/spstudio` (editor) + sim engine consumption.
 
 ### T-010 — recorded radio voice pack replaces Web Speech TTS (user request, 2026-07-18) — target: next major version (v2)
 Replace runtime TTS with concatenative pre-recorded audio: a token library
