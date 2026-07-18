@@ -150,8 +150,8 @@ describe('constants', () => {
       expect(INITIAL_SCORE).toBe(1000)
     })
 
-    it('min score is 0', () => {
-      expect(MIN_SCORE).toBe(0)
+    it('min score is -500 (violations keep costing below zero, user decision 2026-07-18)', () => {
+      expect(MIN_SCORE).toBe(-500)
     })
 
     it('max score is 2000', () => {

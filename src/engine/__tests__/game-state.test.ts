@@ -225,11 +225,12 @@ describe('GameState', () => {
       expect(state.score).toBe(850)
     })
 
-    it('caps score at MIN_SCORE', () => {
+    it('goes negative so violations keep costing, capped at MIN_SCORE', () => {
       for (let i = 0; i < 10; i++) {
         state.addScoreEvent({ timestamp: 0, delta: -200, reason: 'separation_violation', callsign: 'UAL123' })
       }
-      expect(state.score).toBe(0)
+      expect(state.score).toBe(-500)
+      expect(state.getGrade()).toBe('D')
     })
 
     it('caps score at MAX_SCORE', () => {

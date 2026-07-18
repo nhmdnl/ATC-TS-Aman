@@ -53,7 +53,10 @@ export const HOLD_SHORT_DISTANCE_NM = 0.1
 // ─── Scoring ──────────────────────────────────────────────────────────────────
 
 export const INITIAL_SCORE = 1000
-export const MIN_SCORE = 0
+// Below zero on purpose (user decision 2026-07-18): a 0-floor made every
+// violation after a bad streak free. -500 keeps violations costing through
+// any realistic session; the grade is already D below 600.
+export const MIN_SCORE = -500
 export const MAX_SCORE = 2000
 export const MAX_SCORE_EVENTS = 50
 
