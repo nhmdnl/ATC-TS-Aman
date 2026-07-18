@@ -86,12 +86,12 @@ file) so aircraft follow exactly what the designer drew. Scope: spstudio
 editor support for drawing pathways + engine consumption alongside/instead of
 the derived graph.
 
-**Sprint scope (user, 2026-07-18):** the departure chain specifically —
-authored paths for taxi → hold-short → line-up → takeoff. Today line-up
-snaps to a synthesized point at a visible offset near the runway midpoint;
-with designed paths the aircraft should follow the drawn route to the
-hold-short bar, onto the centerline at the threshold, and roll on the drawn
-centerline. Repo: `~/Projects/spstudio` (editor) + sim engine consumption.
+**Sprint scope (user, 2026-07-18): DONE — see Worklog.** Departure chain
+ships: line-up now taxis hold-short → runway-entry → threshold and takes
+off on the drawn centerline (sim commit 4cfce52); hold-short bars are
+authorable via the editor's Holding Point tool and override the synthesized
+setback in the derived graph. Still open in this task: arrival-side
+authored paths (rollout exit, visible taxi-in).
 
 ### T-010 — recorded radio voice pack replaces Web Speech TTS (user request, 2026-07-18) — target: next major version (v2)
 Replace runtime TTS with concatenative pre-recorded audio: a token library
@@ -274,6 +274,30 @@ result.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-07-18 — LEAD (Claude) — T-009 sprint scope (departure pathway chain) — DONE
+- What changed (sim, commit 4cfce52): `command-executor.ts` LINE_UP_WAIT
+  builds a route hold-short → nearest runway-entry node → threshold
+  (backtrack), CLEARED_TAKEOFF clears it; `movement.ts` moveLineUp follows
+  the route then swings onto runway heading (legacy creep kept as no-graph
+  fallback); `taxi-routing.ts` gained `findNearestNodeByRef`. Regression
+  test drives the full path on a routed fixture (212 tests green).
+- What changed (editor, `~/Projects/spstudio/airport-studio-application/` —
+  **not a git repo, uncommitted**): new `holding` object type
+  (airport-document.ts: type/factory/vertices/hit-test/layer), Holding Point
+  toolbar tool wired in viewport.tsx (click-to-place + hold-short-bar
+  rendering), inspector icon, and `taxi-graph.ts` uses an authored holding
+  point (projected onto the pathway, SNAP_TOL) instead of the synthesized
+  82.5 m setback, warning on orphaned points. 2 new tests (12 green,
+  tsc clean).
+- Key finding: the derived graph already traces drawn polylines vertex-for-
+  vertex, so no file-format change was needed — the offset was `moveLineUp`
+  aiming nowhere. Also: the root spstudio app (localhost:3000) is an
+  outdated v1.0 copy with no taxi graph; the canonical editor is
+  `airport-studio-application/` — run `next dev` from there.
+- Remaining in T-009 (future): arrival-side authored paths (rollout exit,
+  visible taxi-in to replace the gate teleport), editor validation panel
+  entry for pathway chains.
 
 ### 2026-07-16 — LEAD (Claude) — overnight live-playtest bug sweep — DONE
 Five bugs found via live CDP playtest, each fixed with a regression test
