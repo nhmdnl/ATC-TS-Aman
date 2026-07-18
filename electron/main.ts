@@ -9,13 +9,16 @@ const DEV_URL = 'http://localhost:5173'
 // which use their native TTS backends.
 app.commandLine.appendSwitch('enable-speech-dispatcher')
 
-// Hybrid-GPU laptops (dev machine: AMD iGPU + runtime-suspended NVIDIA):
-// launching while the discrete GPU is asleep crashes Chromium's GPU process
-// mid-resume; after 3 crashes Chromium permanently falls back to software
-// rendering, WebGL is gone for the whole session, and the radar canvas stays
-// blank. Let the GPU process keep retrying instead — it recovers ~2 s in.
-// No-op on machines where GPU init never fails.
-app.commandLine.appendSwitch('disable-gpu-process-crash-limit')
+// Linux only: Electron 35's bundled ANGLE segfaults in EGL_CreateWindowSurface
+// on its default OpenGL backend against current mesa (coredump verified,
+// 2026-07-18) — three GPU-process crashes, then Chromium permanently falls
+// back to software rendering and WebGL (the whole radar) is gone for the
+// session. ANGLE's Vulkan backend is stable, pinned to X11 (native Wayland
+// additionally fails scanout buffer allocation). Windows keeps default D3D11.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('ozone-platform', 'x11')
+  app.commandLine.appendSwitch('use-angle', 'vulkan')
+}
 
 let mainWindow: BrowserWindow | null = null
 
@@ -53,10 +56,10 @@ function createWindow() {
   })
 }
 
-// WebGL takes ~2 s to come up after a cold hybrid-GPU launch (see switch
-// above). Creating the window earlier lets PixiJS cache "no WebGL" and the
-// radar stays blank anyway — so wait, capped so a truly GPU-less machine
-// still gets a window (software UI beats no app).
+// GPU init can lag a cold launch (hybrid-GPU laptops resume the discrete
+// card first). Creating the window before WebGL is up lets PixiJS cache
+// "no WebGL" and the radar stays blank — so wait, capped so a truly
+// GPU-less machine still gets a window (software UI beats no app).
 async function whenGpuReady(): Promise<void> {
   for (let i = 0; i < 20 && app.getGPUFeatureStatus().webgl !== 'enabled'; i++) {
     await new Promise((resolve) => setTimeout(resolve, 500))
