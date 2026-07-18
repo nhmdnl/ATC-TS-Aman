@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useGame } from '../state/GameContext'
 import type { DifficultyLevel } from '../engine/types'
 import { ControllerStation } from '../engine/types'
@@ -21,8 +21,20 @@ const STATION_LABELS: Record<ControllerStation, string> = {
   [ControllerStation.AREA]: 'AREA', // never shown — not a player-selectable station
 }
 
+const SECONDARY_BUTTON: React.CSSProperties = {
+  padding: '10px 16px',
+  background: '#1D2430',
+  color: '#E2E8F0',
+  border: '1px solid #334155',
+  borderRadius: 4,
+  cursor: 'pointer',
+  fontWeight: 700,
+  fontSize: 14,
+  fontFamily: 'inherit',
+}
+
 export default function BriefingScreen() {
-  const { setDifficulty, setPlayerStations, startSession } = useGame()
+  const { setDifficulty, setPlayerStations, startSession, muted, toggleMute } = useGame()
   const [selected, setSelected] = useState<DifficultyLevel>('medium')
   const [stations, setStations] = useState<ControllerStation[]>(STATION_ORDER)
 
@@ -49,7 +61,9 @@ export default function BriefingScreen() {
       position: 'absolute',
       inset: 0,
       zIndex: 1000,
-      background: 'rgba(15, 23, 42, 0.92)',
+      // Opaque title-screen backdrop — the game UI keeps warming up behind it
+      // (Pixi/WebGL init), it just shouldn't bleed through the main menu.
+      background: `radial-gradient(ellipse at center, #131A24 0%, ${CSS_COLORS.bg.primary} 75%)`,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -62,8 +76,8 @@ export default function BriefingScreen() {
         maxWidth: 420,
         width: '90%',
       }}>
-        <h1 style={{ margin: '0 0 4px', color: '#0EA5E9', fontSize: 22, fontWeight: 700 }}>ATC AMAN</h1>
-        <p style={{ margin: '0 0 20px', color: CSS_COLORS.text.muted, fontSize: 12 }}>
+        <h1 style={{ margin: '0 0 4px', color: '#0EA5E9', fontSize: 32, fontWeight: 700, letterSpacing: 3, textAlign: 'center' }}>ATC AMAN</h1>
+        <p style={{ margin: '0 0 24px', color: CSS_COLORS.text.muted, fontSize: 12, textAlign: 'center' }}>
           HHAS — Asmara International Airport
         </p>
 
@@ -170,20 +184,24 @@ export default function BriefingScreen() {
           </button>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('toggle-tutorial'))}
-            style={{
-              padding: '10px 16px',
-              background: '#1D2430',
-              color: '#E2E8F0',
-              border: '1px solid #334155',
-              borderRadius: 4,
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: 14,
-              fontFamily: 'inherit',
-            }}
+            style={SECONDARY_BUTTON}
           >
             TUTORIALS
           </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <button onClick={toggleMute} style={{ ...SECONDARY_BUTTON, flex: 1, fontSize: 12 }}>
+            SOUND: {muted ? 'OFF' : 'ON'}
+          </button>
+          {window.electronAPI && (
+            <button
+              onClick={() => window.electronAPI.send('app-quit', null)}
+              style={{ ...SECONDARY_BUTTON, flex: 1, fontSize: 12 }}
+            >
+              QUIT
+            </button>
+          )}
         </div>
 
         <div style={{ marginTop: 16, fontSize: 10, color: CSS_COLORS.text.muted, textAlign: 'center', lineHeight: 1.6 }}>
