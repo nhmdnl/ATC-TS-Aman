@@ -28,7 +28,9 @@ export const SEPARATION_COOLDOWN_MS = 5000
 
 // ─── Terrain / MVA ────────────────────────────────────────────────────────────
 
-/** Minimum Vectoring Altitude — 8800 ft MSL (HHAS circling minima Cat C) */
+/** Fallback Minimum Vectoring Altitude — 8800 ft MSL (HHAS circling minima
+ *  Cat C). Airports loaded from file carry their own `mvaFt`; this is only
+ *  used when the airport is missing or predates the field. */
 export const MVA_FT = 8800
 
 // ─── Spawning ─────────────────────────────────────────────────────────────────

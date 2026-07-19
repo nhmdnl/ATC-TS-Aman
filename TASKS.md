@@ -275,6 +275,29 @@ result.
 
 (newest first — see template in Protocol)
 
+### 2026-07-19 — LEAD (Claude) — Airport picker + map preview (user request) — DONE
+- What changed (sim): `state/airport-registry.ts` (new) bundles every
+  `.airport`/`.airport.json` under `src/data/airports/` via `import.meta.glob`
+  and parses once at startup (bad files skipped with a warning);
+  `GameContext.tsx` loads from the registry instead of a hardcoded HHAS import
+  and exposes `airports`/`selectedAirportId`/`setAirport` (locked once a
+  session starts); `components/AirportPreview.tsx` (new) renders a north-up SVG
+  minimap (runways/taxiways/aprons/buildings/gates); `BriefingScreen.tsx` gains
+  an Airport section (picker row when >1 airport, preview card with RWY/gates/
+  elevation strip, subtitle follows selection). Per-airport MVA: `Airport.mvaFt`
+  (types.ts), derived in `airport-loader.ts` as `metadata.mva ?? elevation+1100`
+  rounded up to 100 (HHAS 7661 → 8800 exactly, DreamLand 1500 → 2600);
+  `simulation-tick.ts` MVA check uses `airport.mvaFt ?? MVA_FT`. Added
+  `src/vite-env.d.ts` for `import.meta.glob` types.
+- Verification: `npm run typecheck` clean; `npx vitest run` 214/214 (2 new
+  loader tests: derived + explicit MVA); 25 s `npm run dev` smoke — renderer
+  boots and Pixi renders, no transform/crash errors.
+- Notes: DRMLND.airport was upgraded to v1.1 with a derived taxi graph earlier
+  today (canonical editor serializer). Its two gates are still >120 m from any
+  taxiway (editor warnings) — playable but gate routing degrades until the
+  user moves them in the editor. Missed approach was already per-runway with a
+  generic fallback, so no change needed there.
+
 ### 2026-07-18 — LEAD (Claude) — T-009 sprint scope (departure pathway chain) — DONE
 - What changed (sim, commit 4cfce52): `command-executor.ts` LINE_UP_WAIT
   builds a route hold-short → nearest runway-entry node → threshold

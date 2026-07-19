@@ -43,11 +43,11 @@ export function tick(state: GameState, dtSeconds: number): void {
     // climb-out, go-arounds, final/landing traffic, and aircraft on the
     // ground (landed arrivals keep field elevation ~7,661 ft MSL, which
     // used to false-alert every rollout/taxi-in).
-    if (aircraft.altitude < MVA_FT &&
+    if (aircraft.altitude < (state.airport?.mvaFt ?? MVA_FT) &&
         (aircraft.phase === AircraftPhase.ENTERING || aircraft.phase === AircraftPhase.APPROACH)) {
-      
+
       // Alert once per aircraft — repeating every 10 s was radio spam
-      // ponytail: MVA check uses hardcoded 8800 ft floor — per-quadrant from airport data when MVA varies by sector
+      // ponytail: single MVA floor per airport — per-quadrant from airport data when MVA varies by sector
       const mvaKey = `mva_${aircraft.id}`
       if (!(state as any)[mvaKey]) {
         state.addRadioMessage({

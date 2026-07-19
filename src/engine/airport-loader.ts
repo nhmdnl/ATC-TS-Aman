@@ -1,5 +1,14 @@
 import type { Airport, TaxiwayGraph, TaxiwayData, RunwayData, GateData, SpawnPointData, AirportDiagram, DiagramPoint, Wind } from './types'
 
+/**
+ * MVA floor: explicit `metadata.mva` if the file has one, else field elevation
+ * + 1100 ft rounded up to the next 100. The fallback reproduces HHAS's
+ * published 8800 ft exactly (7661 + 1100 → 8800).
+ */
+function computeMvaFt(elevationFt: number, explicit?: number): number {
+  return explicit ?? Math.ceil((elevationFt + 1100) / 100) * 100
+}
+
 function computeHeading(dx: number, dy: number): number {
   // dy is inverted in our canvas (usually), but let's trust math.atan2
   // True heading: 0 is North (positive Y), 90 is East (positive X)
@@ -63,6 +72,7 @@ function loadV1Airport(data: any): Airport {
       elevationFt: data.metadata.elevation_ft || 0,
       magneticVariation: data.metadata.magnetic_variation || 0
     },
+    mvaFt: computeMvaFt(data.metadata.elevation_ft || 0, data.metadata.mva),
     runways,
     taxiways: data.taxiways || [],
     gates: data.gates || [],
@@ -239,6 +249,7 @@ function loadEditorAirport(data: any, SCALE: number): Airport {
       elevationFt: data.metadata?.elevation || 0,
       magneticVariation: data.metadata?.magneticVariation || 0
     },
+    mvaFt: computeMvaFt(data.metadata?.elevation || 0, data.metadata?.mva),
     runways,
     taxiways,
     gates,

@@ -96,6 +96,18 @@ describe('loadAirport — editor v1.1 (meter-true)', () => {
     const apt = loadAirport(file)
     expect(apt.frequencies.find(f => f.name === 'TOWER')?.callsign).toBe('Test Field Tower')
   })
+
+  it('derives the MVA floor from field elevation (+1100, rounded up to 100)', () => {
+    // Test field at 5000 ft → 6100; HHAS at 7661 ft → published 8800 exactly
+    expect(v11.mvaFt).toBe(6100)
+    expect(airport.mvaFt).toBe(8800)
+  })
+
+  it('prefers an explicit metadata.mva over the derived floor', () => {
+    const file = makeV11File()
+    file.metadata.mva = 7300
+    expect(loadAirport(file).mvaFt).toBe(7300)
+  })
 })
 
 describe('selectActiveRunway', () => {

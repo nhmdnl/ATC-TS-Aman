@@ -2,9 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import type { GameStateSnapshot, DifficultyLevel, Airport, Command, ControllerStation } from '../engine/types'
 import { gameState } from '../engine/game-state'
 import { processCommand } from '../engine/commands/command-registry'
-import { loadAirport, buildTaxiwayGraph } from '../engine/airport-loader'
+import { buildTaxiwayGraph } from '../engine/airport-loader'
 import { initializeScoringSystem } from '../engine/scoring'
-import hhasData from '../data/airports/hhas.airport.json'
+import { AIRPORTS, getAirportEntry, type AirportEntry } from './airport-registry'
 
 // Initialize singletons
 initializeScoringSystem()
@@ -20,6 +20,9 @@ export interface GameContextType {
   setPlayerStations: (stations: ControllerStation[]) => void
   muted: boolean
   toggleMute: () => void
+  airports: ReadonlyArray<AirportEntry>
+  selectedAirportId: string
+  setAirport: (id: string) => void
 }
 
 const GameContext = createContext<GameContextType | null>(null)
@@ -27,23 +30,30 @@ const GameContext = createContext<GameContextType | null>(null)
 export function GameProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<GameStateSnapshot>(gameState.snapshot())
   const [muted, setMuted] = useState(false)
+  const [selectedAirportId, setSelectedAirportId] = useState<string>(AIRPORTS[0]?.id ?? '')
   const toggleMute = useCallback(() => setMuted(m => !m), [])
 
-  // Initial load
-  useEffect(() => {
-    if (!gameState.airport) {
-      try {
-        const airport = loadAirport(hhasData)
-        gameState.airport = airport
-        gameState.taxiwayGraph = buildTaxiwayGraph(airport)
-        // Ensure state is properly initialized
-        gameState.reset()
-        setSnapshot(gameState.snapshot())
-      } catch (err) {
-        console.error('Failed to load airport:', err)
-      }
-    }
+  const applyAirport = useCallback((entry: AirportEntry) => {
+    gameState.airport = entry.airport
+    gameState.taxiwayGraph = buildTaxiwayGraph(entry.airport)
+    gameState.reset()
+    setSelectedAirportId(entry.id)
+    setSnapshot(gameState.snapshot())
   }, [])
+
+  // Initial load — first registry entry (HHAS sorts first)
+  useEffect(() => {
+    if (!gameState.airport && AIRPORTS.length > 0) {
+      applyAirport(AIRPORTS[0])
+    }
+  }, [applyAirport])
+
+  const setAirport = useCallback((id: string) => {
+    const entry = getAirportEntry(id)
+    if (entry && !gameState.sessionStarted) {
+      applyAirport(entry)
+    }
+  }, [applyAirport])
 
   // Expose a way to force a re-render from the game loop
   useEffect(() => {
@@ -104,7 +114,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     startSession,
     setPlayerStations,
     muted,
-    toggleMute
+    toggleMute,
+    airports: AIRPORTS,
+    selectedAirportId,
+    setAirport
   }
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

@@ -263,6 +263,8 @@ export interface Airport {
   readonly frequencies: ReadonlyArray<FrequencyData>
   readonly navaids: ReadonlyArray<NavaidData>
   readonly spawnPoints: ReadonlyArray<SpawnPointData>
+  /** Minimum Vectoring Altitude, ft MSL — MVA_FT fallback when absent */
+  readonly mvaFt?: number
   /** Render-only geometry (aprons, buildings, taxiway centerlines) — absent for v1 files */
   readonly diagram?: AirportDiagram
 }

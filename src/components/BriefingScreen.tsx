@@ -3,6 +3,7 @@ import { useGame } from '../state/GameContext'
 import type { DifficultyLevel } from '../engine/types'
 import { ControllerStation } from '../engine/types'
 import { DIFFICULTY_PRESETS, CSS_COLORS } from '../engine/constants'
+import AirportPreview from './AirportPreview'
 
 const DIFF_ORDER: DifficultyLevel[] = ['easy', 'medium', 'hard']
 
@@ -34,11 +35,12 @@ const SECONDARY_BUTTON: React.CSSProperties = {
 }
 
 export default function BriefingScreen() {
-  const { setDifficulty, setPlayerStations, startSession, muted, toggleMute } = useGame()
+  const { setDifficulty, setPlayerStations, startSession, muted, toggleMute, airports, selectedAirportId, setAirport } = useGame()
   const [selected, setSelected] = useState<DifficultyLevel>('medium')
   const [stations, setStations] = useState<ControllerStation[]>(STATION_ORDER)
 
   const preset = DIFFICULTY_PRESETS[selected]
+  const airportEntry = airports.find(a => a.id === selectedAirportId) ?? airports[0]
 
   const toggleStation = (station: ControllerStation) => {
     setStations(prev => {
@@ -78,8 +80,49 @@ export default function BriefingScreen() {
       }}>
         <h1 style={{ margin: '0 0 4px', color: '#0EA5E9', fontSize: 32, fontWeight: 700, letterSpacing: 3, textAlign: 'center' }}>ATC AMAN</h1>
         <p style={{ margin: '0 0 24px', color: CSS_COLORS.text.muted, fontSize: 12, textAlign: 'center' }}>
-          HHAS — Asmara International Airport
+          {airportEntry ? `${airportEntry.airport.metadata.icao} — ${airportEntry.airport.metadata.name}` : 'No airports found'}
         </p>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ color: CSS_COLORS.text.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            Airport
+          </div>
+          {airports.length > 1 && (
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              {airports.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => setAirport(a.id)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 0',
+                    background: selectedAirportId === a.id ? '#0EA5E9' : '#1D2430',
+                    color: selectedAirportId === a.id ? '#FFF' : CSS_COLORS.text.secondary,
+                    border: selectedAirportId === a.id ? '1px solid #0EA5E9' : '1px solid #1E293B',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontWeight: selectedAirportId === a.id ? 700 : 400,
+                    fontSize: 12,
+                    fontFamily: 'inherit',
+                    transition: 'all 0.1s',
+                  }}
+                >
+                  {a.id}
+                </button>
+              ))}
+            </div>
+          )}
+          {airportEntry && (
+            <div style={{ background: '#0B1017', border: '1px solid #1E293B', borderRadius: 4, overflow: 'hidden' }}>
+              <AirportPreview airport={airportEntry.airport} />
+              <div style={{ padding: '6px 10px', fontSize: 10, color: CSS_COLORS.text.muted, display: 'flex', justifyContent: 'space-between' }}>
+                <span>RWY {Array.from(new Set(airportEntry.airport.runways.map(r => r.id))).join(' / ')}</span>
+                <span>{airportEntry.airport.gates.length} gates</span>
+                <span>ELEV {airportEntry.airport.metadata.elevationFt} ft</span>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div style={{ marginBottom: 20 }}>
           <div style={{ color: CSS_COLORS.text.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
