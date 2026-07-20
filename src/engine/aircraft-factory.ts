@@ -40,14 +40,14 @@ function generateId(): string {
  * Spawn a new departure at a gate.
  * Starts in AT_GATE — the pilot will call for pushback after PUSHBACK_CALL_DELAY_MS.
  */
-export function spawnDeparture(gate: GateData, runwayId: string): Aircraft {
-  const type = randomAircraftType()
+export function spawnDeparture(gate: GateData, runwayId: string, callsign?: string, overrideType?: AircraftType): Aircraft {
+  const type = overrideType ?? randomAircraftType()
   const phase = AircraftPhase.AT_GATE
   const now = Date.now()
 
   return {
     id: generateId(),
-    callsign: generateCallsign(),
+    callsign: callsign ?? generateCallsign(),
     type,
     flightType: 'departure',
     squawk: generateSquawk(),
@@ -101,15 +101,15 @@ export function spawnDeparture(gate: GateData, runwayId: string): Aircraft {
  * Spawn a new arrival at an entry point.
  * Starts in ENTERING — transitions to INBOUND_UNCONTROLLED near the field.
  */
-export function spawnArrival(spawnPoint: SpawnPointData): Aircraft {
-  const type = randomAircraftType()
+export function spawnArrival(spawnPoint: SpawnPointData, callsign?: string, overrideType?: AircraftType): Aircraft {
+  const type = overrideType ?? randomAircraftType()
   const phase = AircraftPhase.ENTERING
   const now = Date.now()
   const initialSpeed = Math.min(Math.round(type.cruiseSpeed * 0.7), 250)
 
   return {
     id: generateId(),
-    callsign: generateCallsign(),
+    callsign: callsign ?? generateCallsign(),
     type,
     flightType: 'arrival',
     squawk: generateSquawk(),

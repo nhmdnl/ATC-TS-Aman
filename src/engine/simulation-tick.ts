@@ -4,10 +4,13 @@ import { processPhaseTransitions, checkAircraftRemoval, checkPilotCallRepeats } 
 import { separationChecker, clearViolationFlags } from './separation'
 import { runAiControllers } from './ai-controller'
 import { spawnArrival, spawnDeparture, isSpawnPointClear } from './aircraft-factory'
+import { trafficScheduler } from './traffic-scheduler'
+import type { ScheduledFlight } from './traffic-scheduler'
 import { findRunwayById, getAvailableGates, getArrivalSpawnPoints, selectActiveRunway } from './airport-loader'
 import { GameEventType, AircraftPhase, RadioSpeaker, PilotCallType } from './types'
 import { eventBus } from './event-bus'
 import { MVA_FT } from './constants'
+import hhasSchedule from '../data/airports/hhas.schedule.json'
 
 /**
  * Main simulation tick function. Runs at 1 Hz.
@@ -91,25 +94,17 @@ export function tick(state: GameState, dtSeconds: number): void {
 function handleSpawning(state: GameState, nowMs: number): void {
   if (!state.airport) return
 
-  // Initial spawn at start of session (1 departure, 1 arrival)
-  if (state.aircraft.size === 0 && state.elapsedMs < 2000) {
-    spawnOneArrival(state)
-    spawnOneDeparture(state)
-    state.lastSpawnTime = nowMs
-    return
-  }
+  // Schedule-based traffic: advance through the HHAS schedule
+  trafficScheduler.tick(state, hhasSchedule as ScheduledFlight[])
 
-  // Periodic spawn
-  if (nowMs - state.lastSpawnTime >= state.difficulty.spawnIntervalMs) {
-    if (state.aircraft.size < state.difficulty.maxAircraft) {
-      // 50/50 chance for arrival or departure
-      if (Math.random() > 0.5) {
-        spawnOneArrival(state)
-      } else {
-        spawnOneDeparture(state)
-      }
+  // Fallback random spawning if schedule is exhausted and traffic is thin
+  // (also covers airports with no schedule file)
+  if (state.aircraft.size < 2 && state.elapsedMs > 30_000) {
+    if (nowMs - state.lastSpawnTime >= state.difficulty.spawnIntervalMs) {
+      if (Math.random() > 0.5) spawnOneArrival(state)
+      else spawnOneDeparture(state)
+      state.lastSpawnTime = nowMs
     }
-    state.lastSpawnTime = nowMs
   }
 }
 
