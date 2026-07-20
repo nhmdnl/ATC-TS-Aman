@@ -42,6 +42,8 @@ function pilotCallMessage(aircraft: Aircraft, type: PilotCallType, airport: Airp
       return `${airportName} Tower, ${aircraft.callsign}, with you on final, runway ${aircraft.assignedRunway ?? 'active'}`
     case PilotCallType.REQUEST_CROSSING:
       return `${airportName} Ground, ${aircraft.callsign}, holding short runway ${aircraft.awaitingCrossingRunway ?? ''}, request crossing`
+    case PilotCallType.VACATED_REQUEST_TAXI:
+      return `${airportName} Ground, ${aircraft.callsign}, runway ${aircraft.assignedRunway ?? ''} vacated, request taxi to terminal`
   }
 }
 
@@ -164,22 +166,39 @@ export function processPhaseTransitions(
       }
       break
 
-    // ── ROLLOUT: slow to stop, gate-teleport ─────────────────────────────
+    // ── ROLLOUT: decelerate; transition to VACATED once clear ───────────
     case AircraftPhase.ROLLOUT:
       if (aircraft.speed <= 5) {
-        // Free runway once vacated
         if (aircraft.assignedRunway) gameState.runwayOccupied.delete(aircraft.assignedRunway)
-        // ponytail: gate teleport — replace with authored taxi-in path when T-009 arrival paths land
+        // Assign a free gate now so the taxi-in route can be built
         if (!aircraft.assignedGate && airport.gates.length > 0) {
           const free = getAvailableGates(airport, gameState.occupiedGateIds)
           aircraft.assignedGate = (free[0] ?? airport.gates[0]).id
           gameState.occupiedGateIds.add(aircraft.assignedGate)
         }
-        const gate = airport.gates.find(g => g.id === aircraft.assignedGate)
-        if (gate) { aircraft.x = gate.x; aircraft.y = gate.y }
-        aircraft.phase = AircraftPhase.ARRIVED
         aircraft.speed = 0
-        eventBus.emit(GameEventType.ARRIVED_GATE, { callsign: aircraft.callsign })
+        aircraft.phase = AircraftPhase.VACATED
+        firePilotCall(aircraft, PilotCallType.VACATED_REQUEST_TAXI,
+          pilotCallMessage(aircraft, PilotCallType.VACATED_REQUEST_TAXI, airport))
+      }
+      break
+
+    // ── VACATED: waiting for TAXI TO TERMINAL instruction ────────────────
+    case AircraftPhase.VACATED:
+      // Transitions handled by TAXI command in command-executor.ts
+      break
+
+    // ── TAXI_IN: routing to gate ──────────────────────────────────────────
+    case AircraftPhase.TAXI_IN:
+      if (aircraft.assignedGate) {
+        const gate = airport.gates.find(g => g.id === aircraft.assignedGate)
+        if (gate && distanceNM(aircraft.x, aircraft.y, gate.x, gate.y) < 0.02) {
+          aircraft.phase = AircraftPhase.ARRIVED
+          aircraft.speed = 0
+          aircraft.x = gate.x
+          aircraft.y = gate.y
+          eventBus.emit(GameEventType.ARRIVED_GATE, { callsign: aircraft.callsign })
+        }
       }
       break
   }

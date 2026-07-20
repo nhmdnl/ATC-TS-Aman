@@ -391,6 +391,7 @@ export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: Runw
     case AircraftPhase.AWAITING_PUSHBACK:
     case AircraftPhase.READY_TO_TAXI:
     case AircraftPhase.INBOUND_UNCONTROLLED:
+    case AircraftPhase.VACATED:
     case AircraftPhase.HOLD_SHORT:
     case AircraftPhase.ARRIVED:
       break

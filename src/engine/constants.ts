@@ -267,6 +267,7 @@ export const PHASE_CONTROLLER: Record<AircraftPhase, ControllerStation> = {
   [Phase.FINAL]: Station.TOWER,
   [Phase.LANDING]: Station.TOWER,
   [Phase.ROLLOUT]: Station.TOWER,
+  [Phase.VACATED]: Station.GROUND,
   [Phase.TAXI_IN]: Station.GROUND,
   [Phase.ARRIVED]: Station.GROUND,
   [Phase.MISSED]: Station.APPROACH,
@@ -313,7 +314,8 @@ export const PHASE_COMMANDS: Record<AircraftPhase, ReadonlyArray<CommandType>> =
   [Phase.FINAL]:              [Cmd.CLEARED_LAND, Cmd.GO_AROUND, Cmd.SQUAWK],
   [Phase.LANDING]:            [Cmd.GO_AROUND, Cmd.SQUAWK],
   [Phase.ROLLOUT]:            [Cmd.EXIT_RUNWAY, Cmd.SQUAWK],
-  [Phase.TAXI_IN]:            [Cmd.CONTACT_GROUND, Cmd.SQUAWK],
+  [Phase.VACATED]:            [Cmd.TAXI, Cmd.SQUAWK],
+  [Phase.TAXI_IN]:            [Cmd.HOLD_SHORT, Cmd.CONTINUE_TAXI, Cmd.SQUAWK],
   [Phase.ARRIVED]:            [],
   [Phase.MISSED]:             [Cmd.VECTOR, Cmd.CLEARED_APPROACH, Cmd.SQUAWK],
 } as const

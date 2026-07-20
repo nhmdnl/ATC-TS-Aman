@@ -55,6 +55,11 @@ export function nextExpectedCommand(aircraft: Aircraft): CommandType | null {
       // Respect Golden Rule: don't clear to land if runway occupied
       return CommandType.CLEARED_LAND
 
+    // ── Post-landing ─────────────────────────────────────────────────────
+    case AircraftPhase.VACATED:
+      // AI Ground issues TAXI TO TERMINAL after pilot calls vacated
+      return aircraft.pendingPilotCall !== null ? CommandType.TAXI : null
+
     default:
       return null
   }
