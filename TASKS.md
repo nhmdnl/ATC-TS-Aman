@@ -275,6 +275,29 @@ result.
 
 (newest first — see template in Protocol)
 
+### 2026-07-19 — LEAD (Claude) — Editor: real validator + measurement feedback (user request) — DONE (uncommitted; spstudio has no git)
+- What changed (editor `airport-studio-application`, all UNCOMMITTED — repo
+  still not under git):
+  - `lib/taxi-graph.ts` `documentIssues`: added a completeness pass beyond the
+    old graph-connectivity + runway-scale checks — errors on missing ICAO / no
+    runways / runways-but-no-gates; warns on missing name, unset elevation,
+    missing spawn points, missing runway identifiers. Empty doc now reports
+    "No runways" instead of "All checks passed."
+  - `components/airport-studio/toolbar.tsx`: added the Holding Point button
+    (tool was implemented but had no toolbar entry).
+  - `components/airport-studio/viewport.tsx`: wired the previously-inert
+    Measure tool (click to drop ruler vertices; Enter/Esc/double-click clears);
+    `DraftPreview` now labels every leg length + a running total in metres, so
+    runway/taxiway/apron drawing shows live dimensions. Added `fmtDist` helper.
+- Verification: `tsc --noEmit` clean; `vitest run lib/taxi-graph.test.ts`
+  16/16 (updated empty-doc test + 4 new completeness cases). Ran the new
+  validator against DRMLND.airport: 16 disconnected gates + no spawn points.
+- Notes: DRMLND.airport is back to v1.0 (no taxiGraph, 16 gates all >120 m from
+  taxiways) — the user re-saved it from the OLD root editor again, overwriting
+  the v1.1 upgrade. Did NOT re-upgrade (user is mid-edit). Toolbar still has
+  inert Building/Road/Grid/Snap/Validate/Export buttons (real grid/snap/save
+  live in the menu bar; validate/export in side panels) — candidate cleanup.
+
 ### 2026-07-19 — LEAD (Claude) — Airport picker + map preview (user request) — DONE
 - What changed (sim): `state/airport-registry.ts` (new) bundles every
   `.airport`/`.airport.json` under `src/data/airports/` via `import.meta.glob`
