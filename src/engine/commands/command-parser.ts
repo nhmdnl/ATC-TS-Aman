@@ -161,6 +161,14 @@ export function parseCommand(text: string, aircraftList: Aircraft[]): Command | 
     case 'W':
       type = CommandType.WIND
       break
+
+    case 'REPORT':
+    case 'RPT':
+      type = CommandType.REPORT
+      if (args.length > 0) {
+        params.reportType = args[0].toLowerCase() // heading|position|airspeed
+      }
+      break
   }
 
   if (type) {

@@ -50,6 +50,15 @@ export function validateCommand(command: Command, aircraft: Aircraft, airport: A
       if (!/^[0-7]{4}$/.test(command.params.squawk)) return 'Invalid squawk code'
       break
 
+    case CommandType.CLEARED_APPROACH: {
+      // In IMC, only ILS approaches are valid — no airport = assume VMC
+      if (airport && gameState.getConditions() === 'IMC') {
+        const hasIls = airport.runways.some(r => r.id === aircraft.assignedRunway && r.ils?.available)
+        if (!hasIls) return 'IMC conditions — ILS not available on this runway'
+      }
+      break
+    }
+
     case CommandType.CLEARED_LAND: {
       // Golden Rule: reject if the assigned runway is occupied
       const rwy = aircraft.assignedRunway

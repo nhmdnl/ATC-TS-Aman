@@ -41,6 +41,8 @@ export default function StatusBar({ ttsAvailable }: { ttsAvailable: boolean }) {
           <span style={{ color: '#64748B' }}>|</span>
           <span style={{ color: '#94a3b8', fontFamily: 'SF Mono, monospace' }}>
             WND {Math.round(state.wind.direction).toString().padStart(3, '0')}°/{Math.round(state.wind.speed).toString().padStart(2, '0')}KT
+            {state.wind.visibilityNM !== undefined && ` VIS ${state.wind.visibilityNM}NM`}
+            {' '}<span style={{ color: state.conditions === 'IMC' ? '#ef4444' : '#22c55e', fontWeight: 700 }}>{state.conditions}</span>
           </span>
         </div>
 

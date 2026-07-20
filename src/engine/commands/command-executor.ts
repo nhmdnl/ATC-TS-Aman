@@ -145,7 +145,8 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
     }
 
     case CommandType.WIND:
-      // Phraseology-only: wind readback logged by command-registry; no state change
+    case CommandType.REPORT:
+      // Phraseology-only: logged by command-registry; no state change
       break
 
     case CommandType.CANCEL_TAXI:

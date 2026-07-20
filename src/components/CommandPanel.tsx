@@ -57,6 +57,7 @@ const COMMAND_LABELS: Record<CommandType, string> = {
   [CommandType.EXIT_RUNWAY]: 'EXIT RWY',
   [CommandType.CANCEL_TAXI]: 'CNCL TAXI',
   [CommandType.WIND]: 'WIND',
+  [CommandType.REPORT]: 'REPORT',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
