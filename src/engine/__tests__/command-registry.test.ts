@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { gameState } from '../game-state'
 import { processCommand } from '../commands/command-registry'
 import { loadAirport } from '../airport-loader'
-import { AircraftPhase, CommandType, ControllerStation } from '../types'
+import { AircraftPhase, CommandType, ControllerStation , WakeCategory } from '../types'
 import type { Aircraft, Command } from '../types'
 import hhasData from '../../data/airports/hhas.airport.json'
 
@@ -22,6 +22,7 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
       climbRate: 2500,
       descentRate: 1800,
       serviceCeiling: 41000,
+      wakeCategory: WakeCategory.MEDIUM,
     },
     flightType: 'arrival',
     squawk: '4521',
@@ -53,6 +54,11 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     missedHeading: null,
     missedAltitude: null,
     trail: [],
+    pushbackCallAt: null,
+    pushbackHeading: null,
+    pendingPilotCall: null,
+    withYouCallFired: false,
+    awaitingCrossingRunway: null,
     ...overrides,
   }
 }

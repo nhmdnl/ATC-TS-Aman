@@ -1,11 +1,16 @@
 // ─── Aircraft Phase State Machine ─────────────────────────────────────────────
-// Departure flow: PARKED → TAXI_OUT → HOLD_SHORT → LINE_UP → TAKEOFF_ROLL → CLIMBING → DEPARTED
-// Arrival flow:   ENTERING → APPROACH → FINAL → LANDING → ROLLOUT → TAXI_IN → ARRIVED
-// Missed:         FINAL → MISSED (when not cleared to land)
+// Departure:  AT_GATE → AWAITING_PUSHBACK → PUSHING_BACK → READY_TO_TAXI
+//             → TAXI_OUT → HOLD_SHORT → LINE_UP → TAKEOFF_ROLL → CLIMBING → DEPARTED
+// Arrival:    ENTERING → INBOUND_UNCONTROLLED → APPROACH → FINAL → LANDING
+//             → ROLLOUT → TAXI_IN → ARRIVED
+// Missed:     FINAL → MISSED (when not cleared to land)
 
 export enum AircraftPhase {
   // Departure phases
-  PARKED = 'PARKED',
+  AT_GATE = 'AT_GATE',               // spawned, waiting to call for pushback
+  AWAITING_PUSHBACK = 'AWAITING_PUSHBACK', // called, waiting for player approval
+  PUSHING_BACK = 'PUSHING_BACK',     // tug moving, heading reversing
+  READY_TO_TAXI = 'READY_TO_TAXI',   // pushback complete, awaiting TAXI command
   TAXI_OUT = 'TAXI_OUT',
   HOLD_SHORT = 'HOLD_SHORT',
   LINE_UP = 'LINE_UP',
@@ -14,8 +19,9 @@ export enum AircraftPhase {
   DEPARTED = 'DEPARTED',
 
   // Arrival phases
-  ENTERING = 'ENTERING',
-  APPROACH = 'APPROACH',
+  ENTERING = 'ENTERING',             // beyond 12 NM, not yet on player frequency
+  INBOUND_UNCONTROLLED = 'INBOUND_UNCONTROLLED', // visible but awaiting "with you" call
+  APPROACH = 'APPROACH',             // on frequency, player has control
   FINAL = 'FINAL',
   LANDING = 'LANDING',
   ROLLOUT = 'ROLLOUT',
@@ -38,22 +44,43 @@ export enum ControllerStation {
 // ─── Command Types ────────────────────────────────────────────────────────────
 
 export enum CommandType {
+  // Ground — pushback / startup
+  PUSHBACK_APPROVED = 'PUSHBACK_APPROVED',
+  STARTUP_APPROVED = 'STARTUP_APPROVED',
+  // Ground — taxi
   TAXI = 'TAXI',
   HOLD_SHORT = 'HOLD_SHORT',
+  CANCEL_TAXI = 'CANCEL_TAXI',
+  CROSS_RUNWAY = 'CROSS_RUNWAY',
+  CONTINUE_TAXI = 'CONTINUE_TAXI',
+  // Tower — runway / takeoff
   LINE_UP_WAIT = 'LINE_UP_WAIT',
   CLEARED_TAKEOFF = 'CLEARED_TAKEOFF',
+  // Tower — arrivals
   CLEARED_LAND = 'CLEARED_LAND',
+  GO_AROUND = 'GO_AROUND',
+  EXIT_RUNWAY = 'EXIT_RUNWAY',
+  // Approach
   CLEARED_APPROACH = 'CLEARED_APPROACH',
   VECTOR = 'VECTOR',
+  // Shared
   ALTITUDE = 'ALTITUDE',
   SPEED = 'SPEED',
   SQUAWK = 'SQUAWK',
   CONTACT_DEPARTURE = 'CONTACT_DEPARTURE',
   CONTACT_TOWER = 'CONTACT_TOWER',
   CONTACT_GROUND = 'CONTACT_GROUND',
-  GO_AROUND = 'GO_AROUND',
-  EXIT_RUNWAY = 'EXIT_RUNWAY',
-  CANCEL_TAXI = 'CANCEL_TAXI',
+  // Radio / meta
+  STANDBY = 'STANDBY',
+}
+
+// ─── Wake Turbulence ──────────────────────────────────────────────────────────
+
+export enum WakeCategory {
+  LIGHT       = 'LIGHT',
+  MEDIUM      = 'MEDIUM',
+  HEAVY       = 'HEAVY',
+  SUPER_HEAVY = 'SUPER_HEAVY',
 }
 
 // ─── Aircraft Categories ──────────────────────────────────────────────────────
@@ -68,6 +95,7 @@ export interface AircraftType {
   readonly name: string
   readonly category: AircraftCategory
   readonly approachCategory: ApproachCategory
+  readonly wakeCategory: WakeCategory
   readonly cruiseSpeed: number   // knots
   readonly approachSpeed: number // knots
   readonly rotationSpeed: number // knots
@@ -80,6 +108,22 @@ export interface AircraftType {
 // ─── Flight Identity ──────────────────────────────────────────────────────────
 
 export type FlightType = 'departure' | 'arrival'
+
+// ─── Pilot Call System ────────────────────────────────────────────────────────
+
+export enum PilotCallType {
+  REQUEST_PUSHBACK = 'REQUEST_PUSHBACK',
+  REQUEST_STARTUP  = 'REQUEST_STARTUP',
+  WITH_YOU_FINAL   = 'WITH_YOU_FINAL',
+  REQUEST_CROSSING = 'REQUEST_CROSSING',
+}
+
+export interface PilotCall {
+  readonly type: PilotCallType
+  readonly message: string       // full spoken/displayed text
+  readonly timestamp: number     // ms when first fired
+  nextRepeatAt: number           // ms when to re-fire if unacknowledged
+}
 
 // ─── Aircraft State ───────────────────────────────────────────────────────────
 
@@ -115,6 +159,21 @@ export interface Aircraft {
   taxiTarget: { x: number; y: number } | null
   taxiRoute: Array<{ x: number; y: number }> | null
   taxiRouteIndex: number
+
+  // Pushback
+  /** Sim elapsed time (ms) when the pushback call should fire */
+  pushbackCallAt: number | null
+  pushbackHeading: number | null // heading after push (set on PUSHING_BACK entry)
+
+  // Pilot call system
+  /** Pending incoming call from this aircraft that player must acknowledge */
+  pendingPilotCall: PilotCall | null
+  /** True once the "with you" call has been generated (prevents re-firing) */
+  withYouCallFired: boolean
+
+  // Ground crossings
+  /** Runway id the aircraft is holding short of, awaiting CROSS_RUNWAY */
+  awaitingCrossingRunway: string | null
 
   // Timing
   spawnTime: number              // ms timestamp
@@ -364,6 +423,7 @@ export enum GameEventType {
   SIM_RESUMED = 'SIM_RESUMED',
   SIM_RESET = 'SIM_RESET',
   SESSION_ENDED = 'SESSION_ENDED',
+  PILOT_CALL = 'PILOT_CALL',
 }
 
 export interface GameEvent {
@@ -374,13 +434,14 @@ export interface GameEvent {
 
 // ─── Radio Log ────────────────────────────────────────────────────────────────
 
-export type RadioSpeaker = 'ATC' | 'PILOT' | 'SYSTEM' | 'CRITICAL'
+export type RadioSpeaker = 'ATC' | 'PILOT' | 'SYSTEM' | 'CRITICAL' | 'INBOUND'
 
 export interface RadioMessage {
   readonly timestamp: number
   readonly speaker: RadioSpeaker
   readonly message: string
   readonly station?: string      // frequency / station name
+  readonly callsign?: string     // for INBOUND pilot calls — highlights the strip
 }
 
 // ─── Mission System ───────────────────────────────────────────────────────────
@@ -428,6 +489,7 @@ export interface GameStateSnapshot {
   readonly radioMessages: ReadonlyArray<RadioMessage>
   readonly wind: Readonly<Wind>
   readonly playerStations: ReadonlyArray<ControllerStation>
+  readonly runwayOccupied: ReadonlySet<string>
 }
 
 // ─── Wind ─────────────────────────────────────────────────────────────────────

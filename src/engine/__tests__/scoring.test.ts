@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { gameState } from '../game-state'
 import { initializeScoringSystem } from '../scoring'
 import { eventBus } from '../event-bus'
-import { GameEventType, ControllerStation, AircraftPhase } from '../types'
+import { GameEventType, ControllerStation, AircraftPhase , WakeCategory } from '../types'
 import type { Aircraft } from '../types'
 
 // Called once for this test file's lifetime, matching how GameContext.tsx
@@ -26,6 +26,7 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
       climbRate: 2500,
       descentRate: 1800,
       serviceCeiling: 41000,
+      wakeCategory: WakeCategory.MEDIUM,
     },
     flightType: 'departure',
     squawk: '1200',
@@ -57,6 +58,11 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     missedHeading: null,
     missedAltitude: null,
     trail: [],
+    pushbackCallAt: null,
+    pushbackHeading: null,
+    pendingPilotCall: null,
+    withYouCallFired: false,
+    awaitingCrossingRunway: null,
     ...overrides,
   }
 }

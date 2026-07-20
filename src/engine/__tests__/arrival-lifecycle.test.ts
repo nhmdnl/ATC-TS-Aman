@@ -4,7 +4,7 @@ import { moveAircraft, headingToRadians } from '../movement'
 import { processPhaseTransitions } from '../phase-transitions'
 import { gameState } from '../game-state'
 import { executeCommand } from '../commands/command-executor'
-import { AircraftPhase, CommandType, ControllerStation } from '../types'
+import { AircraftPhase, CommandType, ControllerStation , WakeCategory } from '../types'
 import type { Aircraft, Command } from '../types'
 import hhasData from '../../data/airports/hhas.airport.json'
 
@@ -36,6 +36,7 @@ function makeArrival(x: number, y: number, heading: number, altitude: number): A
       climbRate: 2500,
       descentRate: 1800,
       serviceCeiling: 41000,
+      wakeCategory: WakeCategory.MEDIUM,
     },
     flightType: 'arrival',
     squawk: '4521',
@@ -67,6 +68,11 @@ function makeArrival(x: number, y: number, heading: number, altitude: number): A
     missedHeading: null,
     missedAltitude: null,
     trail: [],
+    pushbackCallAt: null,
+    pushbackHeading: null,
+    pendingPilotCall: null,
+    withYouCallFired: false,
+    awaitingCrossingRunway: null,
   }
 }
 

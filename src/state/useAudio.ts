@@ -229,6 +229,20 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
       engine.playAlert()
     })
 
+    // Incoming pilot calls: write to radio log as INBOUND, speak as pilot voice
+    const unsubPilotCall = eventBus.on(GameEventType.PILOT_CALL, (e: GameEvent) => {
+      const message = e.payload.message as string
+      const callsign = e.payload.callsign as string
+      gameState.addRadioMessage({
+        timestamp: Date.now(),
+        speaker: 'INBOUND',
+        message,
+        callsign,
+      })
+      // Speak as pilot voice (speak() second arg = pilot text)
+      engine.speak('', message, ControllerStation.GROUND, callsign)
+    })
+
     const unsubScore = eventBus.on(GameEventType.SCORE_CHANGED, (e: GameEvent) => {
       if (['takeoff', 'landing', 'departure_handoff', 'arrived_gate'].includes(e.payload.reason as string)) {
         engine.playSuccess()
@@ -256,6 +270,7 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
     return () => {
       unsubCommand()
       unsubViolation()
+      unsubPilotCall()
       unsubScore()
       window.removeEventListener('click', handleInteraction)
       window.removeEventListener('keydown', handleInteraction)
