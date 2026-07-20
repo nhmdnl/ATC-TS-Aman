@@ -3,7 +3,11 @@ import type { Aircraft } from '../engine/types'
 import { AircraftPhase } from '../engine/types'
 
 const PHASE_ABBREV: Record<string, string> = {
-  PARKED: 'PARK',
+  AT_GATE: 'GATE',
+  AWAITING_PUSHBACK: 'PBK?',
+  PUSHING_BACK: 'PUSH',
+  READY_TO_TAXI: 'RDY',
+  PARKED: 'GATE',
   TAXI_OUT: 'TAXI',
   HOLD_SHORT: 'HOLD',
   LINE_UP: 'LINE',
@@ -14,6 +18,7 @@ const PHASE_ABBREV: Record<string, string> = {
   FINAL: 'FINAL',
   LANDING: 'LAND',
   ROLLOUT: 'ROLL',
+  INBOUND_UNCONTROLLED: 'INBND',
   TAXI_IN: 'TAXI',
   MISSED: 'MISS',
 }
@@ -54,6 +59,7 @@ function StripCard({ ac }: { ac: Aircraft }) {
     >
       {/* Status indicators */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, width: 10 }}>
+        {ac.pendingPilotCall !== null && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 4px #f59e0b' }} title="Incoming pilot call" />}
         {ac.urgent && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B' }} />}
         {ac.inViolation && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444' }} />}
       </div>

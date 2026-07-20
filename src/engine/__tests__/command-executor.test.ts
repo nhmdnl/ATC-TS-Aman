@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { executeCommand } from '../commands/command-executor'
 import { validateCommand } from '../commands/command-validators'
-import { AircraftPhase, CommandType, ControllerStation } from '../types'
+import { AircraftPhase, CommandType, ControllerStation , WakeCategory } from '../types'
 import type { Aircraft, Airport, Command } from '../types'
 import { buildTaxiwayGraph } from '../airport-loader'
 import { moveAircraft } from '../movement'
@@ -26,6 +26,7 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
       climbRate: 2500,
       descentRate: 1800,
       serviceCeiling: 41000,
+      wakeCategory: WakeCategory.MEDIUM,
     },
     flightType: 'departure',
     squawk: '1234',
@@ -34,7 +35,7 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     altitude: 0,
     heading: 70,
     speed: 0,
-    phase: AircraftPhase.PARKED,
+    phase: AircraftPhase.READY_TO_TAXI,
     controller: ControllerStation.GROUND,
     clearedHeading: null,
     clearedAltitude: null,
@@ -57,6 +58,11 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     missedHeading: null,
     missedAltitude: null,
     trail: [],
+    pushbackCallAt: null,
+    pushbackHeading: null,
+    pendingPilotCall: null,
+    withYouCallFired: false,
+    awaitingCrossingRunway: null,
     ...overrides,
   }
 }
@@ -108,15 +114,15 @@ describe('validateCommand — regression: must not throw in ESM (former require(
   })
 
   it('rejects commands not allowed for the phase', () => {
-    const aircraft = makeAircraft() // PARKED
+    const aircraft = makeAircraft() // READY_TO_TAXI
     const airport = makeAirport()
     const err = validateCommand(cmd(CommandType.CLEARED_TAKEOFF), aircraft, airport)
-    expect(err).toMatch(/not allowed in phase PARKED/)
+    expect(err).toMatch(/not allowed in phase READY_TO_TAXI/)
   })
 })
 
 describe('executeCommand — departure phase wiring', () => {
-  it('TAXI moves PARKED aircraft to TAXI_OUT with a hold-short taxi target', () => {
+  it('TAXI moves READY_TO_TAXI aircraft to TAXI_OUT with a hold-short taxi target', () => {
     const aircraft = makeAircraft()
     const airport = makeAirport()
     executeCommand(cmd(CommandType.TAXI, { runway: '07' }), aircraft, airport)

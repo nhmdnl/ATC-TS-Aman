@@ -1,5 +1,5 @@
 import type { AircraftType, DifficultyPreset, AircraftPhase, ControllerStation, CommandType, ScoreReason } from './types'
-import { AircraftPhase as Phase, ControllerStation as Station, CommandType as Cmd } from './types'
+import { AircraftPhase as Phase, ControllerStation as Station, CommandType as Cmd, WakeCategory as Wake } from './types'
 
 // ─── Coordinate System ────────────────────────────────────────────────────────
 
@@ -17,14 +17,26 @@ export const GLIDESLOPE_ANGLE_DEG = 3
 
 // ─── Separation Standards ─────────────────────────────────────────────────────
 
-/** Minimum lateral separation in nautical miles */
-export const SEPARATION_NM = 3
-
 /** Minimum vertical separation in feet */
 export const SEPARATION_FT = 1000
 
 /** Cooldown between repeated separation violations for the same pair (ms) */
 export const SEPARATION_COOLDOWN_MS = 5000
+
+/** MRS = minimum radar separation (3 NM) — used when no extra wake required */
+export const MRS_NM = 3
+
+/**
+ * TS3 wake turbulence distance-based separation matrix (NM).
+ * Index: WAKE_SEPARATION_NM[leader][trailer] = required NM between them.
+ * Leader = aircraft ahead (closer to threshold); trailer = aircraft behind.
+ */
+export const WAKE_SEPARATION_NM: Record<string, Record<string, number>> = {
+  [Wake.SUPER_HEAVY]: { [Wake.SUPER_HEAVY]: MRS_NM, [Wake.HEAVY]: 6, [Wake.MEDIUM]: 7, [Wake.LIGHT]: 8 },
+  [Wake.HEAVY]:       { [Wake.SUPER_HEAVY]: MRS_NM, [Wake.HEAVY]: 4, [Wake.MEDIUM]: 5, [Wake.LIGHT]: 6 },
+  [Wake.MEDIUM]:      { [Wake.SUPER_HEAVY]: MRS_NM, [Wake.HEAVY]: MRS_NM, [Wake.MEDIUM]: MRS_NM, [Wake.LIGHT]: 5 },
+  [Wake.LIGHT]:       { [Wake.SUPER_HEAVY]: MRS_NM, [Wake.HEAVY]: MRS_NM, [Wake.MEDIUM]: MRS_NM, [Wake.LIGHT]: MRS_NM },
+} as const
 
 // ─── Terrain / MVA ────────────────────────────────────────────────────────────
 
@@ -170,47 +182,47 @@ export const DIFFICULTY_PRESETS: Record<string, DifficultyPreset> = {
 
 export const AIRCRAFT_TYPES: ReadonlyArray<AircraftType> = [
   {
-    icao: 'B738', name: 'Boeing 737-800', category: 'M', approachCategory: 'C',
+    icao: 'B738', name: 'Boeing 737-800', category: 'M', approachCategory: 'C', wakeCategory: Wake.MEDIUM,
     cruiseSpeed: 460, approachSpeed: 137, rotationSpeed: 145, taxiSpeed: 20,
     climbRate: 2500, descentRate: 1800, serviceCeiling: 41000,
   },
   {
-    icao: 'A320', name: 'Airbus A320', category: 'M', approachCategory: 'C',
+    icao: 'A320', name: 'Airbus A320', category: 'M', approachCategory: 'C', wakeCategory: Wake.MEDIUM,
     cruiseSpeed: 450, approachSpeed: 135, rotationSpeed: 142, taxiSpeed: 20,
     climbRate: 2400, descentRate: 1800, serviceCeiling: 39000,
   },
   {
-    icao: 'CRJ9', name: 'Bombardier CRJ-900', category: 'M', approachCategory: 'C',
+    icao: 'CRJ9', name: 'Bombardier CRJ-900', category: 'M', approachCategory: 'C', wakeCategory: Wake.MEDIUM,
     cruiseSpeed: 430, approachSpeed: 130, rotationSpeed: 135, taxiSpeed: 18,
     climbRate: 2200, descentRate: 1600, serviceCeiling: 41000,
   },
   {
-    icao: 'E175', name: 'Embraer E175', category: 'M', approachCategory: 'C',
+    icao: 'E175', name: 'Embraer E175', category: 'M', approachCategory: 'C', wakeCategory: Wake.MEDIUM,
     cruiseSpeed: 430, approachSpeed: 128, rotationSpeed: 130, taxiSpeed: 18,
     climbRate: 2200, descentRate: 1500, serviceCeiling: 41000,
   },
   {
-    icao: 'B772', name: 'Boeing 777-200', category: 'H', approachCategory: 'D',
+    icao: 'B772', name: 'Boeing 777-200', category: 'H', approachCategory: 'D', wakeCategory: Wake.HEAVY,
     cruiseSpeed: 490, approachSpeed: 145, rotationSpeed: 155, taxiSpeed: 20,
     climbRate: 2000, descentRate: 1800, serviceCeiling: 43100,
   },
   {
-    icao: 'B744', name: 'Boeing 747-400', category: 'H', approachCategory: 'D',
+    icao: 'B744', name: 'Boeing 747-400', category: 'H', approachCategory: 'D', wakeCategory: Wake.HEAVY,
     cruiseSpeed: 490, approachSpeed: 150, rotationSpeed: 160, taxiSpeed: 20,
     climbRate: 1800, descentRate: 1700, serviceCeiling: 45100,
   },
   {
-    icao: 'A388', name: 'Airbus A380-800', category: 'J', approachCategory: 'D',
+    icao: 'A388', name: 'Airbus A380-800', category: 'J', approachCategory: 'D', wakeCategory: Wake.SUPER_HEAVY,
     cruiseSpeed: 480, approachSpeed: 145, rotationSpeed: 155, taxiSpeed: 20,
     climbRate: 1600, descentRate: 1500, serviceCeiling: 43000,
   },
   {
-    icao: 'C172', name: 'Cessna 172 Skyhawk', category: 'L', approachCategory: 'C',
+    icao: 'C172', name: 'Cessna 172 Skyhawk', category: 'L', approachCategory: 'C', wakeCategory: Wake.LIGHT,
     cruiseSpeed: 120, approachSpeed: 60, rotationSpeed: 55, taxiSpeed: 10,
     climbRate: 700, descentRate: 500, serviceCeiling: 14000,
   },
   {
-    icao: 'BE20', name: 'Beechcraft King Air 200', category: 'L', approachCategory: 'C',
+    icao: 'BE20', name: 'Beechcraft King Air 200', category: 'L', approachCategory: 'C', wakeCategory: Wake.LIGHT,
     cruiseSpeed: 280, approachSpeed: 100, rotationSpeed: 105, taxiSpeed: 15,
     climbRate: 1500, descentRate: 1200, serviceCeiling: 35000,
   },
@@ -237,14 +249,20 @@ export const AIRLINE_PREFIXES = [
 // PRD §8 — which controller handles which phases
 
 export const PHASE_CONTROLLER: Record<AircraftPhase, ControllerStation> = {
-  [Phase.PARKED]: Station.GROUND,
+  // Departure
+  [Phase.AT_GATE]: Station.GROUND,
+  [Phase.AWAITING_PUSHBACK]: Station.GROUND,
+  [Phase.PUSHING_BACK]: Station.GROUND,
+  [Phase.READY_TO_TAXI]: Station.GROUND,
   [Phase.TAXI_OUT]: Station.GROUND,
   [Phase.HOLD_SHORT]: Station.TOWER,
   [Phase.LINE_UP]: Station.TOWER,
   [Phase.TAKEOFF_ROLL]: Station.TOWER,
   [Phase.CLIMBING]: Station.TOWER,
   [Phase.DEPARTED]: Station.AREA,
+  // Arrival
   [Phase.ENTERING]: Station.APPROACH,
+  [Phase.INBOUND_UNCONTROLLED]: Station.TOWER,
   [Phase.APPROACH]: Station.APPROACH,
   [Phase.FINAL]: Station.TOWER,
   [Phase.LANDING]: Station.TOWER,
@@ -258,13 +276,18 @@ export const PHASE_CONTROLLER: Record<AircraftPhase, ControllerStation> = {
 // PRD §8 — which commands each controller can issue
 
 export const CONTROLLER_COMMANDS: Record<ControllerStation, ReadonlyArray<CommandType>> = {
-  [Station.GROUND]: [Cmd.TAXI, Cmd.HOLD_SHORT, Cmd.CANCEL_TAXI, Cmd.SQUAWK],
+  [Station.GROUND]: [
+    Cmd.PUSHBACK_APPROVED, Cmd.STARTUP_APPROVED,
+    Cmd.TAXI, Cmd.HOLD_SHORT, Cmd.CANCEL_TAXI,
+    Cmd.CROSS_RUNWAY, Cmd.CONTINUE_TAXI,
+    Cmd.SQUAWK, Cmd.STANDBY,
+  ],
   [Station.TOWER]: [
     Cmd.LINE_UP_WAIT, Cmd.CLEARED_TAKEOFF, Cmd.CLEARED_LAND,
     Cmd.GO_AROUND, Cmd.CONTACT_DEPARTURE, Cmd.CONTACT_GROUND,
-    Cmd.EXIT_RUNWAY, Cmd.SQUAWK, Cmd.ALTITUDE, Cmd.SPEED,
+    Cmd.EXIT_RUNWAY, Cmd.SQUAWK, Cmd.STANDBY,
   ],
-  [Station.APPROACH]: [Cmd.CLEARED_APPROACH, Cmd.VECTOR, Cmd.ALTITUDE, Cmd.SPEED, Cmd.CONTACT_TOWER],
+  [Station.APPROACH]: [Cmd.CLEARED_APPROACH, Cmd.VECTOR, Cmd.CONTACT_TOWER, Cmd.STANDBY],
   [Station.AREA]: [],
 } as const
 
@@ -272,21 +295,27 @@ export const CONTROLLER_COMMANDS: Record<ControllerStation, ReadonlyArray<Comman
 // More granular: which commands are valid for each specific phase
 
 export const PHASE_COMMANDS: Record<AircraftPhase, ReadonlyArray<CommandType>> = {
-  [Phase.PARKED]:       [Cmd.TAXI, Cmd.SQUAWK],
-  [Phase.TAXI_OUT]:     [Cmd.HOLD_SHORT, Cmd.CANCEL_TAXI, Cmd.SQUAWK],
-  [Phase.HOLD_SHORT]:   [Cmd.LINE_UP_WAIT, Cmd.SQUAWK],
-  [Phase.LINE_UP]:      [Cmd.CLEARED_TAKEOFF, Cmd.SQUAWK],
-  [Phase.TAKEOFF_ROLL]: [Cmd.SQUAWK],
-  [Phase.CLIMBING]:     [Cmd.CONTACT_DEPARTURE, Cmd.ALTITUDE, Cmd.SPEED, Cmd.SQUAWK],
-  [Phase.DEPARTED]:     [],
-  [Phase.ENTERING]:     [Cmd.CLEARED_APPROACH, Cmd.VECTOR, Cmd.ALTITUDE, Cmd.SPEED, Cmd.SQUAWK],
-  [Phase.APPROACH]:     [Cmd.CLEARED_APPROACH, Cmd.VECTOR, Cmd.ALTITUDE, Cmd.SPEED, Cmd.CONTACT_TOWER, Cmd.SQUAWK],
-  [Phase.FINAL]:        [Cmd.CLEARED_LAND, Cmd.GO_AROUND, Cmd.SPEED, Cmd.SQUAWK],
-  [Phase.LANDING]:      [Cmd.GO_AROUND, Cmd.SQUAWK],
-  [Phase.ROLLOUT]:      [Cmd.EXIT_RUNWAY, Cmd.SQUAWK],
-  [Phase.TAXI_IN]:      [Cmd.CONTACT_GROUND, Cmd.SQUAWK],
-  [Phase.ARRIVED]:      [],
-  [Phase.MISSED]:       [Cmd.VECTOR, Cmd.ALTITUDE, Cmd.SPEED, Cmd.SQUAWK],
+  // Departure
+  [Phase.AT_GATE]:            [Cmd.SQUAWK],
+  [Phase.AWAITING_PUSHBACK]:  [Cmd.PUSHBACK_APPROVED, Cmd.STARTUP_APPROVED, Cmd.SQUAWK, Cmd.STANDBY],
+  [Phase.PUSHING_BACK]:       [Cmd.SQUAWK],
+  [Phase.READY_TO_TAXI]:      [Cmd.TAXI, Cmd.SQUAWK],
+  [Phase.TAXI_OUT]:           [Cmd.HOLD_SHORT, Cmd.CANCEL_TAXI, Cmd.CROSS_RUNWAY, Cmd.CONTINUE_TAXI, Cmd.SQUAWK],
+  [Phase.HOLD_SHORT]:         [Cmd.LINE_UP_WAIT, Cmd.SQUAWK],
+  [Phase.LINE_UP]:            [Cmd.CLEARED_TAKEOFF, Cmd.SQUAWK],
+  [Phase.TAKEOFF_ROLL]:       [Cmd.SQUAWK],
+  [Phase.CLIMBING]:           [Cmd.CONTACT_DEPARTURE, Cmd.ALTITUDE, Cmd.SPEED, Cmd.SQUAWK],
+  [Phase.DEPARTED]:           [],
+  // Arrival
+  [Phase.ENTERING]:           [],
+  [Phase.INBOUND_UNCONTROLLED]: [Cmd.STANDBY],
+  [Phase.APPROACH]:           [Cmd.CLEARED_APPROACH, Cmd.VECTOR, Cmd.CONTACT_TOWER, Cmd.SQUAWK],
+  [Phase.FINAL]:              [Cmd.CLEARED_LAND, Cmd.GO_AROUND, Cmd.SQUAWK],
+  [Phase.LANDING]:            [Cmd.GO_AROUND, Cmd.SQUAWK],
+  [Phase.ROLLOUT]:            [Cmd.EXIT_RUNWAY, Cmd.SQUAWK],
+  [Phase.TAXI_IN]:            [Cmd.CONTACT_GROUND, Cmd.SQUAWK],
+  [Phase.ARRIVED]:            [],
+  [Phase.MISSED]:             [Cmd.VECTOR, Cmd.CLEARED_APPROACH, Cmd.SQUAWK],
 } as const
 
 // ─── Airborne Phases (for separation checking) ───────────────────────────────
@@ -294,11 +323,27 @@ export const PHASE_COMMANDS: Record<AircraftPhase, ReadonlyArray<CommandType>> =
 export const AIRBORNE_PHASES: ReadonlySet<AircraftPhase> = new Set([
   Phase.CLIMBING,
   Phase.ENTERING,
+  Phase.INBOUND_UNCONTROLLED,
   Phase.APPROACH,
   Phase.FINAL,
   Phase.LANDING,
   Phase.MISSED,
 ]) as ReadonlySet<AircraftPhase>
+
+/** Pushback call delay after spawn (ms real time) */
+export const PUSHBACK_CALL_DELAY_MS = 20_000
+
+/** Duration of the pushing-back phase (ms real time) */
+export const PUSHING_BACK_DURATION_MS = 45_000
+
+/** Distance in NM from runway threshold at which an inbound arrival fires the "with you" call */
+export const WITH_YOU_CALL_NM = 9
+
+/** Distance in NM that triggers ENTERING → INBOUND_UNCONTROLLED */
+export const INBOUND_TRIGGER_NM = 12
+
+/** How long before repeating an unacknowledged pilot call (ms) */
+export const PILOT_CALL_REPEAT_MS = 20_000
 
 // ─── Speed Limit for Category D ───────────────────────────────────────────────
 // PRD §14 — Cat D aircraft: 210 kt outbound, 185 kt procedure turn

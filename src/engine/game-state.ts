@@ -71,6 +71,10 @@ export class GameState {
   lastSpawnTime: number = 0
   occupiedGateIds: Set<string> = new Set()
 
+  // ── Runway Occupancy (Golden Rule) ──
+  /** Runway ids currently occupied by a landing/rolling/lined-up aircraft */
+  runwayOccupied: Set<string> = new Set()
+
   // ── Separation ──
   /** Pair keys that are currently in cooldown */
   separationCooldowns: Map<string, number> = new Map()
@@ -188,6 +192,7 @@ export class GameState {
     this.playerStations = [ControllerStation.GROUND, ControllerStation.TOWER, ControllerStation.APPROACH]
     this.lastSpawnTime = 0
     this.occupiedGateIds.clear()
+    this.runwayOccupied.clear()
     this.separationCooldowns.clear()
     this.radioLog = []
   }
@@ -209,6 +214,7 @@ export class GameState {
       radioMessages: [...this.radioLog],
       wind: { ...this.wind },
       playerStations: [...this.playerStations],
+      runwayOccupied: new Set(this.runwayOccupied),
     }
   }
 

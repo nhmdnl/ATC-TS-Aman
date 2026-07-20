@@ -3,7 +3,7 @@ import {
   SCORE_DELTAS,
   GRADE_THRESHOLDS,
   DIFFICULTY_PRESETS,
-  SEPARATION_NM,
+  MRS_NM,
   SEPARATION_FT,
   MVA_FT,
   INITIAL_SCORE,
@@ -132,8 +132,8 @@ describe('constants', () => {
   })
 
   describe('separation constants', () => {
-    it('lateral separation is 3 NM', () => {
-      expect(SEPARATION_NM).toBe(3)
+    it('minimum radar separation is 3 NM', () => {
+      expect(MRS_NM).toBe(3)
     })
 
     it('vertical separation is 1000 ft', () => {
@@ -176,7 +176,7 @@ describe('constants', () => {
     })
 
     it('ground handles taxi phases', () => {
-      expect(PHASE_CONTROLLER[AircraftPhase.PARKED]).toBe(ControllerStation.GROUND)
+      expect(PHASE_CONTROLLER[AircraftPhase.AT_GATE]).toBe(ControllerStation.GROUND)
       expect(PHASE_CONTROLLER[AircraftPhase.TAXI_OUT]).toBe(ControllerStation.GROUND)
       expect(PHASE_CONTROLLER[AircraftPhase.TAXI_IN]).toBe(ControllerStation.GROUND)
       expect(PHASE_CONTROLLER[AircraftPhase.ARRIVED]).toBe(ControllerStation.GROUND)
@@ -208,7 +208,7 @@ describe('constants', () => {
     })
 
     it('does not contain ground phases', () => {
-      expect(AIRBORNE_PHASES.has(AircraftPhase.PARKED)).toBe(false)
+      expect(AIRBORNE_PHASES.has(AircraftPhase.AT_GATE)).toBe(false)
       expect(AIRBORNE_PHASES.has(AircraftPhase.TAXI_OUT)).toBe(false)
       expect(AIRBORNE_PHASES.has(AircraftPhase.HOLD_SHORT)).toBe(false)
       expect(AIRBORNE_PHASES.has(AircraftPhase.DEPARTED)).toBe(false)

@@ -1,5 +1,5 @@
 import type { Aircraft } from './types'
-import { SEPARATION_NM, SEPARATION_FT, SEPARATION_COOLDOWN_MS, AIRBORNE_PHASES } from './constants'
+import { SEPARATION_FT, SEPARATION_COOLDOWN_MS, AIRBORNE_PHASES, WAKE_SEPARATION_NM, MRS_NM } from './constants'
 import { distanceNM } from './movement'
 import { eventBus } from './event-bus'
 import { GameEventType } from './types'
@@ -10,26 +10,32 @@ function makePairKey(id1: string, id2: string): ViolationPairKey {
   return [id1, id2].sort().join('|')
 }
 
+/**
+ * Required lateral separation for a pair using the TS3 wake turbulence matrix.
+ * Takes the conservative (max) of both orderings since we don't resolve
+ * leader/trailer in general airspace.
+ */
+function requiredSepNM(ac1: Aircraft, ac2: Aircraft): number {
+  const cat1 = ac1.type.wakeCategory
+  const cat2 = ac2.type.wakeCategory
+  const a = WAKE_SEPARATION_NM[cat1]?.[cat2] ?? MRS_NM
+  const b = WAKE_SEPARATION_NM[cat2]?.[cat1] ?? MRS_NM
+  return Math.max(a, b)
+}
+
 export interface SeparationViolation {
   callsign1: string
   callsign2: string
   lateralNM: number
   verticalFt: number
+  requiredNM: number
 }
 
 export class SeparationChecker {
   private cooldowns: Map<ViolationPairKey, number> = new Map()
 
-  /**
-   * Check all airborne aircraft pairs for separation violations.
-   * @param aircraft List of all active aircraft
-   * @param nowMs Current timestamp in ms
-   * @returns Array of new violations detected this tick
-   */
   checkSeparation(aircraft: Aircraft[], nowMs: number): SeparationViolation[] {
     const violations: SeparationViolation[] = []
-    
-    // Filter to only airborne aircraft
     const airborne = aircraft.filter(ac => AIRBORNE_PHASES.has(ac.phase))
 
     for (let i = 0; i < airborne.length; i++) {
@@ -39,15 +45,14 @@ export class SeparationChecker {
 
         const lateralDist = distanceNM(ac1.x, ac1.y, ac2.x, ac2.y)
         const verticalDist = Math.abs(ac1.altitude - ac2.altitude)
+        const required = requiredSepNM(ac1, ac2)
 
-        if (lateralDist < SEPARATION_NM && verticalDist < SEPARATION_FT) {
+        if (lateralDist < required && verticalDist < SEPARATION_FT) {
           const pairKey = makePairKey(ac1.id, ac2.id)
           const lastViolationTime = this.cooldowns.get(pairKey) ?? 0
 
-          // If not in cooldown, register violation
           if (nowMs - lastViolationTime > SEPARATION_COOLDOWN_MS) {
             this.cooldowns.set(pairKey, nowMs)
-            
             ac1.inViolation = true
             ac2.inViolation = true
 
@@ -55,19 +60,14 @@ export class SeparationChecker {
               callsign1: ac1.callsign,
               callsign2: ac2.callsign,
               lateralNM: lateralDist,
-              verticalFt: verticalDist
+              verticalFt: verticalDist,
+              requiredNM: required,
             }
-            
             violations.push(violation)
-
-            eventBus.emit(GameEventType.SEPARATION_VIOLATION, {
-              callsign: ac1.callsign, // For score tracking, attribute to one or both? Usually handled in scoring.
-              violation
-            })
+            eventBus.emit(GameEventType.SEPARATION_VIOLATION, { callsign: ac1.callsign, violation })
           } else {
-             // Still in violation, keep flags true
-             ac1.inViolation = true
-             ac2.inViolation = true
+            ac1.inViolation = true
+            ac2.inViolation = true
           }
         }
       }
@@ -83,10 +83,6 @@ export class SeparationChecker {
 
 export const separationChecker = new SeparationChecker()
 
-/**
- * Clear the inViolation flag on all aircraft.
- * Should be called at the start of the separation check phase.
- */
 export function clearViolationFlags(aircraft: Aircraft[]): void {
   for (const ac of aircraft) {
     ac.inViolation = false
