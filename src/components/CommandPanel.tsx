@@ -56,6 +56,7 @@ const COMMAND_LABELS: Record<CommandType, string> = {
   [CommandType.GO_AROUND]: 'GO AROUND',
   [CommandType.EXIT_RUNWAY]: 'EXIT RWY',
   [CommandType.CANCEL_TAXI]: 'CNCL TAXI',
+  [CommandType.WIND]: 'WIND',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────

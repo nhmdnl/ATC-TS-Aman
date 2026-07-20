@@ -144,6 +144,10 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
       break
     }
 
+    case CommandType.WIND:
+      // Phraseology-only: wind readback logged by command-registry; no state change
+      break
+
     case CommandType.CANCEL_TAXI:
     case CommandType.HOLD_SHORT:
       aircraft.speed = 0

@@ -52,6 +52,7 @@ export enum CommandType {
   TAXI = 'TAXI',
   HOLD_SHORT = 'HOLD_SHORT',
   CANCEL_TAXI = 'CANCEL_TAXI',
+  WIND = 'WIND',                     // report wind to aircraft
   CROSS_RUNWAY = 'CROSS_RUNWAY',
   CONTINUE_TAXI = 'CONTINUE_TAXI',
   // Tower — runway / takeoff
@@ -375,6 +376,7 @@ export type ScoreReason =
   | 'arrived_gate'
   | 'missed_approach'
   | 'separation_violation'
+  | 'missed_handoff'
 
 export interface ScoreEvent {
   readonly timestamp: number     // ms

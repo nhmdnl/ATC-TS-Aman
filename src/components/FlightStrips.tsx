@@ -140,6 +140,8 @@ export default function FlightStrips() {
     (ac) => ac.flightType === 'arrival' && !EXCLUDED_PHASES.has(ac.phase)
   )
 
+  const pendingCalls = allAircraft.filter(ac => ac.pendingPilotCall !== null)
+
   return (
     <div
       style={{
@@ -160,6 +162,28 @@ export default function FlightStrips() {
       >
         FLIGHT STRIPS
       </div>
+
+      {pendingCalls.length > 0 && (
+        <div style={{ borderBottom: '1px solid #92400e', background: 'rgba(245,158,11,0.08)' }}>
+          <div style={{ padding: '4px 6px 2px', fontSize: 10, color: '#f59e0b', fontWeight: 700, letterSpacing: 1 }}>
+            ▶ PILOT CALLS ({pendingCalls.length})
+          </div>
+          {pendingCalls.map(ac => (
+            <div key={ac.id} style={{
+              padding: '3px 8px 4px',
+              fontSize: 11,
+              fontFamily: "'SF Mono', 'Cascadia Code', 'Fira Code', monospace",
+              color: '#fbbf24',
+              borderLeft: '3px solid #f59e0b',
+              marginBottom: 2,
+            }}>
+              <span style={{ fontWeight: 700 }}>{ac.callsign}</span>
+              {' — '}
+              <span style={{ color: '#e2e8f0' }}>{ac.pendingPilotCall!.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <StripSection title="DEPARTURES" aircraft={departures} accent="#39D98A" />
       <div style={{ borderTop: '1px solid #1E293B', margin: '4px 0' }} />

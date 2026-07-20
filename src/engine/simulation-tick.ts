@@ -65,8 +65,13 @@ export function tick(state: GameState, dtSeconds: number): void {
 
     // 5. Cleanup
     if (checkAircraftRemoval(aircraft)) {
+      // Detect missed handoff before removing from state
+      const missedHandoff = aircraft.flightType === 'departure' &&
+        aircraft.phase === AircraftPhase.DEPARTED &&
+        !aircraft.handedOff &&
+        state.playerStations.includes(aircraft.controller)
       state.removeAircraft(aircraft.id)
-      eventBus.emit(GameEventType.AIRCRAFT_REMOVED, { callsign: aircraft.callsign })
+      eventBus.emit(GameEventType.AIRCRAFT_REMOVED, { callsign: aircraft.callsign, missedHandoff })
     }
   }
 
