@@ -313,7 +313,7 @@ export const PHASE_COMMANDS: Record<AircraftPhase, ReadonlyArray<CommandType>> =
   [Phase.ENTERING]:           [],
   [Phase.INBOUND_UNCONTROLLED]: [Cmd.STANDBY, Cmd.WIND],
   [Phase.APPROACH]:           [Cmd.CLEARED_APPROACH, Cmd.VECTOR, Cmd.CONTACT_TOWER, Cmd.SQUAWK],
-  [Phase.FINAL]:              [Cmd.CLEARED_LAND, Cmd.GO_AROUND, Cmd.SQUAWK, Cmd.WIND],
+  [Phase.FINAL]:              [Cmd.CLEARED_LAND, Cmd.GO_AROUND, Cmd.SQUAWK, Cmd.WIND, Cmd.REPORT],
   [Phase.LANDING]:            [Cmd.GO_AROUND, Cmd.SQUAWK],
   [Phase.ROLLOUT]:            [Cmd.EXIT_RUNWAY, Cmd.SQUAWK],
   [Phase.VACATED]:            [Cmd.TAXI, Cmd.SQUAWK],

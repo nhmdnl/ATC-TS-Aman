@@ -1,5 +1,6 @@
 import type { Command, Aircraft, Airport } from '../types'
 import { gameState } from '../game-state'
+import { distanceNM } from '../movement'
 import { CommandType } from '../types'
 
 export interface PhraseologyResult {
@@ -106,7 +107,8 @@ export function generatePhraseology(command: Command, aircraft: Aircraft, airpor
 
     case CommandType.CLEARED_APPROACH: {
       const ilsRwy = airport.runways.find(r => r.id === aircraft.assignedRunway && r.ils?.available)
-      const approachType = ilsRwy ? 'ILS' : 'visual'
+      const imcConditions = gameState.getConditions() === 'IMC'
+      const approachType = (ilsRwy && (imcConditions || Math.random() > 0.3)) ? 'ILS' : 'visual'
       atc = `${cs}, cleared ${approachType} approach runway ${aircraft.assignedRunway || 'ahead'}`
       pilot = `Cleared ${approachType} approach runway ${aircraft.assignedRunway || 'ahead'}, ${cs}`
       break
@@ -173,6 +175,22 @@ export function generatePhraseology(command: Command, aircraft: Aircraft, airpor
       atc = `${cs}, hold position`
       pilot = `Holding position, ${cs}`
       break
+
+    case CommandType.REPORT: {
+      // params.reportType: 'heading' | 'position' | 'airspeed' (default heading)
+      const reportType = (command.params as any).reportType ?? 'heading'
+      let pilotReport = ''
+      if (reportType === 'heading') {
+        pilotReport = `Heading ${formatHeading(aircraft.heading)}`
+      } else if (reportType === 'airspeed') {
+        pilotReport = `Airspeed ${Math.round(aircraft.speed)} knots`
+      } else {
+        pilotReport = `${cs} is ${Math.round(distanceNM(aircraft.x, aircraft.y, 0, 0) * 10) / 10} miles from the field`
+      }
+      atc = `${cs}, report ${reportType}`
+      pilot = `${pilotReport}, ${cs}`
+      break
+    }
 
     case CommandType.WIND: {
       const wind = gameState.wind

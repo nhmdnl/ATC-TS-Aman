@@ -53,6 +53,7 @@ export enum CommandType {
   HOLD_SHORT = 'HOLD_SHORT',
   CANCEL_TAXI = 'CANCEL_TAXI',
   WIND = 'WIND',                     // report wind to aircraft
+  REPORT = 'REPORT',                 // request pilot to report heading/position/airspeed
   CROSS_RUNWAY = 'CROSS_RUNWAY',
   CONTINUE_TAXI = 'CONTINUE_TAXI',
   // Tower — runway / takeoff
@@ -492,6 +493,7 @@ export interface GameStateSnapshot {
   readonly airport: Readonly<Airport> | null
   readonly radioMessages: ReadonlyArray<RadioMessage>
   readonly wind: Readonly<Wind>
+  readonly conditions: 'VMC' | 'IMC'
   readonly playerStations: ReadonlyArray<ControllerStation>
   readonly runwayOccupied: ReadonlySet<string>
 }
@@ -501,4 +503,6 @@ export interface GameStateSnapshot {
 export interface Wind {
   readonly direction: number     // degrees (where wind is coming FROM)
   readonly speed: number         // knots
+  readonly visibilityNM?: number // nautical miles (undefined = CAVOK)
+  readonly ceiling?: number      // feet AGL (undefined = no cloud layer)
 }

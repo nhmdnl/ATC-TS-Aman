@@ -161,6 +161,14 @@ export class GameState {
     return 'D'
   }
 
+  /** VMC when visibility >= 3 NM and ceiling >= 1000 ft */
+  getConditions(): 'VMC' | 'IMC' {
+    const vis = this.wind.visibilityNM
+    const ceil = this.wind.ceiling
+    if ((vis !== undefined && vis < 3) || (ceil !== undefined && ceil < 1000)) return 'IMC'
+    return 'VMC'
+  }
+
   /** Check if session time has expired */
   isSessionExpired(): boolean {
     return this.elapsedMs >= this.difficulty.sessionDurationMs
@@ -213,6 +221,7 @@ export class GameState {
       airport: this.airport,
       radioMessages: [...this.radioLog],
       wind: { ...this.wind },
+      conditions: this.getConditions(),
       playerStations: [...this.playerStations],
       runwayOccupied: new Set(this.runwayOccupied),
     }

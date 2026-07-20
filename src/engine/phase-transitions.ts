@@ -141,18 +141,24 @@ export function processPhaseTransitions(
       if (runway) {
         const distThreshNM = THRESHOLD_DISTANCE_M / METERS_PER_NM
         if (distanceNM(aircraft.x, aircraft.y, runway.thresholdX, runway.thresholdY) < distThreshNM) {
-          if (aircraft.clearedToLand) {
+          const runwayHot = aircraft.assignedRunway
+            ? gameState.runwayOccupied.has(aircraft.assignedRunway)
+            : false
+          const wasCleared = aircraft.clearedToLand
+          if (wasCleared && !runwayHot) {
             aircraft.phase = AircraftPhase.LANDING
             aircraft.urgent = false
-            // Mark runway occupied while landing
             if (aircraft.assignedRunway) gameState.runwayOccupied.add(aircraft.assignedRunway)
           } else {
+            // No clearance OR runway became occupied after clearance → auto go-around
             aircraft.phase = AircraftPhase.MISSED
+            aircraft.clearedToLand = false
             aircraft.urgent = false
             const missed = missedApproachParams(runway)
             aircraft.missedHeading = missed.heading
             aircraft.missedAltitude = missed.altitude
-            eventBus.emit(GameEventType.MISSED_APPROACH, { callsign: aircraft.callsign })
+            const reason = wasCleared && runwayHot ? 'runway_occupied' : undefined
+            eventBus.emit(GameEventType.MISSED_APPROACH, { callsign: aircraft.callsign, reason })
           }
         }
       }
