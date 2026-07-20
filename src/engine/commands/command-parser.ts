@@ -156,6 +156,11 @@ export function parseCommand(text: string, aircraftList: Aircraft[]): Command | 
     case 'CNCL':
       type = CommandType.CANCEL_TAXI
       break
+
+    case 'WIND':
+    case 'W':
+      type = CommandType.WIND
+      break
   }
 
   if (type) {

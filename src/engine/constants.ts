@@ -83,6 +83,7 @@ export const SCORE_DELTAS: Record<ScoreReason, number> = {
   arrived_gate: 20,
   missed_approach: -100,
   separation_violation: -150,
+  missed_handoff: -100,
 } as const
 
 /** Dimension weights per event — PRD §10.2 */
@@ -100,6 +101,7 @@ export const DIMENSION_DELTAS: Record<ScoreReason, {
   arrived_gate:        { safety:  0, efficiency: 10, communication:  0, procedure:  0, awareness: 0 },
   missed_approach:     { safety: -40, efficiency: -30, communication: 0, procedure:  0, awareness: 0 },
   separation_violation: { safety: -80, efficiency:  0, communication: 0, procedure:  0, awareness: 0 },
+  missed_handoff:       { safety:  0, efficiency:  0, communication: -3, procedure: -2, awareness:  0 },
 } as const
 
 /** Grade thresholds — PRD §10.3 */
@@ -309,9 +311,9 @@ export const PHASE_COMMANDS: Record<AircraftPhase, ReadonlyArray<CommandType>> =
   [Phase.DEPARTED]:           [],
   // Arrival
   [Phase.ENTERING]:           [],
-  [Phase.INBOUND_UNCONTROLLED]: [Cmd.STANDBY],
+  [Phase.INBOUND_UNCONTROLLED]: [Cmd.STANDBY, Cmd.WIND],
   [Phase.APPROACH]:           [Cmd.CLEARED_APPROACH, Cmd.VECTOR, Cmd.CONTACT_TOWER, Cmd.SQUAWK],
-  [Phase.FINAL]:              [Cmd.CLEARED_LAND, Cmd.GO_AROUND, Cmd.SQUAWK],
+  [Phase.FINAL]:              [Cmd.CLEARED_LAND, Cmd.GO_AROUND, Cmd.SQUAWK, Cmd.WIND],
   [Phase.LANDING]:            [Cmd.GO_AROUND, Cmd.SQUAWK],
   [Phase.ROLLOUT]:            [Cmd.EXIT_RUNWAY, Cmd.SQUAWK],
   [Phase.VACATED]:            [Cmd.TAXI, Cmd.SQUAWK],
@@ -372,6 +374,7 @@ export const XP_PER_REASON: Record<ScoreReason, number> = {
   arrived_gate: 5,
   missed_approach: 0,
   separation_violation: 0,
+  missed_handoff: 0,
 } as const
 
 // ─── Colors ───────────────────────────────────────────────────────────────────

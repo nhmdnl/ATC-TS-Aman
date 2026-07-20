@@ -106,7 +106,7 @@ describe('arrival lifecycle (integration, real HHAS data)', () => {
       seenPhases.add(aircraft.phase)
       // Issue TAXI when vacated (simulates player or AI action)
       if (aircraft.phase === AircraftPhase.VACATED && !aircraft.taxiTarget) {
-        executeCommand(cmd(CommandType.TAXI), aircraft, airport)
+        executeCommand(cmd(CommandType.TAXI, aircraft.callsign), aircraft, airport)
       }
     }
 

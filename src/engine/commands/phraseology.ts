@@ -1,4 +1,5 @@
 import type { Command, Aircraft, Airport } from '../types'
+import { gameState } from '../game-state'
 import { CommandType } from '../types'
 
 export interface PhraseologyResult {
@@ -172,6 +173,15 @@ export function generatePhraseology(command: Command, aircraft: Aircraft, airpor
       atc = `${cs}, hold position`
       pilot = `Holding position, ${cs}`
       break
+
+    case CommandType.WIND: {
+      const wind = gameState.wind
+      const windDir = wind.direction.toString().padStart(3, '0').split('').map(digitToWord).join(' ')
+      const windSpd = wind.speed.toString().split('').map(digitToWord).join(' ')
+      atc = `${cs}, wind ${windDir} at ${windSpd}`
+      pilot = `Wind ${windDir} at ${windSpd}, ${cs}`
+      break
+    }
   }
 
   return { atc, pilot, station: stationName }
