@@ -121,6 +121,24 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
       }
       if (aircraft.phase === AircraftPhase.READY_TO_TAXI) {
         changePhase(aircraft, AircraftPhase.TAXI_OUT)
+      } else if (aircraft.phase === AircraftPhase.VACATED && airport && aircraft.assignedGate) {
+        // Taxi-in: route to assigned gate
+        const route = gameState.taxiwayGraph
+          ? buildTaxiRoute(airport, gameState.taxiwayGraph, aircraft.x, aircraft.y, {
+              kind: 'gate',
+              ref: aircraft.assignedGate,
+            })
+          : null
+        if (route) {
+          aircraft.taxiRoute = route
+          aircraft.taxiRouteIndex = 0
+          aircraft.taxiTarget = route[0]
+        } else {
+          // No graph route: set gate as direct target
+          const gate = airport.gates.find(g => g.id === aircraft.assignedGate)
+          if (gate) aircraft.taxiTarget = { x: gate.x, y: gate.y }
+        }
+        changePhase(aircraft, AircraftPhase.TAXI_IN)
       }
       if (aircraft.speed === 0) aircraft.speed = 2
       break

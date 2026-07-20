@@ -175,6 +175,7 @@ describe('runAiControllers — integration, real HHAS data + real command pipeli
       CommandType.CLEARED_APPROACH,
       CommandType.CONTACT_TOWER,
       CommandType.CLEARED_LAND,
+      CommandType.TAXI,
     ])
   })
 })

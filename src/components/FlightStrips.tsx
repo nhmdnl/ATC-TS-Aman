@@ -19,6 +19,7 @@ const PHASE_ABBREV: Record<string, string> = {
   LANDING: 'LAND',
   ROLLOUT: 'ROLL',
   INBOUND_UNCONTROLLED: 'INBND',
+  VACATED: 'VCTED',
   TAXI_IN: 'TAXI',
   MISSED: 'MISS',
 }

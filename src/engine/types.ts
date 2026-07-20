@@ -25,6 +25,7 @@ export enum AircraftPhase {
   FINAL = 'FINAL',
   LANDING = 'LANDING',
   ROLLOUT = 'ROLLOUT',
+  VACATED = 'VACATED',           // off runway, awaiting taxi-to-terminal
   TAXI_IN = 'TAXI_IN',
   ARRIVED = 'ARRIVED',
 
@@ -116,6 +117,7 @@ export enum PilotCallType {
   REQUEST_STARTUP  = 'REQUEST_STARTUP',
   WITH_YOU_FINAL   = 'WITH_YOU_FINAL',
   REQUEST_CROSSING = 'REQUEST_CROSSING',
+  VACATED_REQUEST_TAXI = 'VACATED_REQUEST_TAXI',
 }
 
 export interface PilotCall {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { loadAirport, findRunwayById, selectActiveRunway } from '../airport-loader'
+import { loadAirport, findRunwayById, selectActiveRunway, buildTaxiwayGraph } from '../airport-loader'
 import { moveAircraft, headingToRadians } from '../movement'
 import { processPhaseTransitions } from '../phase-transitions'
 import { gameState } from '../game-state'
@@ -97,23 +97,26 @@ describe('arrival lifecycle (integration, real HHAS data)', () => {
     expect(aircraft.clearedToLand).toBe(true)
 
     const seenPhases = new Set<AircraftPhase>([aircraft.phase])
-    // 30 simulated minutes at 1 Hz is more than enough for 8 NM + rollout + taxi
+    gameState.taxiwayGraph = buildTaxiwayGraph(airport)
+    // 30 simulated minutes at 1 Hz is more than enough for 8 NM + rollout + taxi-in
     for (let t = 0; t < 1800 && aircraft.phase !== AircraftPhase.ARRIVED; t++) {
       const runway = aircraft.assignedRunway ? findRunwayById(airport, aircraft.assignedRunway) : null
       moveAircraft(aircraft, 1, runway)
       processPhaseTransitions(aircraft, runway, airport)
       seenPhases.add(aircraft.phase)
+      // Issue TAXI when vacated (simulates player or AI action)
+      if (aircraft.phase === AircraftPhase.VACATED && !aircraft.taxiTarget) {
+        executeCommand(cmd(CommandType.TAXI), aircraft, airport)
+      }
     }
 
     expect(seenPhases.has(AircraftPhase.FINAL)).toBe(true)
     expect(seenPhases.has(AircraftPhase.LANDING)).toBe(true)
     expect(seenPhases.has(AircraftPhase.ROLLOUT)).toBe(true)
+    expect(seenPhases.has(AircraftPhase.VACATED)).toBe(true)
+    expect(seenPhases.has(AircraftPhase.TAXI_IN)).toBe(true)
     expect(aircraft.phase).toBe(AircraftPhase.ARRIVED)
     expect(seenPhases.has(AircraftPhase.MISSED)).toBe(false)
-    // Good landing teleports to parking — the aircraft ends on its gate
-    const gate = airport.gates.find((g) => g.id === aircraft.assignedGate)!
-    expect(aircraft.x).toBe(gate.x)
-    expect(aircraft.y).toBe(gate.y)
   })
 
   it('goes around from FINAL when not cleared to land', () => {
@@ -141,7 +144,7 @@ describe('arrival lifecycle (integration, real HHAS data)', () => {
     expect(aircraft.missedAltitude).toBe(11500)
   })
 
-  it('teleports to the first free gate at end of ROLLOUT and marks it occupied', () => {
+  it('assigns a free gate and transitions to VACATED at end of ROLLOUT', () => {
     const airport = loadAirport(hhasData)
     gameState.occupiedGateIds.clear()
     gameState.occupiedGateIds.add('G1') // e.g. a departure is still boarding there
@@ -153,12 +156,9 @@ describe('arrival lifecycle (integration, real HHAS data)', () => {
 
     processPhaseTransitions(aircraft, rwy, airport)
 
-    expect(aircraft.phase).toBe(AircraftPhase.ARRIVED)
+    expect(aircraft.phase).toBe(AircraftPhase.VACATED)
     expect(aircraft.assignedGate).toBe('G2')
     expect(gameState.occupiedGateIds.has('G2')).toBe(true)
-    const gate = airport.gates.find((g) => g.id === 'G2')!
-    expect(aircraft.x).toBe(gate.x)
-    expect(aircraft.y).toBe(gate.y)
     gameState.occupiedGateIds.clear()
   })
 })

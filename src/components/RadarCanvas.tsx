@@ -14,7 +14,7 @@ const RANGE_LABEL_BEARING_DEG = 315 // fixed radial (NW) so labels never sit und
 /** Aircraft phases drawn as ground traffic (rect blip, no vector/trail vector line). */
 const GROUND_PHASES: ReadonlyArray<AircraftPhase> = [
   AircraftPhase.AT_GATE, AircraftPhase.AWAITING_PUSHBACK, AircraftPhase.PUSHING_BACK, AircraftPhase.READY_TO_TAXI,
-  AircraftPhase.TAXI_IN, AircraftPhase.TAXI_OUT, AircraftPhase.HOLD_SHORT, AircraftPhase.LINE_UP,
+  AircraftPhase.VACATED, AircraftPhase.TAXI_IN, AircraftPhase.TAXI_OUT, AircraftPhase.HOLD_SHORT, AircraftPhase.LINE_UP,
 ]
 
 /** Minimal shape both real Aircraft and TutorialDemoAircraft satisfy — the
