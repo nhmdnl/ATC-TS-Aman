@@ -4,6 +4,67 @@ All notable changes to ATC Aman are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-07-21
+
+### Added
+
+- **Pilot-calls-first (TS3 sim model)** — pilots now initiate every contact;
+  the player/AI must respond before state advances. Unacknowledged calls
+  repeat after 30 s. Calls are shown in the Flight Strips alert panel.
+- **Departure lifecycle** — `AT_GATE → AWAITING_PUSHBACK → PUSHING_BACK →
+  READY_TO_TAXI → TAXI_OUT → HOLD_SHORT → LINE_UP → TAKEOFF_ROLL →
+  CLIMBING → DEPARTED`. Pushback phase animates the aircraft rearward on
+  a controller-set heading.
+- **Arrival lifecycle** — `ENTERING → INBOUND_UNCONTROLLED → APPROACH →
+  FINAL → LANDING → ROLLOUT → VACATED → TAXI_IN → ARRIVED`. Aircraft now
+  taxi from the rollout point to their gate under player/AI instruction
+  instead of teleporting immediately on touchdown.
+- **Wake turbulence separation matrix** — four categories
+  (SUPER_HEAVY / HEAVY / MEDIUM / LIGHT) with per-pair required separation
+  (3–8 NM), replacing the old flat 5 NM constant.
+- **Golden Rule — runway occupancy** — a runway is marked occupied from
+  landing clearance to vacating; `CLEARED_TO_LAND` is blocked while hot;
+  arriving aircraft that reach the threshold on a hot runway automatically
+  go around even if already cleared.
+- **VMC / IMC conditions** — `Wind` now carries optional `visibilityNM` and
+  `ceiling`; `CLEARED_APPROACH` in IMC requires ILS on the assigned runway;
+  status bar shows live VMC/IMC badge.
+- **Schedule-based traffic** — 22 real-schedule HHAS flights
+  (ERE/ETH/UAE/MSR/KQA/FDB/THY/SDV) spawn by elapsed session time via
+  `hhas.schedule.json`; random spawning only as a fallback.
+- **New commands**: `PUSHBACK_APPROVED`, `STARTUP_APPROVED`, `STANDBY`,
+  `CROSS_RUNWAY`, `CONTINUE_TAXI`, `WIND`, `REPORT`.
+- **WIND command** — broadcasts active runway wind to the pilot;
+  phraseology uses live `gameState.wind`.
+- **REPORT command** — pilot reads back heading, position, and airspeed.
+- **Missed-handoff penalty** — departures that leave the sector without a
+  handoff deduct 100 pts and log the `missed_handoff` scoring dimension.
+- **Airport picker** — main menu now shows a selectable airport list with
+  a radar-map preview before entering the briefing screen.
+- **LINE_UP taxis to threshold** — aircraft in LINE_UP phase now follow
+  the taxiway graph to the actual runway threshold instead of snapping.
+
+### Fixed
+
+- Score floor clamped at −500; violations keep costing past a bad streak.
+- Linux cold-launch GPU crash — renderer pinned to X11 + ANGLE-Vulkan
+  (bundled ANGLE-GL segfaults on Mesa).
+- Radar blank on cold launch — Electron GPU process raced a suspended
+  dGPU; the blank-canvas guard now retries the PixiJS init.
+- MVA low-altitude alert fires once per aircraft per incursion, not every
+  10 s.
+- Out-of-area aircraft despawn at 20 NM (4th radar ring) rather than
+  drifting off-screen indefinitely.
+
+### Changed
+
+- Resizable game window (minimum 1280 × 720).
+- Briefing/main-menu screen has an opaque backdrop and adds Sound and Quit
+  buttons.
+- Good landings teleport the arrival to its assigned gate at rollout end
+  (superseded by full VACATED → TAXI_IN taxi-in in this release, but
+  retained as a ponytail fallback when no taxi path is available).
+
 ## [0.1.0] — 2026-07-07
 
 First public release. 🎉
