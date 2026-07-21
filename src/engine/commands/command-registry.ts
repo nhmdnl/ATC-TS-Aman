@@ -39,7 +39,8 @@ export function processCommand(command: Command, airport: Airport): CommandResul
     callsign: aircraft.callsign,
     commandType: command.type,
     controller: aircraft.controller,
-    phraseology
+    phraseology,
+    command,
   })
 
   // 4. Delayed Execution (Simulate Pilot Readback & Reaction Time)
