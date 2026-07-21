@@ -340,6 +340,8 @@ export const PUSHBACK_CALL_DELAY_MS = 20_000
 /** Duration of the pushing-back phase (ms real time) */
 export const PUSHING_BACK_DURATION_MS = 45_000
 
+export const DEPARTURE_HANDOFF_ALT_FT = 10_000
+
 /** Distance in NM from runway threshold at which an inbound arrival fires the "with you" call */
 export const WITH_YOU_CALL_NM = 9
 

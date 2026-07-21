@@ -1,7 +1,8 @@
 import type { Command, Aircraft, Airport } from '../types'
 import { gameState } from '../game-state'
 import { distanceNM } from '../movement'
-import { CommandType } from '../types'
+import { DEPARTURE_HANDOFF_ALT_FT } from '../constants'
+import { CommandType, AircraftPhase } from '../types'
 
 export interface PhraseologyResult {
   atc: string
@@ -89,13 +90,27 @@ export function generatePhraseology(command: Command, aircraft: Aircraft, airpor
       pilot = `Continue taxi, ${cs}`
       break
 
-    case CommandType.LINE_UP_WAIT:
-      atc = `${cs}, runway ${rwy}, line up and wait`
+    case CommandType.LINE_UP_WAIT: {
+      const luawRunway = airport.runways.find(r => r.id === aircraft.assignedRunway)
+      const trafficOnFinal = [...gameState.aircraft.values()].find(
+        ac => ac.id !== aircraft.id && ac.phase === AircraftPhase.FINAL && ac.assignedRunway === aircraft.assignedRunway
+      )
+      let advisory = ''
+      if (trafficOnFinal && luawRunway) {
+        const dist = Math.round(distanceNM(trafficOnFinal.x, trafficOnFinal.y, luawRunway.thresholdX, luawRunway.thresholdY))
+        advisory = `, traffic on final, ${trafficOnFinal.callsign}, ${dist} miles`
+      }
+      atc = `${cs}, runway ${rwy}, line up and wait${advisory}`
       pilot = `Line up and wait runway ${rwy}, ${cs}`
       break
+    }
 
     case CommandType.CLEARED_TAKEOFF: {
-      atc = `${cs}, runway ${rwy}, cleared for takeoff`
+      const w = gameState.wind
+      const windDir = w.direction.toString().padStart(3, '0').split('').map(digitToWord).join(' ')
+      const windSpd = w.speed.toString().split('').map(digitToWord).join(' ')
+      const deptAlt = formatAltitude(DEPARTURE_HANDOFF_ALT_FT)
+      atc = `${cs}, runway ${rwy}, cleared for takeoff, wind ${windDir} at ${windSpd}, passing ${deptAlt} contact departure`
       pilot = `Cleared for takeoff runway ${rwy}, ${cs}`
       break
     }

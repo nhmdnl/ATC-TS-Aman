@@ -12,6 +12,7 @@ import {
   WITH_YOU_CALL_NM,
   INBOUND_TRIGGER_NM,
   PILOT_CALL_REPEAT_MS,
+  DEPARTURE_HANDOFF_ALT_FT,
 } from './constants'
 import { distanceNM, headingToRadians } from './movement'
 import { eventBus } from './event-bus'
@@ -104,6 +105,17 @@ export function processPhaseTransitions(
         // Mark runway free once airborne
         if (aircraft.assignedRunway) gameState.runwayOccupied.delete(aircraft.assignedRunway)
         eventBus.emit(GameEventType.TAKEOFF, { callsign: aircraft.callsign })
+      }
+      break
+
+    // ── CLIMBING: auto-handoff when passing departure altitude ────────────
+    case AircraftPhase.CLIMBING:
+      if (aircraft.departureHandoffAlt !== null &&
+          aircraft.altitude >= aircraft.departureHandoffAlt &&
+          !aircraft.handedOff) {
+        aircraft.handedOff = true
+        aircraft.phase = AircraftPhase.DEPARTED
+        eventBus.emit(GameEventType.HANDOFF, { callsign: aircraft.callsign, station: 'DEPARTURE' })
       }
       break
 

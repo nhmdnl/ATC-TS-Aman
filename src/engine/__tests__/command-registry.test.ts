@@ -56,6 +56,7 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     trail: [],
     pushbackCallAt: null,
     pushbackHeading: null,
+    departureHandoffAlt: null,
     pendingPilotCall: null,
     withYouCallFired: false,
     awaitingCrossingRunway: null,
