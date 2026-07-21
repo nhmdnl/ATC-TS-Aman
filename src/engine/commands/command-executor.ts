@@ -1,6 +1,6 @@
 import type { Command, Aircraft, Airport } from '../types'
 import { CommandType, AircraftPhase, ControllerStation, GameEventType } from '../types'
-import { PHASE_CONTROLLER, PUSHING_BACK_DURATION_MS } from '../constants'
+import { PHASE_CONTROLLER, PUSHING_BACK_DURATION_MS, DEPARTURE_HANDOFF_ALT_FT } from '../constants'
 import { headingToRadians } from '../movement'
 import { findRunwayById, selectActiveRunway, missedApproachParams } from '../airport-loader'
 import { buildTaxiRoute, findNearestNodeByRef } from '../taxi-routing'
@@ -203,6 +203,7 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
       changePhase(aircraft, AircraftPhase.TAKEOFF_ROLL)
       aircraft.taxiRoute = null
       aircraft.taxiTarget = null
+      aircraft.departureHandoffAlt = DEPARTURE_HANDOFF_ALT_FT
       // Mark runway occupied for the takeoff roll
       if (aircraft.assignedRunway) gameState.runwayOccupied.add(aircraft.assignedRunway)
       break

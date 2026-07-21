@@ -54,6 +54,7 @@ function makeAircraft(id: string, callsign: string, phase: AircraftPhase = Aircr
     trail: [],
     pushbackCallAt: null,
     pushbackHeading: null,
+    departureHandoffAlt: null,
     pendingPilotCall: null,
     withYouCallFired: false,
     awaitingCrossingRunway: null,

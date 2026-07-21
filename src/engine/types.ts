@@ -168,6 +168,7 @@ export interface Aircraft {
   /** Sim elapsed time (ms) when the pushback call should fire */
   pushbackCallAt: number | null
   pushbackHeading: number | null // heading after push (set on PUSHING_BACK entry)
+  departureHandoffAlt: number | null
 
   // Pilot call system
   /** Pending incoming call from this aircraft that player must acknowledge */

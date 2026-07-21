@@ -76,6 +76,7 @@ export function spawnDeparture(gate: GateData, runwayId: string, callsign?: stri
 
     pushbackCallAt: now + PUSHBACK_CALL_DELAY_MS,
     pushbackHeading: null,
+    departureHandoffAlt: null,
 
     pendingPilotCall: null,
     withYouCallFired: false,
@@ -138,6 +139,7 @@ export function spawnArrival(spawnPoint: SpawnPointData, callsign?: string, over
 
     pushbackCallAt: null,
     pushbackHeading: null,
+    departureHandoffAlt: null,
 
     pendingPilotCall: null,
     withYouCallFired: false,

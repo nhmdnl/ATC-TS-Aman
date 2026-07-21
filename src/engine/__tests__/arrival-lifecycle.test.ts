@@ -70,6 +70,7 @@ function makeArrival(x: number, y: number, heading: number, altitude: number): A
     trail: [],
     pushbackCallAt: null,
     pushbackHeading: null,
+    departureHandoffAlt: null,
     pendingPilotCall: null,
     withYouCallFired: false,
     awaitingCrossingRunway: null,
