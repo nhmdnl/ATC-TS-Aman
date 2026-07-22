@@ -64,12 +64,14 @@ export default function StatusBar({ ttsAvailable }: { ttsAvailable: boolean }) {
         <button
           onClick={togglePause}
           style={{
-            background: state.paused ? '#ef4444' : '#1e293b',
+            // Amber (not red) for paused — red is reserved for violations/alerts.
+            background: state.paused ? '#f59e0b' : '#1e293b',
             border: '1px solid #334155',
-            color: '#e2e8f0',
+            color: state.paused ? '#0b1220' : '#e2e8f0',
             padding: '2px 8px',
             borderRadius: 4,
             fontSize: 10,
+            fontWeight: state.paused ? 700 : 400,
             cursor: 'pointer'
           }}
         >

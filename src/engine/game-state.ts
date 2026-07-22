@@ -174,12 +174,14 @@ export class GameState {
     return this.elapsedMs >= this.difficulty.sessionDurationMs
   }
 
-  /** Set difficulty and apply wind */
+  /** Set difficulty and apply wind + weather (visibility/ceiling drive VMC/IMC) */
   setDifficulty(level: DifficultyLevel): void {
     this.difficulty = DIFFICULTY_PRESETS[level]
     this.wind = {
       direction: this.difficulty.windDirection,
       speed: this.difficulty.windSpeed,
+      visibilityNM: this.difficulty.visibilityNM,
+      ceiling: this.difficulty.ceiling,
     }
   }
 

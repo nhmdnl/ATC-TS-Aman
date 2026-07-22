@@ -112,7 +112,7 @@ export default function EndScreen() {
             fontFamily: 'inherit',
           }}
         >
-          PLAY AGAIN
+          MAIN MENU
         </button>
       </div>
     </div>
