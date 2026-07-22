@@ -67,7 +67,7 @@ function drawAircraftBody(
   if (isGround) color = 0x10b981
 
   g.clear()
-  g.hitArea = new PIXI.Circle(x, y, 9)
+  g.hitArea = new PIXI.Circle(x, y, 12)
 
   // Trail
   if (data.trail && data.trail.length > 1) {
@@ -937,7 +937,7 @@ export default function RadarCanvas() {
         const cx = app.screen.width / 2
         const cy = app.screen.height / 2
         let hoveredId: string | null = null
-        let bestDist = 10
+        let bestDist = 12 // matches the PIXI hitArea radius so hover + click agree
         for (const ac of state.aircraft.values()) {
           const sx = cx + ac.x * zoom + ox
           const sy = cy - ac.y * zoom + oy

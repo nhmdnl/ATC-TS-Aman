@@ -61,6 +61,14 @@ export default function StatusBar({ ttsAvailable }: { ttsAvailable: boolean }) {
           ))}
         </div>
 
+        <span
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-guide-panel'))}
+          title="Keyboard shortcuts — G guide · O missions · T tutorial · M mute"
+          style={{ color: '#475569', fontSize: 9, letterSpacing: 1, cursor: 'pointer', fontFamily: 'SF Mono, monospace' }}
+        >
+          G·O·T·M
+        </span>
+
         <button
           onClick={togglePause}
           style={{

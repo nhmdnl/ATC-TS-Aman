@@ -209,6 +209,7 @@ export default function BriefingScreen() {
 
         <div style={{ display: 'flex', gap: 8 }}>
           <button
+            autoFocus
             onClick={handleStart}
             style={{
               flex: 1,
