@@ -47,9 +47,9 @@ describe('aircraft-factory', () => {
       expect(ac.speed).toBe(0)
     })
 
-    it('produces PARKED phase', () => {
+    it('produces AT_GATE phase', () => {
       const ac = spawnDeparture(gate, runwayId)
-      expect(ac.phase).toBe(AircraftPhase.PARKED)
+      expect(ac.phase).toBe(AircraftPhase.AT_GATE)
     })
 
     it('is a departure flight type', () => {

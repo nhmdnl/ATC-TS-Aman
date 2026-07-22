@@ -121,6 +121,54 @@ export function parseCommand(text: string, aircraftList: Aircraft[]): Command | 
       else if (args.includes('TWR') || args.includes('TOWER')) type = CommandType.CONTACT_TOWER
       else if (args.includes('GND') || args.includes('GROUND')) type = CommandType.CONTACT_GROUND
       break
+
+    case 'PB':
+    case 'PUSHBACK':
+      type = CommandType.PUSHBACK_APPROVED
+      if (args.length > 0) params.pushbackHeading = parseInt(args[0], 10)
+      break
+
+    case 'SU':
+    case 'STARTUP':
+      type = CommandType.STARTUP_APPROVED
+      break
+
+    case 'SBY':
+    case 'STANDBY':
+      type = CommandType.STANDBY
+      break
+
+    case 'CROSS':
+      type = CommandType.CROSS_RUNWAY
+      break
+
+    case 'CONT':
+    case 'CONTINUE':
+      type = CommandType.CONTINUE_TAXI
+      break
+
+    case 'ER':
+    case 'EXIT':
+      type = CommandType.EXIT_RUNWAY
+      break
+
+    case 'CANCEL':
+    case 'CNCL':
+      type = CommandType.CANCEL_TAXI
+      break
+
+    case 'WIND':
+    case 'W':
+      type = CommandType.WIND
+      break
+
+    case 'REPORT':
+    case 'RPT':
+      type = CommandType.REPORT
+      if (args.length > 0) {
+        params.reportType = args[0].toLowerCase() // heading|position|airspeed
+      }
+      break
   }
 
   if (type) {

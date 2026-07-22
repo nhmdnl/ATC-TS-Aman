@@ -3,6 +3,7 @@ import type { GameStateSnapshot, DifficultyLevel, Airport, Command, ControllerSt
 import { gameState } from '../engine/game-state'
 import { processCommand } from '../engine/commands/command-registry'
 import { buildTaxiwayGraph } from '../engine/airport-loader'
+import { trafficScheduler } from '../engine/traffic-scheduler'
 import { initializeScoringSystem } from '../engine/scoring'
 import { AIRPORTS, getAirportEntry, type AirportEntry } from './airport-registry'
 
@@ -37,6 +38,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     gameState.airport = entry.airport
     gameState.taxiwayGraph = buildTaxiwayGraph(entry.airport)
     gameState.reset()
+    trafficScheduler.reset()
     setSelectedAirportId(entry.id)
     setSnapshot(gameState.snapshot())
   }, [])
@@ -86,6 +88,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const resetGame = () => {
     gameState.reset()
+    trafficScheduler.reset()
     setSnapshot(gameState.snapshot())
   }
 

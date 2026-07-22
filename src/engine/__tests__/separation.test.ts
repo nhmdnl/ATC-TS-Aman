@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { SeparationChecker, clearViolationFlags } from '../separation'
-import { AircraftPhase, ControllerStation } from '../types'
+import { AircraftPhase, ControllerStation , WakeCategory } from '../types'
 import type { Aircraft } from '../types'
 import { AIRBORNE_PHASES } from '../constants'
 
@@ -21,6 +21,7 @@ function makeAircraft(id: string, callsign: string, phase: AircraftPhase, x: num
       climbRate: 2500,
       descentRate: 1800,
       serviceCeiling: 41000,
+      wakeCategory: WakeCategory.MEDIUM,
     },
     flightType: 'arrival',
     squawk: '1234',
@@ -52,6 +53,12 @@ function makeAircraft(id: string, callsign: string, phase: AircraftPhase, x: num
     missedHeading: null,
     missedAltitude: null,
     trail: [],
+    pushbackCallAt: null,
+    pushbackHeading: null,
+    departureHandoffAlt: null,
+    pendingPilotCall: null,
+    withYouCallFired: false,
+    awaitingCrossingRunway: null,
   }
 }
 
@@ -101,7 +108,7 @@ describe('SeparationChecker', () => {
   })
 
   it('does not flag non-airborne aircraft (ground phases)', () => {
-    const ac1 = makeAircraft('1', 'UAL1', AircraftPhase.PARKED, 0, 0, 0)
+    const ac1 = makeAircraft('1', 'UAL1', AircraftPhase.AT_GATE, 0, 0, 0)
     const ac2 = makeAircraft('2', 'UAL2', AircraftPhase.TAXI_OUT, 0, 0, 0)
     // Both are on ground phases, not in AIRBORNE_PHASES
     const violations = checker.checkSeparation([ac1, ac2], 1000)
@@ -110,7 +117,7 @@ describe('SeparationChecker', () => {
 
   it('only checks airborne aircraft even when mixed with ground', () => {
     const ac1 = makeAircraft('1', 'UAL1', AircraftPhase.APPROACH, 0, 0, 5000)
-    const ac2 = makeAircraft('2', 'UAL2', AircraftPhase.PARKED, 0, 0, 0)
+    const ac2 = makeAircraft('2', 'UAL2', AircraftPhase.AT_GATE, 0, 0, 0)
     // Only ac1 is airborne, only 1 aircraft to check -> no pairs
     const violations = checker.checkSeparation([ac1, ac2], 1000)
     expect(violations).toHaveLength(0)

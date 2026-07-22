@@ -1,13 +1,16 @@
 import { GameState } from './game-state'
 import { moveAircraft } from './movement'
-import { processPhaseTransitions, checkAircraftRemoval } from './phase-transitions'
+import { processPhaseTransitions, checkAircraftRemoval, checkPilotCallRepeats } from './phase-transitions'
 import { separationChecker, clearViolationFlags } from './separation'
 import { runAiControllers } from './ai-controller'
 import { spawnArrival, spawnDeparture, isSpawnPointClear } from './aircraft-factory'
+import { trafficScheduler } from './traffic-scheduler'
+import type { ScheduledFlight } from './traffic-scheduler'
 import { findRunwayById, getAvailableGates, getArrivalSpawnPoints, selectActiveRunway } from './airport-loader'
-import { GameEventType, AircraftPhase, RadioSpeaker } from './types'
+import { GameEventType, AircraftPhase, RadioSpeaker, PilotCallType } from './types'
 import { eventBus } from './event-bus'
 import { MVA_FT } from './constants'
+import hhasSchedule from '../data/airports/hhas.schedule.json'
 
 /**
  * Main simulation tick function. Runs at 1 Hz.
@@ -62,51 +65,51 @@ export function tick(state: GameState, dtSeconds: number): void {
 
     // 5. Cleanup
     if (checkAircraftRemoval(aircraft)) {
+      // Detect missed handoff before removing from state
+      const missedHandoff = aircraft.flightType === 'departure' &&
+        aircraft.phase === AircraftPhase.DEPARTED &&
+        !aircraft.handedOff &&
+        state.playerStations.includes(aircraft.controller)
       state.removeAircraft(aircraft.id)
-      eventBus.emit(GameEventType.AIRCRAFT_REMOVED, { callsign: aircraft.callsign })
+      eventBus.emit(GameEventType.AIRCRAFT_REMOVED, { callsign: aircraft.callsign, missedHandoff })
     }
   }
 
   // 6. Separation Checking
   separationChecker.checkSeparation(state.allAircraft(), nowMs)
 
-  // 7. AI Controller Decisions — after separation checking so inViolation
+  // 7. Pilot call repeat check (re-fires unacknowledged calls)
+  if (state.airport) checkPilotCallRepeats(state.allAircraft(), state.airport)
+
+  // 8. AI Controller Decisions — after separation checking so inViolation
   // flags are current for this tick (nextExpectedCommand's FINAL branch
   // checks it).
   runAiControllers(state, nowMs)
 
-  // 8. Session Expiry Check
+  // 9. Session Expiry Check
   if (state.isSessionExpired() && !state.sessionEnded) {
     state.sessionEnded = true
     eventBus.emit(GameEventType.SESSION_ENDED, { score: state.score, grade: state.getGrade() })
   }
 
-  // 9. Flush queued events
+  // 10. Flush queued events
   eventBus.flush()
 }
 
 function handleSpawning(state: GameState, nowMs: number): void {
   if (!state.airport) return
 
-  // Initial spawn at start of session (1 departure, 1 arrival)
-  if (state.aircraft.size === 0 && state.elapsedMs < 2000) {
-    spawnOneArrival(state)
-    spawnOneDeparture(state)
-    state.lastSpawnTime = nowMs
-    return
-  }
+  // Schedule-based traffic: advance through the HHAS schedule
+  trafficScheduler.tick(state, hhasSchedule as ScheduledFlight[])
 
-  // Periodic spawn
-  if (nowMs - state.lastSpawnTime >= state.difficulty.spawnIntervalMs) {
-    if (state.aircraft.size < state.difficulty.maxAircraft) {
-      // 50/50 chance for arrival or departure
-      if (Math.random() > 0.5) {
-        spawnOneArrival(state)
-      } else {
-        spawnOneDeparture(state)
-      }
+  // Fallback random spawning if schedule is exhausted and traffic is thin
+  // (also covers airports with no schedule file)
+  if (state.aircraft.size < 2 && state.elapsedMs > 30_000) {
+    if (nowMs - state.lastSpawnTime >= state.difficulty.spawnIntervalMs) {
+      if (Math.random() > 0.5) spawnOneArrival(state)
+      else spawnOneDeparture(state)
+      state.lastSpawnTime = nowMs
     }
-    state.lastSpawnTime = nowMs
   }
 }
 

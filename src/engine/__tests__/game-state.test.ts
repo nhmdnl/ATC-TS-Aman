@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { GameState } from '../game-state'
 import type { Aircraft, ScoreEvent, RadioMessage } from '../types'
-import { AircraftPhase, ControllerStation } from '../types'
+import { AircraftPhase, ControllerStation , WakeCategory } from '../types'
 
 /** Build a minimal valid Aircraft for testing */
-function makeAircraft(id: string, callsign: string, phase: AircraftPhase = AircraftPhase.PARKED): Aircraft {
+function makeAircraft(id: string, callsign: string, phase: AircraftPhase = AircraftPhase.AT_GATE): Aircraft {
   return {
     id,
     callsign,
@@ -20,6 +20,7 @@ function makeAircraft(id: string, callsign: string, phase: AircraftPhase = Aircr
       climbRate: 2500,
       descentRate: 1800,
       serviceCeiling: 41000,
+      wakeCategory: WakeCategory.MEDIUM,
     },
     flightType: 'departure',
     squawk: '1234',
@@ -51,6 +52,12 @@ function makeAircraft(id: string, callsign: string, phase: AircraftPhase = Aircr
     missedHeading: null,
     missedAltitude: null,
     trail: [],
+    pushbackCallAt: null,
+    pushbackHeading: null,
+    departureHandoffAlt: null,
+    pendingPilotCall: null,
+    withYouCallFired: false,
+    awaitingCrossingRunway: null,
   }
 }
 
@@ -138,19 +145,19 @@ describe('GameState', () => {
 
   describe('getAircraftByPhase', () => {
     it('returns aircraft matching the phase', () => {
-      const ac1 = makeAircraft('1', 'UAL1', AircraftPhase.PARKED)
+      const ac1 = makeAircraft('1', 'UAL1', AircraftPhase.AT_GATE)
       const ac2 = makeAircraft('2', 'UAL2', AircraftPhase.CLIMBING)
-      const ac3 = makeAircraft('3', 'UAL3', AircraftPhase.PARKED)
+      const ac3 = makeAircraft('3', 'UAL3', AircraftPhase.AT_GATE)
       state.addAircraft(ac1)
       state.addAircraft(ac2)
       state.addAircraft(ac3)
-      const parked = state.getAircraftByPhase(AircraftPhase.PARKED)
-      expect(parked).toHaveLength(2)
-      expect(parked.map(a => a.id)).toEqual(['1', '3'])
+      const grounded = state.getAircraftByPhase(AircraftPhase.AT_GATE)
+      expect(grounded).toHaveLength(2)
+      expect(grounded.map(a => a.id)).toEqual(['1', '3'])
     })
 
     it('returns empty array when no match', () => {
-      state.addAircraft(makeAircraft('1', 'UAL1', AircraftPhase.PARKED))
+      state.addAircraft(makeAircraft('1', 'UAL1', AircraftPhase.AT_GATE))
       const climbing = state.getAircraftByPhase(AircraftPhase.CLIMBING)
       expect(climbing).toHaveLength(0)
     })

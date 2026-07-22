@@ -6,7 +6,7 @@ import { moveAircraft, headingToRadians } from '../movement'
 import { findRunwayById, loadAirport, selectActiveRunway } from '../airport-loader'
 import { processPhaseTransitions } from '../phase-transitions'
 import { nextExpectedCommand, runAiControllers } from '../ai-controller'
-import { AircraftPhase, CommandType, ControllerStation } from '../types'
+import { AircraftPhase, CommandType, ControllerStation, WakeCategory } from '../types'
 import type { Aircraft } from '../types'
 import hhasData from '../../data/airports/hhas.airport.json'
 
@@ -26,6 +26,7 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
       climbRate: 2500,
       descentRate: 1800,
       serviceCeiling: 41000,
+      wakeCategory: WakeCategory.MEDIUM,
     },
     flightType: 'arrival',
     squawk: '4521',
@@ -57,13 +58,19 @@ function makeAircraft(overrides: Partial<Aircraft> = {}): Aircraft {
     missedHeading: null,
     missedAltitude: null,
     trail: [],
+    pushbackCallAt: null,
+    pushbackHeading: null,
+    departureHandoffAlt: null,
+    pendingPilotCall: null,
+    withYouCallFired: false,
+    awaitingCrossingRunway: null,
     ...overrides,
   }
 }
 
 describe('nextExpectedCommand', () => {
   it('returns TAXI for PARKED', () => {
-    expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.PARKED }))).toBe(CommandType.TAXI)
+    expect(nextExpectedCommand(makeAircraft({ phase: AircraftPhase.READY_TO_TAXI }))).toBe(CommandType.TAXI)
   })
 
   it('returns LINE_UP_WAIT for HOLD_SHORT', () => {
@@ -169,6 +176,7 @@ describe('runAiControllers — integration, real HHAS data + real command pipeli
       CommandType.CLEARED_APPROACH,
       CommandType.CONTACT_TOWER,
       CommandType.CLEARED_LAND,
+      CommandType.TAXI,
     ])
   })
 })

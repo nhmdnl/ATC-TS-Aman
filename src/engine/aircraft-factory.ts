@@ -1,71 +1,53 @@
 import type { Aircraft, AircraftType, GateData, SpawnPointData } from './types'
 import { AircraftPhase, ControllerStation } from './types'
-import { AIRCRAFT_TYPES, AIRLINE_PREFIXES, PHASE_CONTROLLER, SEPARATION_NM, SEPARATION_FT } from './constants'
+import { AIRCRAFT_TYPES, AIRLINE_PREFIXES, PHASE_CONTROLLER, SEPARATION_FT, MRS_NM, PUSHBACK_CALL_DELAY_MS } from './constants'
 import { distanceNM } from './movement'
 
 /**
  * True when no existing traffic sits close enough to a spawn point that a
  * new arrival there would violate (or immediately converge into) separation.
- * 2× lateral minima: a follower spawned at exactly the minima converges
- * before the player can intervene.
+ * Uses MRS_NM * 2 as minimum clear distance.
  */
 export function isSpawnPointClear(point: SpawnPointData, traffic: Aircraft[]): boolean {
   return !traffic.some(ac =>
-    distanceNM(ac.x, ac.y, point.x, point.y) < SEPARATION_NM * 2 &&
+    distanceNM(ac.x, ac.y, point.x, point.y) < MRS_NM * 2 &&
     Math.abs(ac.altitude - point.altitude) < SEPARATION_FT)
 }
 
-/**
- * Generate a random callsign consisting of an airline prefix and a 3-4 digit flight number.
- */
+// ponytail: flat random callsign — sequential/realistic when T-019 schedule system added
 function generateCallsign(): string {
-  // ponytail: flat random callsign — sequential/realistic when flight schedule system added
   const prefix = AIRLINE_PREFIXES[Math.floor(Math.random() * AIRLINE_PREFIXES.length)].prefix
-  const number = Math.floor(Math.random() * 9000) + 100 // 100 to 9099
+  const number = Math.floor(Math.random() * 9000) + 100
   return `${prefix}${number}`
 }
 
-/**
- * Generate a random 4-digit octal squawk code.
- */
 function generateSquawk(): string {
   let squawk = ''
-  for (let i = 0; i < 4; i++) {
-    squawk += Math.floor(Math.random() * 8).toString()
-  }
+  for (let i = 0; i < 4; i++) squawk += Math.floor(Math.random() * 8).toString()
   return squawk
 }
 
-/**
- * Pick a random aircraft type from the catalog.
- */
 function randomAircraftType(): AircraftType {
   return AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)]
 }
 
-/**
- * Generate a unique ID (using crypto if available, fallback to Math.random)
- */
 function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
-  }
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 }
 
 /**
- * Spawn a new departure aircraft at a specific gate.
- * @param gate Gate where the aircraft will start
- * @param runwayId Initial assigned runway (can be changed by ground controller later)
+ * Spawn a new departure at a gate.
+ * Starts in AT_GATE — the pilot will call for pushback after PUSHBACK_CALL_DELAY_MS.
  */
-export function spawnDeparture(gate: GateData, runwayId: string): Aircraft {
-  const type = randomAircraftType()
-  const phase = AircraftPhase.PARKED
+export function spawnDeparture(gate: GateData, runwayId: string, callsign?: string, overrideType?: AircraftType): Aircraft {
+  const type = overrideType ?? randomAircraftType()
+  const phase = AircraftPhase.AT_GATE
   const now = Date.now()
 
   return {
     id: generateId(),
-    callsign: generateCallsign(),
+    callsign: callsign ?? generateCallsign(),
     type,
     flightType: 'departure',
     squawk: generateSquawk(),
@@ -73,7 +55,7 @@ export function spawnDeparture(gate: GateData, runwayId: string): Aircraft {
     x: gate.x,
     y: gate.y,
     altitude: 0,
-    heading: 0,
+    heading: 90, // default east; will be updated on pushback
     speed: 0,
 
     phase,
@@ -92,6 +74,14 @@ export function spawnDeparture(gate: GateData, runwayId: string): Aircraft {
     taxiRoute: null,
     taxiRouteIndex: 0,
 
+    pushbackCallAt: now + PUSHBACK_CALL_DELAY_MS,
+    pushbackHeading: null,
+    departureHandoffAlt: null,
+
+    pendingPilotCall: null,
+    withYouCallFired: false,
+    awaitingCrossingRunway: null,
+
     spawnTime: now,
     lastCommandTime: now,
     readbackTimer: null,
@@ -104,24 +94,23 @@ export function spawnDeparture(gate: GateData, runwayId: string): Aircraft {
     missedHeading: null,
     missedAltitude: null,
 
-    trail: []
+    trail: [],
   }
 }
 
 /**
- * Spawn a new arrival aircraft at an entry point.
- * @param spawnPoint Pre-defined entry point from airport data
+ * Spawn a new arrival at an entry point.
+ * Starts in ENTERING — transitions to INBOUND_UNCONTROLLED near the field.
  */
-export function spawnArrival(spawnPoint: SpawnPointData): Aircraft {
-  const type = randomAircraftType()
+export function spawnArrival(spawnPoint: SpawnPointData, callsign?: string, overrideType?: AircraftType): Aircraft {
+  const type = overrideType ?? randomAircraftType()
   const phase = AircraftPhase.ENTERING
   const now = Date.now()
-  // Initialize speed to 70% of cruise speed, capped at reasonable approach entry speed
   const initialSpeed = Math.min(Math.round(type.cruiseSpeed * 0.7), 250)
 
   return {
     id: generateId(),
-    callsign: generateCallsign(),
+    callsign: callsign ?? generateCallsign(),
     type,
     flightType: 'arrival',
     squawk: generateSquawk(),
@@ -141,12 +130,20 @@ export function spawnArrival(spawnPoint: SpawnPointData): Aircraft {
     clearedToLand: false,
     clearedForApproach: false,
 
-    assignedRunway: null, // assigned by approach controller
+    assignedRunway: null,
     assignedTaxiway: null,
     assignedGate: null,
     taxiTarget: null,
     taxiRoute: null,
     taxiRouteIndex: 0,
+
+    pushbackCallAt: null,
+    pushbackHeading: null,
+    departureHandoffAlt: null,
+
+    pendingPilotCall: null,
+    withYouCallFired: false,
+    awaitingCrossingRunway: null,
 
     spawnTime: now,
     lastCommandTime: now,
@@ -160,6 +157,6 @@ export function spawnArrival(spawnPoint: SpawnPointData): Aircraft {
     missedHeading: null,
     missedAltitude: null,
 
-    trail: []
+    trail: [],
   }
 }

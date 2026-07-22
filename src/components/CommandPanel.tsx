@@ -35,8 +35,13 @@ const COMMANDS_NEEDING_PARAMS: Partial<
 }
 
 const COMMAND_LABELS: Record<CommandType, string> = {
+  [CommandType.PUSHBACK_APPROVED]: 'PUSHBACK',
+  [CommandType.STARTUP_APPROVED]: 'STARTUP',
+  [CommandType.STANDBY]: 'STANDBY',
   [CommandType.TAXI]: 'TAXI',
   [CommandType.HOLD_SHORT]: 'HOLD SHORT',
+  [CommandType.CROSS_RUNWAY]: 'CROSS RWY',
+  [CommandType.CONTINUE_TAXI]: 'CONTINUE',
   [CommandType.LINE_UP_WAIT]: 'LINE UP',
   [CommandType.CLEARED_TAKEOFF]: 'CLR T/OFF',
   [CommandType.CLEARED_LAND]: 'CLR LAND',
@@ -51,6 +56,8 @@ const COMMAND_LABELS: Record<CommandType, string> = {
   [CommandType.GO_AROUND]: 'GO AROUND',
   [CommandType.EXIT_RUNWAY]: 'EXIT RWY',
   [CommandType.CANCEL_TAXI]: 'CNCL TAXI',
+  [CommandType.WIND]: 'WIND',
+  [CommandType.REPORT]: 'REPORT',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────

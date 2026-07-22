@@ -7,6 +7,9 @@ import { SCORE_DELTAS, DIMENSION_DELTAS } from './constants'
 export function initializeScoringSystem(): void {
   // Listen to events and map to score deltas
   eventBus.on(GameEventType.COMMAND_ISSUED, (e: GameEvent) => handleScoreEvent('command_issued', e))
+  eventBus.on(GameEventType.AIRCRAFT_REMOVED, (e: GameEvent) => {
+    if (e.payload.missedHandoff) handleScoreEvent('missed_handoff', e)
+  })
   eventBus.on(GameEventType.TAKEOFF, (e: GameEvent) => handleScoreEvent('takeoff', e))
   eventBus.on(GameEventType.LANDING, (e: GameEvent) => handleScoreEvent('landing', e))
   eventBus.on(GameEventType.ARRIVED_GATE, (e: GameEvent) => handleScoreEvent('arrived_gate', e))

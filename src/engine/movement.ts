@@ -325,6 +325,15 @@ function moveMissed(aircraft: Aircraft, dtSeconds: number): void {
 
 // ─── Master Movement Function ────────────────────────────────────────────────
 
+function movePushingBack(aircraft: Aircraft, dtSeconds: number): void {
+  // ponytail: drifts aircraft backward at ~0.02 NM/s on pushbackHeading; stops when phase-transitions flips to READY_TO_TAXI
+  const heading = aircraft.pushbackHeading ?? ((aircraft.heading + 180) % 360)
+  const speed = 0.02 // NM per second (~1.2 kt ground speed)
+  const headingRad = (heading * Math.PI) / 180
+  aircraft.x += Math.sin(headingRad) * speed * dtSeconds
+  aircraft.y += Math.cos(headingRad) * speed * dtSeconds
+}
+
 export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null): void {
   // Record trail position periodically
   // We'll push current position before moving to create the trail
@@ -375,10 +384,16 @@ export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: Runw
     case AircraftPhase.MISSED:
       moveMissed(aircraft, dtSeconds)
       break
-    case AircraftPhase.PARKED:
+    case AircraftPhase.PUSHING_BACK:
+      movePushingBack(aircraft, dtSeconds)
+      break
+    case AircraftPhase.AT_GATE:
+    case AircraftPhase.AWAITING_PUSHBACK:
+    case AircraftPhase.READY_TO_TAXI:
+    case AircraftPhase.INBOUND_UNCONTROLLED:
+    case AircraftPhase.VACATED:
     case AircraftPhase.HOLD_SHORT:
     case AircraftPhase.ARRIVED:
-      // No autonomous movement in these phases
       break
   }
 }

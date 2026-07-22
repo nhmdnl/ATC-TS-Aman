@@ -1,44 +1,79 @@
 import type { Command, Aircraft, Airport } from '../types'
 import { CommandType, AircraftPhase, ControllerStation, GameEventType } from '../types'
-import { PHASE_CONTROLLER } from '../constants'
+import { PHASE_CONTROLLER, PUSHING_BACK_DURATION_MS, DEPARTURE_HANDOFF_ALT_FT } from '../constants'
 import { headingToRadians } from '../movement'
 import { findRunwayById, selectActiveRunway, missedApproachParams } from '../airport-loader'
 import { buildTaxiRoute, findNearestNodeByRef } from '../taxi-routing'
 import { eventBus } from '../event-bus'
 import { gameState } from '../game-state'
 
-/** Command-driven phase change: keeps controller in sync (same contract as phase-transitions). */
 function changePhase(aircraft: Aircraft, newPhase: AircraftPhase): void {
   const oldPhase = aircraft.phase
   if (oldPhase === newPhase) return
   aircraft.phase = newPhase
   aircraft.controller = PHASE_CONTROLLER[newPhase]
-  eventBus.emit(GameEventType.PHASE_CHANGED, {
-    callsign: aircraft.callsign,
-    oldPhase,
-    newPhase,
-  })
+  eventBus.emit(GameEventType.PHASE_CHANGED, { callsign: aircraft.callsign, oldPhase, newPhase })
 }
 
-/**
- * Applies the effects of a command to an aircraft's state.
- * This is called *after* validation and *after* the readback delay.
- */
+/** Acknowledges any pending pilot call on this aircraft. */
+function acknowledgePilotCall(aircraft: Aircraft): void {
+  aircraft.pendingPilotCall = null
+}
+
 export function executeCommand(command: Command, aircraft: Aircraft, airport: Airport | null = null): void {
-  // Update last command time
   aircraft.lastCommandTime = Date.now()
 
+  // Any command acknowledges a pending pilot call
+  acknowledgePilotCall(aircraft)
+
   switch (command.type) {
+
+    // ── Pushback / Startup ────────────────────────────────────────────────
+    case CommandType.PUSHBACK_APPROVED:
+    case CommandType.STARTUP_APPROVED: {
+      if (command.params.runway) aircraft.assignedRunway = command.params.runway
+      // For pushback: heading flips 180° (tug pushes aircraft nose-away from gate)
+      // For startup: aircraft is already oriented correctly
+      if (command.type === CommandType.PUSHBACK_APPROVED) {
+        aircraft.pushbackHeading = (aircraft.heading + 180) % 360
+        changePhase(aircraft, AircraftPhase.PUSHING_BACK)
+        // Reuse pushbackCallAt as the end-of-pushback time
+        aircraft.pushbackCallAt = Date.now() + PUSHING_BACK_DURATION_MS
+      } else {
+        changePhase(aircraft, AircraftPhase.READY_TO_TAXI)
+      }
+      break
+    }
+
+    // ── STANDBY: acknowledge call without other action ─────────────────────
+    case CommandType.STANDBY:
+      // acknowledgePilotCall already called above; nothing else to do
+      break
+
+    // ── CROSS_RUNWAY: resume taxi across a runway ─────────────────────────
+    case CommandType.CROSS_RUNWAY:
+      aircraft.awaitingCrossingRunway = null
+      if (aircraft.speed === 0) aircraft.speed = 2
+      break
+
+    // ── CONTINUE_TAXI: release any hold ───────────────────────────────────
+    case CommandType.CONTINUE_TAXI:
+      aircraft.awaitingCrossingRunway = null
+      if (aircraft.speed === 0) aircraft.speed = 2
+      break
+
+    // ── VECTOR ────────────────────────────────────────────────────────────
     case CommandType.VECTOR:
       aircraft.clearedHeading = command.params.heading ?? aircraft.heading
-      // Vectoring cancels approach clearance
       aircraft.clearedForApproach = false
       break
 
+    // ── ALTITUDE (departures only, validated upstream) ────────────────────
     case CommandType.ALTITUDE:
       aircraft.clearedAltitude = command.params.altitude ?? aircraft.altitude
       break
 
+    // ── SPEED (departures only, validated upstream) ───────────────────────
     case CommandType.SPEED:
       aircraft.clearedSpeed = command.params.speed ?? aircraft.speed
       break
@@ -49,7 +84,6 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
 
     case CommandType.CLEARED_APPROACH:
       aircraft.clearedForApproach = true
-      // Spawn normally pre-assigns the runway; this covers hand-built aircraft
       if (!aircraft.assignedRunway && airport) {
         aircraft.assignedRunway = selectActiveRunway(airport, gameState.wind)?.id ?? null
       }
@@ -61,13 +95,7 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
       break
 
     case CommandType.TAXI: {
-      if (command.params.runway) {
-        aircraft.assignedRunway = command.params.runway
-      }
-      // Route along the taxiway graph to the runway's hold-short node when the
-      // airport file carries one; otherwise fall back to a straight-line taxi
-      // toward the hold-short point (same 0.05 NM offset as phase-transitions'
-      // hold-short check).
+      if (command.params.runway) aircraft.assignedRunway = command.params.runway
       if (airport && aircraft.assignedRunway) {
         const route = gameState.taxiwayGraph
           ? buildTaxiRoute(airport, gameState.taxiwayGraph, aircraft.x, aircraft.y, {
@@ -91,15 +119,35 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
           }
         }
       }
-      if (aircraft.phase === AircraftPhase.PARKED) {
+      if (aircraft.phase === AircraftPhase.READY_TO_TAXI) {
         changePhase(aircraft, AircraftPhase.TAXI_OUT)
+      } else if (aircraft.phase === AircraftPhase.VACATED && airport && aircraft.assignedGate) {
+        // Taxi-in: route to assigned gate
+        const route = gameState.taxiwayGraph
+          ? buildTaxiRoute(airport, gameState.taxiwayGraph, aircraft.x, aircraft.y, {
+              kind: 'gate',
+              ref: aircraft.assignedGate,
+            })
+          : null
+        if (route) {
+          aircraft.taxiRoute = route
+          aircraft.taxiRouteIndex = 0
+          aircraft.taxiTarget = route[0]
+        } else {
+          // No graph route: set gate as direct target
+          const gate = airport.gates.find(g => g.id === aircraft.assignedGate)
+          if (gate) aircraft.taxiTarget = { x: gate.x, y: gate.y }
+        }
+        changePhase(aircraft, AircraftPhase.TAXI_IN)
       }
-      // Set moving if not moving
-      if (aircraft.speed === 0) {
-        aircraft.speed = 2 // Give a little kick
-      }
+      if (aircraft.speed === 0) aircraft.speed = 2
       break
     }
+
+    case CommandType.WIND:
+    case CommandType.REPORT:
+      // Phraseology-only: logged by command-registry; no state change
+      break
 
     case CommandType.CANCEL_TAXI:
     case CommandType.HOLD_SHORT:
@@ -108,8 +156,6 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
 
     case CommandType.GO_AROUND:
       aircraft.clearedToLand = false
-      // Commanded go-around from short final / the flare: break off now rather
-      // than waiting for the threshold check in phase-transitions.
       if (aircraft.phase === AircraftPhase.FINAL || aircraft.phase === AircraftPhase.LANDING) {
         const rwy = airport && aircraft.assignedRunway ? findRunwayById(airport, aircraft.assignedRunway) : null
         if (rwy) {
@@ -124,8 +170,6 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
 
     case CommandType.CONTACT_DEPARTURE:
       aircraft.handedOff = true
-      // Off to center — aircraft leaves the player's control and is removed
-      // once clear of the sector (checkAircraftRemoval).
       changePhase(aircraft, AircraftPhase.DEPARTED)
       break
 
@@ -141,16 +185,10 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
 
     case CommandType.LINE_UP_WAIT: {
       changePhase(aircraft, AircraftPhase.LINE_UP)
-      // Taxi a real path onto the runway: hold-short bar → the nearest
-      // runway-entry node on the drawn centerline → backtrack to the
-      // threshold, so the roll always starts on the numbers with full length.
-      // Replaces the old aim-nowhere creep that lined up at an offset
-      // wherever the taxiway happened to meet the runway (T-009).
       if (airport && aircraft.assignedRunway) {
         const rwy = findRunwayById(airport, aircraft.assignedRunway)
         if (rwy) {
-          const entry = findNearestNodeByRef(
-            airport, 'runway-entry', aircraft.assignedRunway, aircraft.x, aircraft.y)
+          const entry = findNearestNodeByRef(airport, 'runway-entry', aircraft.assignedRunway, aircraft.x, aircraft.y)
           const route = entry ? [{ x: entry.x, y: entry.y }] : []
           route.push({ x: rwy.thresholdX, y: rwy.thresholdY })
           aircraft.taxiRoute = route
@@ -163,13 +201,14 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
 
     case CommandType.CLEARED_TAKEOFF:
       changePhase(aircraft, AircraftPhase.TAKEOFF_ROLL)
-      // Line-up route is done — nothing should keep steering to it
       aircraft.taxiRoute = null
       aircraft.taxiTarget = null
+      aircraft.departureHandoffAlt = DEPARTURE_HANDOFF_ALT_FT
+      // Mark runway occupied for the takeoff roll
+      if (aircraft.assignedRunway) gameState.runwayOccupied.add(aircraft.assignedRunway)
       break
 
     case CommandType.EXIT_RUNWAY:
-      // ROLLOUT → TAXI_IN is speed-driven in phase-transitions; nothing to force here
       break
   }
 }
