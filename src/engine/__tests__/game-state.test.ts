@@ -297,6 +297,19 @@ describe('GameState', () => {
       expect(state.difficulty.level).toBe('hard')
       expect(state.wind.speed).toBe(15)
     })
+
+    it('easy is clear VMC (no visibility/ceiling)', () => {
+      state.setDifficulty('easy')
+      expect(state.wind.visibilityNM).toBeUndefined()
+      expect(state.getConditions()).toBe('VMC')
+    })
+
+    it('hard applies IMC weather (low visibility + ceiling)', () => {
+      state.setDifficulty('hard')
+      expect(state.wind.visibilityNM).toBe(2)
+      expect(state.wind.ceiling).toBe(700)
+      expect(state.getConditions()).toBe('IMC')
+    })
   })
 
   describe('isSessionExpired', () => {

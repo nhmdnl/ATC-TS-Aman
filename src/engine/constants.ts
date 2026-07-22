@@ -167,6 +167,9 @@ export const DIFFICULTY_PRESETS: Record<string, DifficultyPreset> = {
     maxAircraft: 8,
     windDirection: 70,
     windSpeed: 8,
+    // Good VMC, but a visibility readout appears — approaches stay visual.
+    visibilityNM: 8,
+    ceiling: 3500,
     sessionDurationMs: FIFTEEN_MIN_MS,
   },
   hard: {
@@ -175,6 +178,10 @@ export const DIFFICULTY_PRESETS: Record<string, DifficultyPreset> = {
     maxAircraft: 12,
     windDirection: 90,
     windSpeed: 15,
+    // IMC (vis < 3 NM, ceiling < 1000 ft): forces ILS approaches, exercising
+    // the IMC/ILS validator and the missed-approach path.
+    visibilityNM: 2,
+    ceiling: 700,
     sessionDurationMs: THIRTY_MIN_MS,
   },
 } as const

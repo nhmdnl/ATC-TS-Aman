@@ -407,6 +407,8 @@ export interface DifficultyPreset {
   readonly maxAircraft: number
   readonly windDirection: number // degrees
   readonly windSpeed: number     // knots
+  readonly visibilityNM?: number // nautical miles (undefined = CAVOK / unlimited)
+  readonly ceiling?: number      // feet AGL (undefined = no cloud layer)
   readonly sessionDurationMs: number // session length
 }
 

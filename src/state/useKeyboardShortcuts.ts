@@ -16,8 +16,9 @@ export function useKeyboardShortcuts() {
       const el = e.target as HTMLElement
       isInputFocused.current = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
     }
+    const clearFocus = () => { isInputFocused.current = false }
     document.addEventListener('focusin', detectFocus)
-    document.addEventListener('focusout', () => { isInputFocused.current = false })
+    document.addEventListener('focusout', clearFocus)
 
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase()
@@ -82,6 +83,11 @@ export function useKeyboardShortcuts() {
           window.dispatchEvent(new CustomEvent('toggle-guide-panel'))
           break
         }
+        case 'm': {
+          // M — toggle mute (mute state lives in GameContext React state)
+          window.dispatchEvent(new CustomEvent('toggle-mute'))
+          break
+        }
         case '+':
         case '=': {
           // + — zoom in
@@ -108,7 +114,7 @@ export function useKeyboardShortcuts() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('focusin', detectFocus)
-      document.removeEventListener('focusout', () => {})
+      document.removeEventListener('focusout', clearFocus)
     }
   }, [])
 }

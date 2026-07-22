@@ -235,7 +235,7 @@ export default function BriefingScreen() {
 
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button onClick={toggleMute} style={{ ...SECONDARY_BUTTON, flex: 1, fontSize: 12 }}>
-            SOUND: {muted ? 'OFF' : 'ON'}
+            {muted ? 'UNMUTE' : 'MUTE'}
           </button>
           {window.electronAPI && (
             <button

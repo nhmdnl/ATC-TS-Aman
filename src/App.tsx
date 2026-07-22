@@ -97,9 +97,6 @@ function GameUI() {
         {/* Main: air-strip | radar | commands */}
         <div style={{ height: mainH, display: 'flex', overflow: 'hidden' }}>
           <div id="flight-strips-container" style={{ width: LAYOUT.FLIGHT_STRIPS_W, flexShrink: 0, borderRight: '1px solid #1D2430', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: CSS_COLORS.text.muted, padding: '4px 8px', background: CSS_COLORS.bg.surface, borderBottom: '1px solid #1D2430', flexShrink: 0 }}>
-              Air-strip Container
-            </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <FlightStrips />
             </div>
@@ -112,9 +109,6 @@ function GameUI() {
           </div>
 
           <div id="commands-container" style={{ width: LAYOUT.COMMANDS_W, flexShrink: 0, borderLeft: '1px solid #1D2430', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: CSS_COLORS.text.muted, padding: '4px 8px', background: CSS_COLORS.bg.surface, borderBottom: '1px solid #1D2430', flexShrink: 0 }}>
-              Commands Container
-            </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <CommandPanel />
             </div>
@@ -128,10 +122,7 @@ function GameUI() {
 
         {/* Radio Log (communication container) */}
         <div id="radio-log-container" style={{ height: LAYOUT.RADIO_LOG_H, flexShrink: 0, borderTop: '1px solid #1D2430', zIndex: 10 }}>
-          <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: CSS_COLORS.text.muted, padding: '2px 8px', background: CSS_COLORS.bg.surface, borderBottom: '1px solid #1D2430' }}>
-            Communication Container
-          </div>
-          <div style={{ height: 'calc(100% - 22px)' }}>
+          <div style={{ height: '100%' }}>
             <RadioLog />
           </div>
         </div>

@@ -5,8 +5,17 @@ import {
   CONTROLLER_COMMANDS,
   PHASE_COMMANDS,
   DEFAULT_FREQUENCIES,
+  PHASE_CONTROLLER,
   CSS_COLORS,
 } from '../engine/constants'
+
+// GND/TWR/APP/AREA labels for the station that owns a given phase.
+const STATION_ABBREV: Record<ControllerStation, string> = {
+  [ControllerStation.GROUND]: 'GND',
+  [ControllerStation.TOWER]: 'TWR',
+  [ControllerStation.APPROACH]: 'APP',
+  [ControllerStation.AREA]: 'CTR',
+}
 import { useGame } from '../state/GameContext'
 
 // ─── Tab Configuration ────────────────────────────────────────────────────────
@@ -67,6 +76,13 @@ export default function CommandPanel() {
   const [activeStation, setActiveStation] = useState<ControllerStation>(ControllerStation.TOWER)
   const [pendingCmd, setPendingCmd] = useState<CommandType | null>(null)
   const [paramValue, setParamValue] = useState('')
+  // Briefly highlights the last-issued command button so a click has instant
+  // visual confirmation (the radio-log readback lands seconds later).
+  const [justIssued, setJustIssued] = useState<CommandType | null>(null)
+  const flashIssued = useCallback((cmdType: CommandType) => {
+    setJustIssued(cmdType)
+    setTimeout(() => setJustIssued((c) => (c === cmdType ? null : c)), 350)
+  }, [])
   const paramInputRef = useRef<HTMLInputElement>(null)
 
   const visibleTabs = STATION_TABS.filter((tab) => state.playerStations.includes(tab.station))
@@ -110,8 +126,9 @@ export default function CommandPanel() {
         targetCallsign: selectedAircraft.callsign,
         params: {},
       })
+      flashIssued(cmdType)
     },
-    [selectedAircraft, isCommandValid, issueCommand],
+    [selectedAircraft, isCommandValid, issueCommand, flashIssued],
   )
 
   const handleParamSubmit = useCallback(() => {
@@ -137,10 +154,11 @@ export default function CommandPanel() {
       targetCallsign: selectedAircraft.callsign,
       params,
     })
+    flashIssued(pendingCmd)
 
     setPendingCmd(null)
     setParamValue('')
-  }, [pendingCmd, selectedAircraft, paramValue, issueCommand])
+  }, [pendingCmd, selectedAircraft, paramValue, issueCommand, flashIssued])
 
   useEffect(() => {
     if (pendingCmd && paramInputRef.current) {
@@ -257,7 +275,7 @@ export default function CommandPanel() {
       <style>{`
         .cp-tab-btn:hover { background: #1e293b !important; }
         .cp-tab-btn-active:hover { background: #0ea5e9 !important; }
-        .cp-cmd-btn:hover:not(:disabled) { background: #1e293b !important; }
+        .cp-cmd-btn:hover:not(:disabled) { background: #334155 !important; }
         .cp-mini-btn:hover { background: #1e293b !important; }
       `}</style>
 
@@ -287,7 +305,7 @@ export default function CommandPanel() {
       <div style={S.content}>
         <div style={S.selectedInfo}>
           {selectedAircraft
-            ? `${selectedAircraft.callsign} - ${selectedAircraft.type.icao} - ${selectedAircraft.phase}`
+            ? `${selectedAircraft.callsign} - ${selectedAircraft.type.icao} - ${selectedAircraft.phase.replace(/_/g, ' ')} (${STATION_ABBREV[PHASE_CONTROLLER[selectedAircraft.phase]]})`
             : 'No aircraft selected'}
         </div>
 
@@ -329,7 +347,12 @@ export default function CommandPanel() {
               <button
                 key={cmdType}
                 className="cp-cmd-btn"
-                style={S.cmdBtn(valid)}
+                style={{
+                  ...S.cmdBtn(valid),
+                  ...(justIssued === cmdType
+                    ? { background: '#0ea5e9', borderColor: '#0ea5e9', color: '#fff' }
+                    : {}),
+                }}
                 disabled={!valid}
                 onClick={() => handleCommandClick(cmdType)}
                 title={

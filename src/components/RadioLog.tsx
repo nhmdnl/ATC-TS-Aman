@@ -16,6 +16,11 @@ export default function RadioLog() {
       </div>
       
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {state.radioMessages.length === 0 && (
+          <div style={{ color: '#475569', fontSize: 10, textAlign: 'center', padding: '16px 0' }}>
+            No transmissions yet
+          </div>
+        )}
         {state.radioMessages.map((msg, i) => (
           <div key={i} style={{
             display: 'flex', gap: 8, fontSize: 11, fontFamily: 'SF Mono, Consolas, monospace',

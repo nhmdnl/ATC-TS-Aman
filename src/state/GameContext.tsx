@@ -34,6 +34,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [selectedAirportId, setSelectedAirportId] = useState<string>(AIRPORTS[0]?.id ?? '')
   const toggleMute = useCallback(() => setMuted(m => !m), [])
 
+  // 'M' keyboard shortcut dispatches this window event (see useKeyboardShortcuts)
+  useEffect(() => {
+    const onToggleMute = () => toggleMute()
+    window.addEventListener('toggle-mute', onToggleMute)
+    return () => window.removeEventListener('toggle-mute', onToggleMute)
+  }, [toggleMute])
+
   const applyAirport = useCallback((entry: AirportEntry) => {
     gameState.airport = entry.airport
     gameState.taxiwayGraph = buildTaxiwayGraph(entry.airport)

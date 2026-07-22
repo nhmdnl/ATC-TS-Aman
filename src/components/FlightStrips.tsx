@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useGame } from '../state/GameContext'
 import type { Aircraft } from '../engine/types'
 import { AircraftPhase } from '../engine/types'
@@ -32,6 +33,7 @@ function fmtAlt(alt: number): string {
 
 function StripCard({ ac }: { ac: Aircraft }) {
   const { selectAircraft } = useGame()
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const isDep = ac.flightType === 'departure'
   const accent = isDep ? '#39D98A' : '#5CBFFF'
@@ -40,8 +42,15 @@ function StripCard({ ac }: { ac: Aircraft }) {
 
   const handleClick = () => selectAircraft(ac.isSelected ? null : ac.id)
 
+  // Scroll the strip into view when the aircraft is selected elsewhere (e.g.
+  // by clicking its radar blip), so the two views stay in sync.
+  useEffect(() => {
+    if (ac.isSelected) cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [ac.isSelected])
+
   return (
     <div
+      ref={cardRef}
       onClick={handleClick}
       style={{
         background: ac.isSelected ? '#1E3A5F' : '#1D2430',
@@ -61,7 +70,7 @@ function StripCard({ ac }: { ac: Aircraft }) {
       {/* Status indicators */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, width: 10 }}>
         {ac.pendingPilotCall !== null && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 4px #f59e0b' }} title="Incoming pilot call" />}
-        {ac.urgent && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B' }} />}
+        {ac.urgent && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fb923c' }} title="Urgent" />}
         {ac.inViolation && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444' }} />}
       </div>
 
@@ -130,7 +139,7 @@ function StripSection({
 }
 
 export default function FlightStrips() {
-  const { state } = useGame()
+  const { state, selectAircraft } = useGame()
   const allAircraft = Array.from(state.aircraft.values())
 
   const departures = allAircraft.filter(
@@ -169,13 +178,17 @@ export default function FlightStrips() {
             ▶ PILOT CALLS ({pendingCalls.length})
           </div>
           {pendingCalls.map(ac => (
-            <div key={ac.id} style={{
+            <div key={ac.id}
+              onClick={() => selectAircraft(ac.id)}
+              title="Select aircraft"
+              style={{
               padding: '3px 8px 4px',
               fontSize: 11,
               fontFamily: "'SF Mono', 'Cascadia Code', 'Fira Code', monospace",
               color: '#fbbf24',
               borderLeft: '3px solid #f59e0b',
               marginBottom: 2,
+              cursor: 'pointer',
             }}>
               <span style={{ fontWeight: 700 }}>{ac.callsign}</span>
               {' — '}
