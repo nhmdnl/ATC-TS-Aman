@@ -4,10 +4,23 @@ All notable changes to ATC Aman are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.2.0] — 2026-07-21
+## [0.2.0] — 2026-07-22
 
 ### Added
 
+- **Recorded ATC radio voice pack** — the tower/ground/approach voice now plays
+  real recorded clips (55 tokens, concatenative clip-chain with a WebAudio radio
+  effect) instead of Web Speech TTS. Falls back to TTS for any missing token, so
+  the pilot voice still uses TTS until those clips are recorded. See
+  `docs/voice-pack/`.
+- **Live weather (visibility / ceiling → VMC/IMC)** — difficulty presets now
+  carry visibility and cloud ceiling; hard is IMC, which forces ILS approaches
+  and exercises the missed-approach path. The status bar shows `VIS` / `VMC` / `IMC`.
+- **UI/UX pass** — command-button press feedback + real hover state; selected
+  aircraft shows readable phase and owning station (GND/TWR/APP); selecting a
+  blip scrolls its flight strip into view; clickable pilot-call rows; `M`
+  mutes; radio-log empty state; larger radar hit targets; keybind hint in the
+  status bar; consistent speaker colors; assorted label/color fixes.
 - **Pilot-calls-first (TS3 sim model)** — pilots now initiate every contact;
   the player/AI must respond before state advances. Unacknowledged calls
   repeat after 30 s. Calls are shown in the Flight Strips alert panel.
