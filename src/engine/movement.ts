@@ -50,6 +50,28 @@ export function turnToward(currentHeading: number, targetHeading: number, maxTur
   }
 }
 
+/**
+ * Heading that tracks the runway centerline (PRD §7.4): when cross-track error
+ * exceeds ~20 m, steer toward a point `aheadMeters` further along the centerline
+ * in the direction of travel; otherwise hold runway heading. Shared by approach,
+ * landing, and rollout so a touchdown offset gets flown out instead of persisting
+ * as a parallel roll.
+ */
+export function centerlineHeading(aircraft: Aircraft, runway: RunwayData, aheadMeters = 500): number {
+  const rwyRad = headingToRadians(runway.trueHeading)
+  const dx = aircraft.x - runway.thresholdX
+  const dy = aircraft.y - runway.thresholdY
+  const xteMeters = Math.abs(dx * -Math.sin(rwyRad) + dy * Math.cos(rwyRad)) * METERS_PER_NM
+  if (xteMeters <= 20) return runway.trueHeading
+
+  const aheadNM = aheadMeters / METERS_PER_NM
+  const distAlongLine = -(dx * Math.cos(rwyRad) + dy * Math.sin(rwyRad))
+  const targetDist = distAlongLine - aheadNM
+  const targetX = runway.thresholdX - Math.cos(rwyRad) * targetDist
+  const targetY = runway.thresholdY - Math.sin(rwyRad) * targetDist
+  return bearingBetween(aircraft.x, aircraft.y, targetX, targetY)
+}
+
 // ─── Movement Sub-Functions ──────────────────────────────────────────────────
 
 function moveTaxi(aircraft: Aircraft, dtSeconds: number): void {
@@ -180,38 +202,8 @@ function moveApproach(aircraft: Aircraft, dtSeconds: number, runway: RunwayData 
   if (aircraft.clearedHeading !== null && !aircraft.clearedForApproach) {
     aircraft.heading = turnToward(aircraft.heading, aircraft.clearedHeading, 3)
   } else if (aircraft.clearedForApproach && runway) {
-    // Steer toward extended centerline
-    // PRD §7.4 Centerline Alignment
-    
-    // Find distance to threshold
-    const distToThresh = distanceNM(aircraft.x, aircraft.y, runway.thresholdX, runway.thresholdY)
-    
-    // Cross-track error (simplified: distance from point to line)
-    // Line defined by runway threshold and runway true heading
-    const rwyRad = headingToRadians(runway.trueHeading)
-    const dx = aircraft.x - runway.thresholdX
-    const dy = aircraft.y - runway.thresholdY
-    // Cross track error = dx * -sin(theta) + dy * cos(theta)
-    const xteNM = Math.abs(dx * -Math.sin(rwyRad) + dy * Math.cos(rwyRad))
-    const xteMeters = xteNM * METERS_PER_NM
-
-    if (xteMeters > 20) {
-      // Steer toward a point 500m ahead on centerline
-      const aheadNM = 500 / METERS_PER_NM
-      // Distance along centerline = dx * cos(theta) + dy * sin(theta)
-      const distAlongLine = -(dx * Math.cos(rwyRad) + dy * Math.sin(rwyRad))
-      // Target point is distAlongLine - aheadNM from threshold (towards approach path)
-      const targetDist = distAlongLine - aheadNM
-      
-      const targetX = runway.thresholdX - Math.cos(rwyRad) * targetDist
-      const targetY = runway.thresholdY - Math.sin(rwyRad) * targetDist
-      
-      const targetHeading = bearingBetween(aircraft.x, aircraft.y, targetX, targetY)
-      aircraft.heading = turnToward(aircraft.heading, targetHeading, 3)
-    } else {
-      // Lock to runway heading
-      aircraft.heading = turnToward(aircraft.heading, runway.trueHeading, 3)
-    }
+    // Steer toward extended centerline (PRD §7.4 Centerline Alignment)
+    aircraft.heading = turnToward(aircraft.heading, centerlineHeading(aircraft, runway), 3)
   }
 
   // Speed
@@ -268,7 +260,8 @@ function moveFinal(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | n
 
 function moveLanding(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null): void {
   if (runway) {
-    aircraft.heading = turnToward(aircraft.heading, runway.trueHeading, 5)
+    // Track the centerline so a touchdown offset is flown out during the flare
+    aircraft.heading = turnToward(aircraft.heading, centerlineHeading(aircraft, runway), 5)
   }
   
   // Decelerate
@@ -288,7 +281,9 @@ function moveLanding(aircraft: Aircraft, dtSeconds: number, runway: RunwayData |
 
 function moveRollout(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null): void {
   if (runway) {
-    aircraft.heading = runway.trueHeading
+    // Steer back to the centerline rather than snapping to bare runway heading,
+    // which would leave any lateral offset frozen as a parallel roll off the strip
+    aircraft.heading = turnToward(aircraft.heading, centerlineHeading(aircraft, runway), 8)
   }
   
   // Decelerate

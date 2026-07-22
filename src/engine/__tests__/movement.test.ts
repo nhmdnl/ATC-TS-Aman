@@ -5,7 +5,9 @@ import {
   distanceNM,
   bearingBetween,
   turnToward,
+  centerlineHeading,
 } from '../movement'
+import type { Aircraft, RunwayData } from '../types'
 
 describe('movement — math utilities', () => {
   describe('normalizeHeading', () => {
@@ -152,6 +154,34 @@ describe('movement — math utilities', () => {
     it('zero turn rate means no movement', () => {
       const result = turnToward(0, 90, 0)
       expect(result).toBe(0)
+    })
+  })
+
+  describe('centerlineHeading', () => {
+    // North-aligned runway with threshold at origin; aircraft rolling out past it (+y).
+    const rwy = { trueHeading: 0, thresholdX: 0, thresholdY: 0 } as RunwayData
+    const at = (x: number, y: number) => ({ x, y }) as Aircraft
+
+    it('holds runway heading when already on the centerline', () => {
+      expect(centerlineHeading(at(0, 1), rwy)).toBe(0)
+    })
+
+    it('ignores sub-20m cross-track wobble', () => {
+      // ~9 m east (0.005 NM) is under the 20 m deadband
+      expect(centerlineHeading(at(0.005, 1), rwy)).toBe(0)
+    })
+
+    it('steers west-of-north when east of centerline', () => {
+      // ~37 m east of the centerline → correction should point back left (270–360)
+      const h = centerlineHeading(at(0.02, 1), rwy)
+      expect(h).toBeGreaterThan(270)
+      expect(h).toBeLessThan(360)
+    })
+
+    it('steers east-of-north when west of centerline', () => {
+      const h = centerlineHeading(at(-0.02, 1), rwy)
+      expect(h).toBeGreaterThan(0)
+      expect(h).toBeLessThan(90)
     })
   })
 })
