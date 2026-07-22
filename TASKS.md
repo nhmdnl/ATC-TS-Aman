@@ -275,6 +275,26 @@ result.
 
 (newest first — see template in Protocol)
 
+### 2026-07-22 — LEAD (Claude) — TS3→main merge, voice pack, weather, UI/UX pass — DONE
+- **Merged `feature/ts3-migration` into `main`** (8 commits, conflict-free) — main
+  was still pre-TS3 v0.1.0; now v0.2.0 with pilot calls, wake matrix, golden rule,
+  taxi-in lifecycle, WIND/REPORT, auto go-around, VMC/IMC, and the T-010 voice engine.
+- **T-010 (ATC half): DONE.** Imported the user's 55 recorded ATC operator WAVs to
+  `public/assets/voice/atc/`, regenerated the manifest — real clips now play through the
+  clip-chain engine. Pilot voice still TTS-fallback (pending user recordings). Added
+  `docs/voice-pack/voice-profiles.md`.
+- **T-011(a) visibility/weather: DONE.** VMC/IMC was inert (`setDifficulty` never set
+  visibility/ceiling). Added per-difficulty weather; hard=IMC forces ILS. +2 tests.
+- **T-011(c) release prep: partial.** package.json already 0.2.0; CHANGELOG updated.
+  Not tagged/pushed (left to user).
+- **UI/UX pass (16 of a 22-item audit):** see commits 4e2c1ba + batch 2. Also fixed a
+  real bug — `focusout` listener leak in useKeyboardShortcuts (cleanup never matched).
+- **Verification:** typecheck clean, 216/216 tests, production build OK (voice WAVs ship
+  in dist). Used a sonnet agent (UI/UX audit) + haiku agent (bug/dead-code survey).
+- **Still open:** T-010 pilot recordings (user); T-009 arrival authored paths (spstudio
+  editor, separate no-git repo — needs user); T-011(b) career unlocks (PRD future); UI
+  items #13/#15/#21/#22 (lower value / fiddly — deferred).
+
 ### 2026-07-19 — LEAD (Claude) — Editor: real validator + measurement feedback (user request) — DONE (uncommitted; spstudio has no git)
 - What changed (editor `airport-studio-application`, all UNCOMMITTED — repo
   still not under git):
