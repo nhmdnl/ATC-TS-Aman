@@ -109,7 +109,7 @@ export default function MissionTracker() {
         <div style={{ borderTop: '1px solid #1e293b', paddingTop: 6 }}>
           {recentComms.map((msg, i) => (
             <div key={`${msg.timestamp}-${i}`} style={{ marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              <span style={{ color: msg.speaker === 'ATC' ? '#39D98A' : '#5CBFFF' }}>{msg.speaker}</span>{' '}
+              <span style={{ color: msg.speaker === 'ATC' ? '#0ea5e9' : '#22c55e' }}>{msg.speaker}</span>{' '}
               <span style={{ color: '#94a3b8' }}>{msg.message}</span>
             </div>
           ))}
