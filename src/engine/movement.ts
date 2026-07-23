@@ -74,12 +74,17 @@ export function centerlineHeading(aircraft: Aircraft, runway: RunwayData, aheadM
 
 // ─── Movement Sub-Functions ──────────────────────────────────────────────────
 
+// Line-up and backtrack happen on the runway itself — brisker than apron taxi
+const RUNWAY_TAXI_SPEED_KT = 35
+
 function moveTaxi(aircraft: Aircraft, dtSeconds: number): void {
   const target = aircraft.taxiTarget
   if (!target) return // Nowhere to go
 
   const dist = distanceNM(aircraft.x, aircraft.y, target.x, target.y)
-  const taxiSpeedKnots = aircraft.clearedSpeed ?? aircraft.type.taxiSpeed
+  const onRunway = aircraft.phase === AircraftPhase.LINE_UP || aircraft.phase === AircraftPhase.TAKEOFF_ROLL
+  const taxiSpeedKnots = aircraft.clearedSpeed ??
+    (onRunway ? Math.max(RUNWAY_TAXI_SPEED_KT, aircraft.type.taxiSpeed) : aircraft.type.taxiSpeed)
 
   if (dist < 0.01) {
     // Reached the current waypoint — advance along the route, or stop at the end
@@ -152,14 +157,34 @@ function moveLineUp(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | 
 }
 
 function moveTakeoffRoll(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null): void {
-  if (runway) {
-    // Keep on runway heading
-    aircraft.heading = turnToward(aircraft.heading, runway.trueHeading, 30)
+  // Cleared while still backtracking to the threshold (T-009 line-up route):
+  // finish the taxi first, or the roll starts midfield and runs off the far end
+  if (aircraft.taxiRoute && aircraft.taxiRoute.length > 0) {
+    const end = aircraft.taxiRoute[aircraft.taxiRoute.length - 1]
+    if (distanceNM(aircraft.x, aircraft.y, end.x, end.y) >= 0.01) {
+      moveTaxi(aircraft, dtSeconds)
+      return
+    }
+    aircraft.taxiRoute = null
+    aircraft.taxiTarget = null
+    aircraft.speed = 0
   }
 
-  // Accelerate
-  const rotationSpeed = aircraft.type.rotationSpeed
-  aircraft.speed += 3 // rough acceleration, knots per tick
+  if (runway) {
+    // Track the drawn centerline — bare runway heading would freeze any
+    // line-up offset into a parallel roll off the strip (same as rollout)
+    const target = centerlineHeading(aircraft, runway)
+    const diff = Math.abs(normalizeHeading(target - aircraft.heading))
+    if (diff > 45 && diff < 315) {
+      // Turnaround at the threshold: swing around before rolling
+      aircraft.heading = turnToward(aircraft.heading, target, 30)
+      return
+    }
+    aircraft.heading = turnToward(aircraft.heading, target, 8)
+  }
+
+  // Accelerate (~0.25 g — a B738 reaches Vr ≈ 145 kt in ~29 s / 0.6 NM)
+  aircraft.speed += 5
   
   const travelNM = (aircraft.speed / 3600) * dtSeconds
   const rad = headingToRadians(aircraft.heading)
@@ -321,9 +346,9 @@ function moveMissed(aircraft: Aircraft, dtSeconds: number): void {
 // ─── Master Movement Function ────────────────────────────────────────────────
 
 function movePushingBack(aircraft: Aircraft, dtSeconds: number): void {
-  // ponytail: drifts aircraft backward at ~0.02 NM/s on pushbackHeading; stops when phase-transitions flips to READY_TO_TAXI
+  // ponytail: drifts aircraft backward on pushbackHeading; stops when phase-transitions flips to READY_TO_TAXI
   const heading = aircraft.pushbackHeading ?? ((aircraft.heading + 180) % 360)
-  const speed = 0.02 // NM per second (~1.2 kt ground speed)
+  const speed = 0.0005 // NM per second (~1.8 kt tug speed → ~40 m over the 45 s pushback)
   const headingRad = (heading * Math.PI) / 180
   aircraft.x += Math.sin(headingRad) * speed * dtSeconds
   aircraft.y += Math.cos(headingRad) * speed * dtSeconds

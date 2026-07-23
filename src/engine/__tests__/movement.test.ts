@@ -6,8 +6,10 @@ import {
   bearingBetween,
   turnToward,
   centerlineHeading,
+  moveAircraft,
 } from '../movement'
 import type { Aircraft, RunwayData } from '../types'
+import { AircraftPhase } from '../types'
 
 describe('movement — math utilities', () => {
   describe('normalizeHeading', () => {
@@ -182,6 +184,19 @@ describe('movement — math utilities', () => {
       const h = centerlineHeading(at(-0.02, 1), rwy)
       expect(h).toBeGreaterThan(0)
       expect(h).toBeLessThan(90)
+    })
+  })
+
+  describe('pushback displacement', () => {
+    it('a full 45 s pushback moves the aircraft roughly one gate-length, not off the airport', () => {
+      const aircraft = {
+        x: 0, y: 0, heading: 90, pushbackHeading: 270,
+        phase: AircraftPhase.PUSHING_BACK, trail: [],
+      } as unknown as Aircraft
+      for (let i = 0; i < 45; i++) moveAircraft(aircraft, 1, null)
+      const dist = distanceNM(0, 0, aircraft.x, aircraft.y)
+      expect(dist).toBeGreaterThan(0.01) // it does move…
+      expect(dist).toBeLessThan(0.05)    // …but stays on the apron (<~90 m)
     })
   })
 })

@@ -286,10 +286,47 @@ describe('executeCommand — routed taxi along the taxiway graph', () => {
     expect(Math.hypot(aircraft.x - rwy.thresholdX, aircraft.y - rwy.thresholdY)).toBeLessThan(0.01)
     expect(Math.abs(aircraft.heading - rwy.trueHeading)).toBeLessThan(1)
 
-    // CLEARED_TAKEOFF drops the line-up route so the roll isn't steered by it
+    // CLEARED_TAKEOFF keeps the route; the first roll tick retires it at the threshold
     executeCommand(cmd(CommandType.CLEARED_TAKEOFF), aircraft, airport)
+    moveAircraft(aircraft, 1, rwy)
     expect(aircraft.taxiRoute).toBeNull()
     expect(aircraft.taxiTarget).toBeNull()
+  })
+
+  it('CLEARED_TAKEOFF mid-line-up finishes the backtrack to the threshold before rolling (no midfield takeoff)', () => {
+    const base = makeRoutedAirport()
+    const airport: Airport = {
+      ...base,
+      taxiways: [{
+        ...base.taxiways[0],
+        nodes: [
+          ...base.taxiways[0].nodes,
+          { id: 'n3', x: -0.4, y: -0.15, kind: 'runway-entry', ref: '07/25' },
+        ],
+        edges: [...base.taxiways[0].edges, { from: 'n2', to: 'n3' }],
+      }],
+    }
+    const rwy = airport.runways[0]
+    const aircraft = makeAircraft({
+      phase: AircraftPhase.HOLD_SHORT, controller: ControllerStation.TOWER,
+      assignedRunway: '07', x: -0.45, y: -0.05, heading: 160,
+    })
+
+    executeCommand(cmd(CommandType.LINE_UP_WAIT), aircraft, airport)
+    // Tower clears takeoff immediately — aircraft is still taxiing to the numbers
+    executeCommand(cmd(CommandType.CLEARED_TAKEOFF), aircraft, airport)
+    expect(aircraft.phase).toBe(AircraftPhase.TAKEOFF_ROLL)
+    expect(aircraft.taxiRoute).not.toBeNull()
+
+    // The roll may only start (route retired) once the aircraft is on the numbers
+    let rollStart: { x: number; y: number } | null = null
+    for (let t = 0; t < 700 && rollStart === null; t++) {
+      const hadRoute = aircraft.taxiRoute !== null
+      moveAircraft(aircraft, 1, rwy)
+      if (hadRoute && aircraft.taxiRoute === null) rollStart = { x: aircraft.x, y: aircraft.y }
+    }
+    expect(rollStart).not.toBeNull()
+    expect(Math.hypot(rollStart!.x - rwy.thresholdX, rollStart!.y - rwy.thresholdY)).toBeLessThan(0.02)
   })
 
   it('TAXI falls back to the straight-line hold-short target when no graph exists', () => {
