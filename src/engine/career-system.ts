@@ -86,3 +86,33 @@ export class CareerSystem {
 }
 
 export const careerSystem = new CareerSystem()
+
+// ─── Career unlocks ───────────────────────────────────────────────────────────
+// Level gates content: harder difficulties, extra airports, and a rank title.
+// Level 1 = always available. Levels come from addXP (100 XP each).
+
+/** Controller rank shown on the end screen — highest entry the level clears. */
+export const RANK_TITLES: ReadonlyArray<{ minLevel: number; title: string }> = [
+  { minLevel: 1, title: 'Trainee' },
+  { minLevel: 2, title: 'Ground Controller' },
+  { minLevel: 3, title: 'Tower Controller' },
+  { minLevel: 5, title: 'Approach Controller' },
+  { minLevel: 8, title: 'Center Controller' },
+  { minLevel: 12, title: 'Watch Supervisor' },
+]
+
+export function rankTitle(level: number): string {
+  let title = RANK_TITLES[0].title
+  for (const r of RANK_TITLES) if (level >= r.minLevel) title = r.title
+  return title
+}
+
+/** Minimum level to select each difficulty preset. */
+export const DIFFICULTY_UNLOCK_LEVEL: Record<string, number> = { easy: 1, medium: 2, hard: 3 }
+
+/** Minimum level to select each airport (by ICAO); unlisted airports are open. */
+export const AIRPORT_UNLOCK_LEVEL: Record<string, number> = { HHAS: 1, DRMLND: 2 }
+
+export function airportUnlockLevel(icao: string): number {
+  return AIRPORT_UNLOCK_LEVEL[icao] ?? 1
+}

@@ -1,6 +1,6 @@
 import React from 'react'
 import { useGame } from '../state/GameContext'
-import { careerSystem } from '../engine/career-system'
+import { careerSystem, rankTitle } from '../engine/career-system'
 import type { Grade, ScoreDimensions } from '../engine/types'
 
 const GRADE_COLORS: Record<Grade, string> = {
@@ -45,7 +45,10 @@ export default function EndScreen() {
       zIndex: 1000
     }}>
       <div className="panel-bg" style={{ padding: '32px 40px', textAlign: 'center', border: '1px solid #334155', borderRadius: 8, minWidth: 420 }}>
-        <h1 style={{ color: '#0ea5e9', fontSize: 28, margin: '0 0 20px 0' }}>SESSION COMPLETE</h1>
+        <h1 style={{ color: '#0ea5e9', fontSize: 28, margin: '0 0 4px 0' }}>SESSION COMPLETE</h1>
+        <div style={{ color: '#f59e0b', fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 20 }}>
+          {rankTitle(career.level)} · Level {career.level}
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 24 }}>
           <div style={{

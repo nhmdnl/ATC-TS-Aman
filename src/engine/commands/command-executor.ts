@@ -201,8 +201,9 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
 
     case CommandType.CLEARED_TAKEOFF:
       changePhase(aircraft, AircraftPhase.TAKEOFF_ROLL)
-      aircraft.taxiRoute = null
-      aircraft.taxiTarget = null
+      // Keep any remaining line-up route — moveTakeoffRoll finishes the
+      // backtrack to the threshold before rolling (wiping it here meant a
+      // clearance mid-line-up started the roll from midfield)
       aircraft.departureHandoffAlt = DEPARTURE_HANDOFF_ALT_FT
       // Mark runway occupied for the takeoff roll
       if (aircraft.assignedRunway) gameState.runwayOccupied.add(aircraft.assignedRunway)

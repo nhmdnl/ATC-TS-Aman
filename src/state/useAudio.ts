@@ -42,6 +42,19 @@ class VoicePack {
     return tokens.length > 0 && tokens.every(t => this.buffers.has(t))
   }
 
+  /** Output node clips play through — lets the engine mute in-flight audio. */
+  out: AudioNode | null = null
+
+  /** Total playback time of a clip chain in seconds (clips + inter-clip gaps). */
+  duration(tokens: string[]): number {
+    let d = 0
+    for (const name of tokens) {
+      const buf = this.buffers.get(name)
+      if (buf) d += buf.duration + 0.05
+    }
+    return d
+  }
+
   play(ctx: AudioContext, tokens: string[]): void {
     // bandpass filter simulates radio band (300–3400 Hz narrowed to 1500 Hz centre)
     const filter = ctx.createBiquadFilter()
@@ -51,7 +64,7 @@ class VoicePack {
     const gain = ctx.createGain()
     gain.gain.value = 0.85
     filter.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(this.out ?? ctx.destination)
 
     let offset = ctx.currentTime + 0.01
     const GAP = 0.05
@@ -67,15 +80,38 @@ class VoicePack {
   }
 }
 
+// ─── Transmission scheduling ──────────────────────────────────────────────────
+
+const READBACK_GAP_MS = 600
+
+/** Serialize radio traffic: ATC starts once the frequency is free, the pilot
+ *  reads back after ATC finishes plus a gap. Pure — exported for tests. */
+export function transmissionSchedule(
+  nowMs: number,
+  busyUntilMs: number,
+  atcMs: number,
+  pilotMs: number,
+): { atcStartMs: number; pilotStartMs: number; busyUntilMs: number } {
+  const atcStartMs = Math.max(nowMs, busyUntilMs)
+  const pilotStartMs = atcMs > 0 ? atcStartMs + atcMs + READBACK_GAP_MS : atcStartMs
+  return {
+    atcStartMs,
+    pilotStartMs,
+    busyUntilMs: pilotMs > 0 ? pilotStartMs + pilotMs : atcStartMs + atcMs,
+  }
+}
+
 // ─── Audio Engine ─────────────────────────────────────────────────────────────
 
 class AudioEngine {
   private ctx: AudioContext | null = null
   private pack = new VoicePack()
+  private masterGain: GainNode | null = null
   public muted = false
   private voicePool: SpeechSynthesisVoice[] = []
   private voicesListenerAttached = false
   private pendingUtterances = 0
+  private busyUntilMs = 0 // performance.now() timestamp when the frequency goes quiet
   private static readonly MAX_PENDING = 3
   private static readonly STATION_ORDER = [
     ControllerStation.GROUND,
@@ -87,6 +123,11 @@ class AudioEngine {
   init(): void {
     if (!this.ctx) {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      // Clips route through a master gain so muting silences a transmission
+      // already on the air, not just future ones
+      this.masterGain = this.ctx.createGain()
+      this.masterGain.connect(this.ctx.destination)
+      this.pack.out = this.masterGain
       void this.pack.load(this.ctx)
     }
     if (this.ctx.state === 'suspended') this.ctx.resume()
@@ -123,7 +164,15 @@ class AudioEngine {
       : this.voicePool[hash % this.voicePool.length]
   }
 
-  resetPendingSpeech(): void { this.pendingUtterances = 0 }
+  resetPendingSpeech(): void {
+    this.pendingUtterances = 0
+    this.busyUntilMs = 0
+  }
+
+  setMuted(muted: boolean): void {
+    this.muted = muted
+    if (this.masterGain) this.masterGain.gain.value = muted ? 0 : 1
+  }
 
   playBeep(freq1: number, freq2: number | null, durationMs: number, type: OscillatorType = 'sine'): void {
     if (this.muted || !this.ctx) return
@@ -159,6 +208,13 @@ class AudioEngine {
     } catch { release() }
   }
 
+  // ponytail: rough TTS pacing (~3 words/s at rate 1) — only used to hold the
+  // frequency; speechSynthesis itself already queues TTS-vs-TTS serially.
+  private ttsEstimateMs(text: string, rate: number): number {
+    const words = text.split(/\s+/).filter(Boolean).length
+    return (words / (3 * rate)) * 1000 + 300
+  }
+
   speak(
     atcText: string,
     pilotText: string,
@@ -173,22 +229,34 @@ class AudioEngine {
     const atcClip   = ctx && atcTokens   && this.pack.hasAll(atcTokens)
     const pilotClip = ctx && pilotTokens && this.pack.hasAll(pilotTokens)
 
-    // ATC speech
-    if (atcClip && ctx) {
-      this.pack.play(ctx, atcTokens!)
-    } else if (atcText && this.voicePool.length > 0) {
-      this.speakTTS(atcText, this.atcVoice(controller), 1.1, 1.0)
+    // One transmission at a time: wait for whatever is already on frequency,
+    // then ATC speaks in full, then the pilot reads back after a short gap.
+    const now = performance.now()
+    const atcDurMs = atcClip
+      ? this.pack.duration(atcTokens!) * 1000
+      : atcText && this.voicePool.length > 0 ? this.ttsEstimateMs(atcText, 1.1) : 0
+    const pilotDurMs = pilotClip
+      ? this.pack.duration(pilotTokens!) * 1000
+      : pilotText && this.voicePool.length > 0 ? this.ttsEstimateMs(pilotText, 1.15) : 0
+
+    const sched = transmissionSchedule(now, this.busyUntilMs, atcDurMs, pilotDurMs)
+    this.busyUntilMs = sched.busyUntilMs
+
+    if (atcDurMs > 0) {
+      setTimeout(() => {
+        if (this.muted) return
+        if (atcClip && ctx) this.pack.play(ctx, atcTokens!)
+        else this.speakTTS(atcText, this.atcVoice(controller), 1.1, 1.0)
+      }, sched.atcStartMs - now)
     }
 
-    // Pilot readback — delayed to simulate readback gap
-    setTimeout(() => {
-      if (this.muted) return
-      if (pilotClip && ctx) {
-        this.pack.play(ctx, pilotTokens!)
-      } else if (pilotText && this.voicePool.length > 0) {
-        this.speakTTS(pilotText, this.pilotVoice(callsign), 1.15, 0.9)
-      }
-    }, 1500)
+    if (pilotDurMs > 0) {
+      setTimeout(() => {
+        if (this.muted) return
+        if (pilotClip && ctx) this.pack.play(ctx, pilotTokens!)
+        else this.speakTTS(pilotText, this.pilotVoice(callsign), 1.15, 0.9)
+      }, sched.pilotStartMs - now)
+    }
   }
 
   playSuccess(): void {
@@ -213,11 +281,11 @@ const engine = new AudioEngine()
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useAudio(muted: boolean, toggleMute: () => void) {
+export function useAudio(muted: boolean) {
   const [ttsAvailable, setTtsAvailable] = useState(false)
 
   useEffect(() => {
-    engine.muted = muted
+    engine.setMuted(muted)
     if (muted && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
       engine.resetPendingSpeech()
@@ -295,14 +363,9 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
       }
     })
 
-    const onToggleMute = () => toggleMute()
-    window.addEventListener('toggle-mute', onToggleMute)
-
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === 'm') window.dispatchEvent(new CustomEvent('toggle-mute'))
-    }
-    window.addEventListener('keydown', handleKey)
-
+    // NOTE: no 'toggle-mute' listener or 'm' key handler here — GameContext
+    // owns the event and useKeyboardShortcuts owns the key. Duplicating either
+    // made every press toggle mute an even number of times (net no-op).
     const onVoicesChanged = () => setTtsAvailable(engine.hasVoice())
     if ('speechSynthesis' in window) {
       window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged)
@@ -315,13 +378,11 @@ export function useAudio(muted: boolean, toggleMute: () => void) {
       unsubScore()
       window.removeEventListener('click', handleInteraction)
       window.removeEventListener('keydown', handleInteraction)
-      window.removeEventListener('toggle-mute', onToggleMute)
-      window.removeEventListener('keydown', handleKey)
       if ('speechSynthesis' in window) {
         window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged)
       }
     }
-  }, [muted, toggleMute])
+  }, [muted])
 
   return { ttsAvailable }
 }

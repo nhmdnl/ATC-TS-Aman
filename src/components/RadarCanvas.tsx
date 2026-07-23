@@ -36,6 +36,8 @@ interface DrawableAircraft {
   readonly clearedAltitude?: number | null
   readonly clearedSpeed?: number | null
   readonly trail?: ReadonlyArray<{ x: number; y: number }>
+  /** Aircraft type for the datablock (real traffic has it; demo aircraft may not) */
+  readonly type?: { readonly icao: string }
   /** Always show the leader-line datablock even when isGround and not
    *  selected. Used for staged tutorial demo aircraft, which are never
    *  selectable, so ground-phase demos would otherwise render as an
@@ -86,6 +88,13 @@ function drawAircraftBody(
     g.stroke()
   }
 
+  // Selection ring — the white tint alone is easy to lose among cyan blips
+  if (data.isSelected) {
+    g.setStrokeStyle({ width: 1.5, color: 0xffffff, alpha: 0.9 })
+    g.circle(x, y, 9)
+    g.stroke()
+  }
+
   // Violation pulse halo
   if (data.inViolation) {
     const phase = (Date.now() % 1200) / 1200
@@ -132,7 +141,13 @@ function drawAircraftBody(
     const cAltStr = data.clearedAltitude ? Math.round(data.clearedAltitude / 100).toString().padStart(3, '0') : ''
     const cSpdStr = data.clearedSpeed ? Math.round(data.clearedSpeed / 10).toString().padStart(2, '0') : ''
 
-    let label = `${data.callsign}\n${altStr} ${spdStr}`
+    // Climb/descend arrow: movement always drives altitude toward the cleared
+    // altitude, so cleared-vs-current is the trend
+    const trend = !isGround && data.clearedAltitude != null && Math.abs(data.clearedAltitude - data.altitude) > 100
+      ? (data.clearedAltitude > data.altitude ? '↑' : '↓')
+      : ''
+
+    let label = `${data.callsign}${data.type ? ' ' + data.type.icao : ''}\n${altStr}${trend} ${spdStr}`
     if (cAltStr || cSpdStr) {
       label += `\nC:${cAltStr} ${cSpdStr}`
     }
@@ -177,6 +192,10 @@ export default function RadarCanvas() {
   // Range ring labels (world layer, so they clip with the glass like everything else)
   const rangeLabelContainerRef = useRef<PIXI.Container | null>(null)
   const rangeLabelTextsRef = useRef<PIXI.Text[]>([])
+
+  // Airport diagram labels (runway numbers + gate names), rebuilt on airport change
+  const airportLabelTextsRef = useRef<PIXI.Text[]>([])
+  const airportLabelKeyRef = useRef('')
 
   // Compass dial: bezel ring + compass rose (screen-space furniture, drawn
   // over the full-canvas picture rather than clipping it to a circle).
@@ -360,6 +379,27 @@ export default function RadarCanvas() {
       g.stroke()
     }
 
+    // Hold-short bars — authored T-009 holding points from the taxi graph,
+    // drawn perpendicular to their taxiway so the bar reads as a stop line
+    for (const twy of state.airport.taxiways) {
+      for (const node of twy.nodes) {
+        if (node.kind !== 'hold-short') continue
+        const edge = twy.edges.find(e => e.from === node.id || e.to === node.id)
+        const otherId = edge ? (edge.from === node.id ? edge.to : edge.from) : null
+        const other = otherId ? twy.nodes.find(n => n.id === otherId) : null
+        const angle = other
+          ? Math.atan2(mapY(other.y) - mapY(node.y), mapX(other.x) - mapX(node.x))
+          : 0
+        const px = Math.cos(angle + Math.PI / 2)
+        const py = Math.sin(angle + Math.PI / 2)
+        const half = Math.max(5, (twy.width / 1852) * zoom) // spans the taxiway
+        g.setStrokeStyle({ width: 2, color: 0xf59e0b, alpha: 0.8 })
+        g.moveTo(mapX(node.x) - px * half, mapY(node.y) - py * half)
+        g.lineTo(mapX(node.x) + px * half, mapY(node.y) + py * half)
+        g.stroke()
+      }
+    }
+
     // Airport Reference Point — a fixed instrument marker distinct from any
     // runway geometry, so the scope's own origin is always identifiable.
     const arpR = 5
@@ -400,6 +440,51 @@ export default function RadarCanvas() {
         t.text = `${nm}`
         t.position.set(cx + ox + lsx * screenR, cy + oy + lsy * screenR)
       })
+    }
+
+    // Runway numbers + gate labels (texts rebuilt when the airport changes)
+    if (labelContainer) {
+      const key = state.airport.metadata.icao
+      if (airportLabelKeyRef.current !== key) {
+        for (const t of airportLabelTextsRef.current) t.destroy()
+        airportLabelTextsRef.current = []
+        airportLabelKeyRef.current = key
+      }
+      let texts = airportLabelTextsRef.current
+      if (texts.length === 0) {
+        texts = [
+          ...state.airport.runways.map(() => new PIXI.Text({
+            text: '', style: { fontFamily: 'SF Mono, Consolas, monospace', fontSize: 11, fontWeight: '700', fill: 0x94a3b8 },
+          })),
+          ...state.airport.gates.map(() => new PIXI.Text({
+            text: '', style: { fontFamily: 'SF Mono, Consolas, monospace', fontSize: 8, fill: 0x64748b },
+          })),
+        ]
+        for (const t of texts) {
+          t.anchor.set(0.5)
+          labelContainer.addChild(t)
+        }
+        airportLabelTextsRef.current = texts
+      }
+      let i = 0
+      for (const rwy of state.airport.runways) {
+        const t = texts[i++]
+        // Just past the threshold, opposite the takeoff direction — where the
+        // painted numbers would be
+        const rad = (rwy.trueHeading - 180) * (Math.PI / 180)
+        const backNM = 14 / zoom
+        t.text = rwy.id
+        t.position.set(mapX(rwy.thresholdX + Math.sin(rad) * backNM), mapY(rwy.thresholdY + Math.cos(rad) * backNM))
+      }
+      // Gate names only render zoomed in enough to not collide with each other
+      const showGates = zoom > 400
+      for (const gate of state.airport.gates) {
+        const t = texts[i++]
+        t.visible = showGates
+        t.text = gate.id
+        t.anchor.set(0, 0.5)
+        t.position.set(mapX(gate.x) + 5, mapY(gate.y))
+      }
     }
   }
 

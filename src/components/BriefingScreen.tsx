@@ -3,6 +3,7 @@ import { useGame } from '../state/GameContext'
 import type { DifficultyLevel } from '../engine/types'
 import { ControllerStation } from '../engine/types'
 import { DIFFICULTY_PRESETS, CSS_COLORS } from '../engine/constants'
+import { careerSystem, DIFFICULTY_UNLOCK_LEVEL, airportUnlockLevel, rankTitle } from '../engine/career-system'
 import AirportPreview from './AirportPreview'
 
 const DIFF_ORDER: DifficultyLevel[] = ['easy', 'medium', 'hard']
@@ -36,7 +37,12 @@ const SECONDARY_BUTTON: React.CSSProperties = {
 
 export default function BriefingScreen() {
   const { setDifficulty, setPlayerStations, startSession, muted, toggleMute, airports, selectedAirportId, setAirport } = useGame()
-  const [selected, setSelected] = useState<DifficultyLevel>('medium')
+  const level = careerSystem.state.level
+  const diffUnlocked = (d: DifficultyLevel) => level >= (DIFFICULTY_UNLOCK_LEVEL[d] ?? 1)
+  // Default to the hardest unlocked difficulty so a locked preset is never pre-selected
+  const [selected, setSelected] = useState<DifficultyLevel>(
+    () => [...DIFF_ORDER].reverse().find(diffUnlocked) ?? 'easy'
+  )
   const [stations, setStations] = useState<ControllerStation[]>(STATION_ORDER)
 
   const preset = DIFFICULTY_PRESETS[selected]
@@ -79,8 +85,11 @@ export default function BriefingScreen() {
         width: '90%',
       }}>
         <h1 style={{ margin: '0 0 4px', color: '#0EA5E9', fontSize: 32, fontWeight: 700, letterSpacing: 3, textAlign: 'center' }}>ATC AMAN</h1>
-        <p style={{ margin: '0 0 24px', color: CSS_COLORS.text.muted, fontSize: 12, textAlign: 'center' }}>
+        <p style={{ margin: '0 0 2px', color: CSS_COLORS.text.muted, fontSize: 12, textAlign: 'center' }}>
           {airportEntry ? `${airportEntry.airport.metadata.icao} — ${airportEntry.airport.metadata.name}` : 'No airports found'}
+        </p>
+        <p style={{ margin: '0 0 24px', color: '#f59e0b', fontSize: 11, letterSpacing: 1, textAlign: 'center', textTransform: 'uppercase' }}>
+          {rankTitle(level)} · Level {level}
         </p>
 
         <div style={{ marginBottom: 20 }}>
@@ -89,27 +98,34 @@ export default function BriefingScreen() {
           </div>
           {airports.length > 1 && (
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              {airports.map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() => setAirport(a.id)}
-                  style={{
-                    flex: 1,
-                    padding: '8px 0',
-                    background: selectedAirportId === a.id ? '#0EA5E9' : '#1D2430',
-                    color: selectedAirportId === a.id ? '#FFF' : CSS_COLORS.text.secondary,
-                    border: selectedAirportId === a.id ? '1px solid #0EA5E9' : '1px solid #1E293B',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    fontWeight: selectedAirportId === a.id ? 700 : 400,
-                    fontSize: 12,
-                    fontFamily: 'inherit',
-                    transition: 'all 0.1s',
-                  }}
-                >
-                  {a.id}
-                </button>
-              ))}
+              {airports.map((a) => {
+                const locked = level < airportUnlockLevel(a.id)
+                const active = selectedAirportId === a.id
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => !locked && setAirport(a.id)}
+                    disabled={locked}
+                    title={locked ? `Unlocks at level ${airportUnlockLevel(a.id)}` : undefined}
+                    style={{
+                      flex: 1,
+                      padding: '8px 0',
+                      background: active ? '#0EA5E9' : '#1D2430',
+                      color: locked ? CSS_COLORS.text.muted : active ? '#FFF' : CSS_COLORS.text.secondary,
+                      border: active ? '1px solid #0EA5E9' : '1px solid #1E293B',
+                      borderRadius: 4,
+                      cursor: locked ? 'not-allowed' : 'pointer',
+                      opacity: locked ? 0.5 : 1,
+                      fontWeight: active ? 700 : 400,
+                      fontSize: 12,
+                      fontFamily: 'inherit',
+                      transition: 'all 0.1s',
+                    }}
+                  >
+                    {locked ? `🔒 ${a.id} · L${airportUnlockLevel(a.id)}` : a.id}
+                  </button>
+                )
+              })}
             </div>
           )}
           {airportEntry && (
@@ -129,27 +145,34 @@ export default function BriefingScreen() {
             Difficulty
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            {DIFF_ORDER.map((d) => (
-              <button
-                key={d}
-                onClick={() => setSelected(d)}
-                style={{
-                  flex: 1,
-                  padding: '8px 0',
-                  background: selected === d ? '#0EA5E9' : '#1D2430',
-                  color: selected === d ? '#FFF' : CSS_COLORS.text.secondary,
-                  border: selected === d ? '1px solid #0EA5E9' : '1px solid #1E293B',
-                  borderRadius: 4,
-                  cursor: 'pointer',
-                  fontWeight: selected === d ? 700 : 400,
-                  fontSize: 12,
-                  fontFamily: 'inherit',
-                  transition: 'all 0.1s',
-                }}
-              >
-                {DIFF_LABELS[d]}
-              </button>
-            ))}
+            {DIFF_ORDER.map((d) => {
+              const locked = !diffUnlocked(d)
+              const active = selected === d
+              return (
+                <button
+                  key={d}
+                  onClick={() => !locked && setSelected(d)}
+                  disabled={locked}
+                  title={locked ? `Unlocks at level ${DIFFICULTY_UNLOCK_LEVEL[d]}` : undefined}
+                  style={{
+                    flex: 1,
+                    padding: '8px 0',
+                    background: active ? '#0EA5E9' : '#1D2430',
+                    color: locked ? CSS_COLORS.text.muted : active ? '#FFF' : CSS_COLORS.text.secondary,
+                    border: active ? '1px solid #0EA5E9' : '1px solid #1E293B',
+                    borderRadius: 4,
+                    cursor: locked ? 'not-allowed' : 'pointer',
+                    opacity: locked ? 0.5 : 1,
+                    fontWeight: active ? 700 : 400,
+                    fontSize: 12,
+                    fontFamily: 'inherit',
+                    transition: 'all 0.1s',
+                  }}
+                >
+                  {locked ? `🔒 ${DIFF_LABELS[d]} · L${DIFFICULTY_UNLOCK_LEVEL[d]}` : DIFF_LABELS[d]}
+                </button>
+              )
+            })}
           </div>
         </div>
 

@@ -350,15 +350,17 @@ export default function CommandPanel() {
                 style={{
                   ...S.cmdBtn(valid),
                   ...(justIssued === cmdType
-                    ? { background: '#0ea5e9', borderColor: '#0ea5e9', color: '#fff' }
+                    ? { background: '#0ea5e9', border: '1px solid #0ea5e9', color: '#fff' }
                     : {}),
                 }}
                 disabled={!valid}
                 onClick={() => handleCommandClick(cmdType)}
                 title={
-                  COMMANDS_NEEDING_PARAMS[cmdType]
-                    ? `Requires ${COMMANDS_NEEDING_PARAMS[cmdType]!.label}`
-                    : undefined
+                  !valid && selectedAircraft
+                    ? `${COMMAND_LABELS[cmdType]} is not available while ${selectedAircraft.callsign} is in ${selectedAircraft.phase.replace(/_/g, ' ')}`
+                    : COMMANDS_NEEDING_PARAMS[cmdType]
+                      ? `Requires ${COMMANDS_NEEDING_PARAMS[cmdType]!.label}`
+                      : undefined
                 }
               >
                 {COMMAND_LABELS[cmdType]}

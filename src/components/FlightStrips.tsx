@@ -25,6 +25,37 @@ const PHASE_ABBREV: Record<string, string> = {
   MISSED: 'MISS',
 }
 
+/** Hover text: what the abbreviation means and what the aircraft needs next. */
+const PHASE_TOOLTIP: Record<string, string> = {
+  AT_GATE: 'At gate',
+  AWAITING_PUSHBACK: 'Requesting pushback — awaiting approval',
+  PUSHING_BACK: 'Pushing back from the gate',
+  READY_TO_TAXI: 'Pushback complete — needs taxi clearance',
+  PARKED: 'Parked at gate',
+  TAXI_OUT: 'Taxiing to the runway',
+  HOLD_SHORT: 'Holding short — needs line-up or crossing clearance',
+  LINE_UP: 'Lining up — needs takeoff clearance',
+  TAKEOFF_ROLL: 'Rolling for takeoff',
+  CLIMBING: 'Climbing out',
+  ENTERING: 'Entering the airspace',
+  APPROACH: 'On approach',
+  FINAL: 'On final',
+  LANDING: 'Landing',
+  ROLLOUT: 'Landing rollout',
+  INBOUND_UNCONTROLLED: 'Inbound, not yet under your control',
+  VACATED: 'Runway vacated — taxiing in',
+  TAXI_IN: 'Taxiing to the gate',
+  MISSED: 'Going around (missed approach)',
+}
+
+/** Phases where the aircraft sits waiting for a controller command. */
+const AWAITING_COMMAND_PHASES = new Set([
+  AircraftPhase.AWAITING_PUSHBACK,
+  AircraftPhase.READY_TO_TAXI,
+  AircraftPhase.HOLD_SHORT,
+  AircraftPhase.LINE_UP, // ponytail: also pulses while still taxiing into position
+])
+
 const EXCLUDED_PHASES = new Set([AircraftPhase.DEPARTED, AircraftPhase.ARRIVED])
 
 function fmtAlt(alt: number): string {
@@ -32,13 +63,18 @@ function fmtAlt(alt: number): string {
 }
 
 function StripCard({ ac }: { ac: Aircraft }) {
-  const { selectAircraft } = useGame()
+  const { state, selectAircraft } = useGame()
   const cardRef = useRef<HTMLDivElement>(null)
 
   const isDep = ac.flightType === 'departure'
   const accent = isDep ? '#39D98A' : '#5CBFFF'
   const phases = PHASE_ABBREV[ac.phase] ?? ac.phase.slice(0, 4)
   const alt = fmtAlt(ac.altitude)
+
+  // Pulse strips stuck waiting on the player (pilot calls already get a dot)
+  const needsCommand = AWAITING_COMMAND_PHASES.has(ac.phase)
+    && state.playerStations.includes(ac.controller)
+    && ac.pendingPilotCall === null
 
   const handleClick = () => selectAircraft(ac.isSelected ? null : ac.id)
 
@@ -52,6 +88,7 @@ function StripCard({ ac }: { ac: Aircraft }) {
     <div
       ref={cardRef}
       onClick={handleClick}
+      className={needsCommand && !ac.isSelected ? 'strip-attention' : undefined}
       style={{
         background: ac.isSelected ? '#1E3A5F' : '#1D2430',
         borderBottom: '1px solid #1E293B',
@@ -81,7 +118,10 @@ function StripCard({ ac }: { ac: Aircraft }) {
       <span style={{ color: '#64748B', flexShrink: 0 }}>{ac.type.icao}</span>
 
       {/* Phase */}
-      <span style={{ color: accent, flexShrink: 0, fontWeight: 600, fontSize: 10 }}>{phases}</span>
+      <span
+        title={PHASE_TOOLTIP[ac.phase] ?? ac.phase}
+        style={{ color: accent, flexShrink: 0, fontWeight: 600, fontSize: 10, cursor: 'help' }}
+      >{phases}</span>
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
