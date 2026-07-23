@@ -24,12 +24,13 @@ const LAYOUT = {
   COMMANDS_W: 280,
   COMMAND_INPUT_H: 28,
   RADIO_LOG_H: 140,
+  RADIO_LOG_EXPANDED_H: 320,
 } as const
 
 function GameUI() {
   useGameLoop()
-  const { state, muted, toggleMute, togglePause } = useGame()
-  const { ttsAvailable } = useAudio(muted, toggleMute)
+  const { state, muted, togglePause } = useGame()
+  const { ttsAvailable } = useAudio(muted)
   useKeyboardShortcuts()
 
   const [tutorialMenuOpen, setTutorialMenuOpen] = useState(false)
@@ -82,7 +83,9 @@ function GameUI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tutorialMenuOpen, activeTutorialTopicId])
 
-  const mainH = `calc(100vh - ${LAYOUT.STATUS_BAR_H}px - ${LAYOUT.COMMAND_INPUT_H}px - ${LAYOUT.RADIO_LOG_H}px)`
+  const [logExpanded, setLogExpanded] = useState(false)
+  const radioLogH = logExpanded ? LAYOUT.RADIO_LOG_EXPANDED_H : LAYOUT.RADIO_LOG_H
+  const mainH = `calc(100vh - ${LAYOUT.STATUS_BAR_H}px - ${LAYOUT.COMMAND_INPUT_H}px - ${radioLogH}px)`
 
   return (
     <>
@@ -121,9 +124,9 @@ function GameUI() {
         </div>
 
         {/* Radio Log (communication container) */}
-        <div id="radio-log-container" style={{ height: LAYOUT.RADIO_LOG_H, flexShrink: 0, borderTop: '1px solid #1D2430', zIndex: 10 }}>
+        <div id="radio-log-container" style={{ height: radioLogH, flexShrink: 0, borderTop: '1px solid #1D2430', zIndex: 10 }}>
           <div style={{ height: '100%' }}>
-            <RadioLog />
+            <RadioLog expanded={logExpanded} onToggleExpand={() => setLogExpanded(e => !e)} />
           </div>
         </div>
 

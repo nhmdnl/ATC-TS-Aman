@@ -69,6 +69,22 @@ Both repos are in scope:
 
 ## Backlog (priority order)
 
+### T-012 — UI design pass 3: radar scope readability + panel upgrades (user request, 2026-07-23)
+Follow-up to the 22-item UI/UX audit (16 shipped 2026-07-22). Four batches,
+in impact order — user approved starting with (a):
+(a) **Radar** (`RadarCanvas.tsx`): draw runway threshold numbers (25/07) and
+gate labels (G1…) on the diagram; render authored hold-short bars in the sim
+(ties T-009 editor work into the picture); richer data tags (type, speed,
+altitude + climb/descend arrow, leader line); selected-aircraft highlight
+ring. (b) **Radio log** (`RadioLog.tsx`): expandable/resizable panel, click a
+callsign to select that aircraft. (c) **Flight strips**: tooltips for status
+abbreviations (PBK?/RDY/TOFF…), attention pulse on strips waiting for a
+player command. (d) **Command panel**: group buttons by station, tooltip on
+disabled buttons explaining the unmet requirement.
+Status: (a)–(d) DONE 2026-07-23 (uncommitted on worktree branch). Note: (d)
+station grouping already existed as the GND/TWR/APP tab bar (hidden when the
+player controls a single station); only the disabled-reason tooltip was added.
+
 ### T-011 — PRD leftovers + 0.2.0 release (user decision 2026-07-18) — target: next minor
 Bundle for the next minor version: (a) visibility/weather beyond wind (PRD
 user story, never implemented); (b) career-level gameplay unlocks (PRD marks
