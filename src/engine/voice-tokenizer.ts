@@ -4,9 +4,12 @@ import { gameState } from './game-state'
 import { distanceNM } from './movement'
 import { DEPARTURE_HANDOFF_ALT_FT } from './constants'
 
+// ere/msr/fdb/thy have recorded clips; etd/kne/tqr have none yet, so those
+// callsigns TTS-fall back cleanly (VoicePack.hasAll → false on the missing
+// airline token) until clips are recorded.
 const AIRLINE_MAP: Record<string, string> = {
-  ERE: 'ere', ETH: 'eth', UAE: 'uae', MSR: 'msr',
-  KQA: 'kqa', FDB: 'fdb', THY: 'thy', SDV: 'sdv',
+  ERE: 'ere', ETD: 'etd', MSR: 'msr', FDB: 'fdb',
+  KNE: 'kne', TQR: 'tqr', THY: 'thy',
 }
 
 const DIGIT_IDS = ['d_0','d_1','d_2','d_3','d_4','d_5','d_6','d_7','d_8','d_9']

@@ -239,19 +239,18 @@ export const AIRCRAFT_TYPES: ReadonlyArray<AircraftType> = [
 
 // ─── Airline Prefixes ─────────────────────────────────────────────────────────
 
+// Real HHAS (Asmara) carriers as of 2026: the six scheduled international
+// operators plus Eritrean Airlines as the home flag carrier. Used as the
+// random-spawn fallback roster; the authored schedule (hhas.schedule.json)
+// draws from the same set.
 export const AIRLINE_PREFIXES = [
-  { prefix: 'UAL', callsignWord: 'UNITED' },
-  { prefix: 'AAL', callsignWord: 'AMERICAN' },
-  { prefix: 'DAL', callsignWord: 'DELTA' },
-  { prefix: 'SWA', callsignWord: 'SOUTHWEST' },
-  { prefix: 'BAW', callsignWord: 'SPEEDBIRD' },
-  { prefix: 'DLH', callsignWord: 'LUFTHANSA' },
-  { prefix: 'AFR', callsignWord: 'AIR FRANCE' },
-  { prefix: 'ETH', callsignWord: 'ETHIOPIAN' },
+  { prefix: 'ERE', callsignWord: 'ERITREAN' },
+  { prefix: 'ETD', callsignWord: 'ETIHAD' },
   { prefix: 'MSR', callsignWord: 'EGYPTAIR' },
-  { prefix: 'KQA', callsignWord: 'KENYA' },
+  { prefix: 'FDB', callsignWord: 'FLYDUBAI' },
+  { prefix: 'KNE', callsignWord: 'NAS' },
+  { prefix: 'TQR', callsignWord: 'TARCO' },
   { prefix: 'THY', callsignWord: 'TURKISH' },
-  { prefix: 'UAE', callsignWord: 'EMIRATES' },
 ] as const
 
 // ─── Phase → Controller Mapping ──────────────────────────────────────────────
