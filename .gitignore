@@ -27,3 +27,13 @@ bun.lock
 .release/
 .docs/
 Tower-Simulator-3-Reproduction-Spec.md
+.qwen/
+.vscode/
+
+
+# Agent documents
+./CLAUDE.md
+./PLAYBOOK.md
+./PRD_GDD.md
+./QWEN.md
+./TASKS.md
