@@ -386,25 +386,25 @@ export const XP_PER_REASON: Record<ScoreReason, number> = {
 } as const
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
-// PRD §18.3
+// PRD §18.3 - Authentic ATC Phosphor Scope Palette
 
 export const COLORS = {
   bg: {
-    primary: 0x0e1116,
-    surface: 0x161b22,
-    card: 0x1d2430,
+    primary: 0x020408,
+    surface: 0x0a0f16,
+    card: 0x121824,
   },
   accent: {
-    primary: 0x34d399,
-    blue: 0x60a5fa,
-    amber: 0xfbbf24,
-    red: 0xf87171,
+    primary: 0x00ff66,
+    blue: 0x00e5ff,
+    amber: 0xffd600,
+    red: 0xff1744,
   },
   aircraft: {
-    departure: 0x39d98a,
-    arrival: 0x5cbfff,
-    urgent: 0xffaa33,
-    violation: 0xff3232,
+    departure: 0x00ff66,
+    arrival: 0x00e5ff,
+    urgent: 0xffd600,
+    violation: 0xff1744,
   },
   text: {
     primary: 0xf3f4f6,
@@ -413,10 +413,10 @@ export const COLORS = {
     disabled: 0x646464,
   },
   log: {
-    atc: 0x39d98a,
-    pilot: 0x5cbfff,
+    atc: 0x00ff66,
+    pilot: 0x00e5ff,
     system: 0xb4b4b4,
-    critical: 0xff4646,
+    critical: 0xff1744,
   },
 } as const
 
@@ -424,21 +424,21 @@ export const COLORS = {
 
 export const CSS_COLORS = {
   bg: {
-    primary: '#0E1116',
-    surface: '#161B22',
-    card: '#1D2430',
+    primary: '#020408',
+    surface: '#0A0F16',
+    card: '#121824',
   },
   accent: {
-    primary: '#34D399',
-    blue: '#60A5FA',
-    amber: '#FBBF24',
-    red: '#F87171',
+    primary: '#00FF66',
+    blue: '#00E5FF',
+    amber: '#FFD600',
+    red: '#FF1744',
   },
   aircraft: {
-    departure: '#39D98A',
-    arrival: '#5CBFFF',
-    urgent: '#FFAA33',
-    violation: '#FF3232',
+    departure: '#00FF66',
+    arrival: '#00E5FF',
+    urgent: '#FFD600',
+    violation: '#FF1744',
   },
   text: {
     primary: '#F3F4F6',
@@ -447,9 +447,22 @@ export const CSS_COLORS = {
     disabled: '#646464',
   },
   log: {
-    atc: '#39D98A',
-    pilot: '#5CBFFF',
+    atc: '#00FF66',
+    pilot: '#00E5FF',
     system: '#B4B4B4',
-    critical: '#FF4646',
+    critical: '#FF1744',
   },
 } as const
+
+// ─── Radar Render Configuration ──────────────────────────────────────────────
+
+export const RADAR_RENDER_CONFIG = {
+  HISTORY_DOT_COUNT: 4,
+  HISTORY_DECAY_ALPHAS: [0.9, 0.65, 0.4, 0.2],
+  VECTOR_TICK_MINUTES: [1, 2],
+  SCOPE_BG_COLOR: 0x020408,
+  SCOPE_BEZEL_COLOR: 0x1a2332,
+  NAVAID_SYMBOL_COLOR: 0x38bdf8,
+  APPROACH_FUNNEL_COLOR: 0x1e3a5f,
+} as const
+

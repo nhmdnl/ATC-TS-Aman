@@ -4,6 +4,7 @@ import * as PIXI from 'pixi.js'
 import { useGame } from '../state/GameContext'
 import { AircraftPhase } from '../engine/types'
 import type { TutorialDemoAircraft } from '../data/tutorialContent'
+import { RADAR_RENDER_CONFIG } from '../engine/constants'
 
 const COMPASS_LABEL_DEGS = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]
 const CARDINAL_LABELS: Record<number, string> = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }
@@ -11,16 +12,21 @@ const RANGE_RING_STEP_NM = 5
 const RANGE_RING_COUNT = 6 // 5, 10, 15, 20, 25, 30 NM
 const RANGE_LABEL_BEARING_DEG = 315 // fixed radial (NW) so labels never sit under traffic
 
+/** Key Terminal Navaid fixes for HHAS (Asmara) display */
+const HHAS_NAVAIDS = [
+  { id: 'ASM', name: 'ASM VOR', x: 0, y: 0, type: 'VOR' },
+  { id: 'GASOR', name: 'GASOR', x: -8.8, y: -4.2, type: 'FIX' },
+  { id: 'NUBER', name: 'NUBER', x: 8.8, y: 4.2, type: 'FIX' },
+  { id: 'DABAK', name: 'DABAK', x: -10.5, y: 10.5, type: 'FIX' },
+  { id: 'ERIMO', name: 'ERIMO', x: 12.0, y: -9.5, type: 'FIX' },
+] as const
+
 /** Aircraft phases drawn as ground traffic (rect blip, no vector/trail vector line). */
 const GROUND_PHASES: ReadonlyArray<AircraftPhase> = [
   AircraftPhase.AT_GATE, AircraftPhase.AWAITING_PUSHBACK, AircraftPhase.PUSHING_BACK, AircraftPhase.READY_TO_TAXI,
   AircraftPhase.VACATED, AircraftPhase.TAXI_IN, AircraftPhase.TAXI_OUT, AircraftPhase.HOLD_SHORT, AircraftPhase.LINE_UP,
 ]
 
-/** Minimal shape both real Aircraft and TutorialDemoAircraft satisfy — the
- *  only fields drawAircraftBody actually needs. Real Aircraft objects don't
- *  carry `isGround` as a stored field (it's derived from `phase`), so callers
- *  must compute it and spread it onto the aircraft before passing it in. */
 interface DrawableAircraft {
   readonly id: string
   readonly callsign: string
@@ -30,25 +36,20 @@ interface DrawableAircraft {
   readonly speed: number
   readonly heading: number
   readonly isGround: boolean
+  readonly flightType?: string
+  readonly squawk?: string
   readonly isSelected?: boolean
   readonly inViolation?: boolean
   readonly urgent?: boolean
   readonly clearedAltitude?: number | null
   readonly clearedSpeed?: number | null
   readonly trail?: ReadonlyArray<{ x: number; y: number }>
-  /** Aircraft type for the datablock (real traffic has it; demo aircraft may not) */
-  readonly type?: { readonly icao: string }
-  /** Always show the leader-line datablock even when isGround and not
-   *  selected. Used for staged tutorial demo aircraft, which are never
-   *  selectable, so ground-phase demos would otherwise render as an
-   *  unlabeled blip even while a step narrates its callsign. */
+  readonly type?: { readonly icao: string; readonly wakeCategory?: string }
   readonly forceLabel?: boolean
 }
 
-/** Draws one aircraft's blip, trail, hover ring, violation pulse, vector,
- *  and leader-line datablock into the given sprite. Used for both real
- *  traffic and staged tutorial demo aircraft so a demo violation looks
- *  pixel-identical to a real one. */
+/** Draws one aircraft's blip, history dots, hover ring, violation pulse, vector ticks,
+ *  and 3-line leader-line datablock into the given sprite. */
 function drawAircraftBody(
   g: PIXI.Graphics,
   text: PIXI.Text,
@@ -61,97 +62,165 @@ function drawAircraftBody(
   const x = mapX(data.x)
   const y = mapY(data.y)
   const isGround = data.isGround
+  const isDep = data.flightType === 'departure'
 
-  let color = 0x38bdf8 // cyan
-  if (data.isSelected) color = 0xffffff
-  if (data.urgent) color = 0xeab308
-  if (data.inViolation) color = 0xef4444
-  if (isGround) color = 0x10b981
+  // Authentic Phosphor Scope Color Palette
+  let color = isDep ? 0x00ff66 : 0x00e5ff // Phosphor Green (Dep) / Electric Cyan (Arr)
+  if (data.isSelected) color = 0xffffff // High-Vis White
+  if (data.urgent) color = 0xffd600 // Vivid Amber
+  if (data.inViolation) color = 0xff1744 // Alert Red
+  if (isGround) color = 0x4a6572 // Muted Steel Green
 
   g.clear()
-  g.hitArea = new PIXI.Circle(x, y, 12)
+  g.hitArea = new PIXI.Circle(x, y, 14)
 
-  // Trail
+  // 1. History Trail - Discrete 4-step decaying phosphor history dots
   if (data.trail && data.trail.length > 1) {
-    g.setStrokeStyle({ width: 1, color, alpha: 0.4 })
-    g.moveTo(mapX(data.trail[0].x), mapY(data.trail[0].y))
-    for (let i = 1; i < data.trail.length; i++) {
-      g.lineTo(mapX(data.trail[i].x), mapY(data.trail[i].y))
+    const history = data.trail.slice(-RADAR_RENDER_CONFIG.HISTORY_DOT_COUNT)
+    const alphas = RADAR_RENDER_CONFIG.HISTORY_DECAY_ALPHAS
+    const startIndex = Math.max(0, alphas.length - history.length)
+    
+    for (let i = 0; i < history.length; i++) {
+      const hx = mapX(history[i].x)
+      const hy = mapY(history[i].y)
+      const alpha = alphas[startIndex + i]
+      const radius = 1 + (i / Math.max(1, history.length - 1)) * 1.5
+      g.circle(hx, hy, radius)
+      g.fill({ color, alpha })
     }
-    g.stroke()
   }
 
   // Hover ring
   if (hoveredId === data.id && !data.isSelected) {
     g.setStrokeStyle({ width: 1, color: 0xe2e8f0, alpha: 0.6 })
-    g.circle(x, y, 7)
+    g.circle(x, y, 8)
     g.stroke()
   }
 
-  // Selection ring — the white tint alone is easy to lose among cyan blips
+  // Selection ring
   if (data.isSelected) {
-    g.setStrokeStyle({ width: 1.5, color: 0xffffff, alpha: 0.9 })
-    g.circle(x, y, 9)
+    g.setStrokeStyle({ width: 1.5, color: 0xffffd6, alpha: 0.9 })
+    g.circle(x, y, 10)
     g.stroke()
   }
 
   // Violation pulse halo
   if (data.inViolation) {
     const phase = (Date.now() % 1200) / 1200
-    g.setStrokeStyle({ width: 2, color: 0xef4444, alpha: 0.6 * (1 - phase) })
-    g.circle(x, y, 6 + phase * 8)
+    g.setStrokeStyle({ width: 2, color: 0xff1744, alpha: 0.7 * (1 - phase) })
+    g.circle(x, y, 6 + phase * 10)
     g.stroke()
   }
 
-  // Blip
+  // 2. ICAO Target Symbol Rendering
+  const rad = data.heading * (Math.PI / 180)
   if (isGround) {
+    // Ground: Small 4x4 rect
     g.rect(x - 2, y - 2, 4, 4)
+    g.fill(color)
+  } else if (isDep) {
+    // Departure: Open Square Target (5x5)
+    g.setStrokeStyle({ width: 1.5, color })
+    g.rect(x - 3, y - 3, 6, 6)
+    g.stroke()
   } else {
-    g.circle(x, y, 3)
-  }
-  g.fill(color)
-
-  // Vector
-  if (!isGround) {
-    const rad = data.heading * (Math.PI / 180)
-    const dist1MinNM = (data.speed / 60)
-    const lx = x + Math.sin(rad) * dist1MinNM * zoom
-    const ly = y - Math.cos(rad) * dist1MinNM * zoom
-    g.setStrokeStyle({ width: 1, color })
-    g.moveTo(x, y)
-    g.lineTo(lx, ly)
+    // Arrival / Inbound: Diamond Target (◇)
+    g.setStrokeStyle({ width: 1.5, color })
+    g.moveTo(x, y - 4)
+    g.lineTo(x + 4, y)
+    g.lineTo(x, y + 4)
+    g.lineTo(x - 4, y)
+    g.closePath()
     g.stroke()
   }
 
-  // Leader-line datablock
+  // Directional Apex Chevron on Target Center
+  if (!isGround) {
+    const chvLen = 6
+    const cx1 = x + Math.sin(rad) * chvLen
+    const cy1 = y - Math.cos(rad) * chvLen
+    g.setStrokeStyle({ width: 1.5, color })
+    g.moveTo(x, y)
+    g.lineTo(cx1, cy1)
+    g.stroke()
+  }
+
+  // 3. Velocity Vector Line + 1-min and 2-min Projection Ticks
+  if (!isGround && data.speed > 10) {
+    const dist1MinNM = data.speed / 60
+    const lx1 = x + Math.sin(rad) * dist1MinNM * zoom
+    const ly1 = y - Math.cos(rad) * dist1MinNM * zoom
+    const dist2MinNM = (data.speed / 60) * 2
+    const lx2 = x + Math.sin(rad) * dist2MinNM * zoom
+    const ly2 = y - Math.cos(rad) * dist2MinNM * zoom
+
+    g.setStrokeStyle({ width: 1, color, alpha: 0.8 })
+    g.moveTo(x, y)
+    g.lineTo(lx2, ly2)
+    g.stroke()
+
+    // Perpendicular ticks at 1-min and 2-min positions
+    const perpX = Math.cos(rad) * 3
+    const perpY = Math.sin(rad) * 3
+    
+    // 1-min tick
+    g.setStrokeStyle({ width: 1, color, alpha: 0.9 })
+    g.moveTo(lx1 - perpX, ly1 - perpY)
+    g.lineTo(lx1 + perpX, ly1 + perpY)
+    g.stroke()
+
+    // 2-min tick
+    g.moveTo(lx2 - perpX, ly2 - perpY)
+    g.lineTo(lx2 + perpX, ly2 + perpY)
+    g.stroke()
+  }
+
+  // 4. Standardized 3-Line ATC Data Block (Leader Line + Tag)
   if (!isGround || data.isSelected || data.forceLabel) {
     text.visible = true
-    const anchorX = x + 14
-    const anchorY = y - 14
-    g.setStrokeStyle({ width: 1, color, alpha: 0.5 })
-    g.moveTo(x + 4, y - 4)
+    const anchorX = x + 16
+    const anchorY = y - 16
+    
+    // Angled leader line with joggle
+    g.setStrokeStyle({ width: 1, color, alpha: 0.6 })
+    g.moveTo(x + 3, y - 3)
     g.lineTo(anchorX - 2, anchorY + 2)
     g.stroke()
 
-    text.position.set(anchorX + 2, anchorY - 6)
+    text.position.set(anchorX + 2, anchorY - 8)
     text.style.fill = color
 
     const altStr = data.altitude < 100 ? 'GND' : Math.round(data.altitude / 100).toString().padStart(3, '0')
     const spdStr = Math.round(data.speed / 10).toString().padStart(2, '0')
-    const cAltStr = data.clearedAltitude ? Math.round(data.clearedAltitude / 100).toString().padStart(3, '0') : ''
-    const cSpdStr = data.clearedSpeed ? Math.round(data.clearedSpeed / 10).toString().padStart(2, '0') : ''
+    const cAltStr = data.clearedAltitude != null ? Math.round(data.clearedAltitude / 100).toString().padStart(3, '0') : ''
+    const cSpdStr = data.clearedSpeed != null ? Math.round(data.clearedSpeed / 10).toString().padStart(2, '0') : ''
 
-    // Climb/descend arrow: movement always drives altitude toward the cleared
-    // altitude, so cleared-vs-current is the trend
     const trend = !isGround && data.clearedAltitude != null && Math.abs(data.clearedAltitude - data.altitude) > 100
       ? (data.clearedAltitude > data.altitude ? '↑' : '↓')
-      : ''
+      : '='
 
-    let label = `${data.callsign}${data.type ? ' ' + data.type.icao : ''}\n${altStr}${trend} ${spdStr}`
-    if (cAltStr || cSpdStr) {
-      label += `\nC:${cAltStr} ${cSpdStr}`
+    const wakeStr = data.type?.wakeCategory ? ` ${data.type.wakeCategory.slice(0, 1)}` : ''
+    const squawkStr = data.squawk ? ` ${data.squawk}` : ''
+
+    // Full Data Block (FDB) vs Partial Data Block (PDB)
+    const isFDB = data.isSelected || data.urgent || data.inViolation || data.forceLabel
+
+    if (isFDB) {
+      // 3-Line FDB:
+      // Line 1: CALLSIGN WAKE SQUAWK
+      // Line 2: ALT TREND SPD
+      // Line 3: C:ALT SPD
+      let label = `${data.callsign}${wakeStr}${squawkStr}\n${altStr} ${trend} ${spdStr}`
+      if (cAltStr || cSpdStr) {
+        label += `\nC:${cAltStr || '---'} ${cSpdStr || '--'}`
+      }
+      text.text = label
+    } else {
+      // 2-Line PDB for unselected background traffic:
+      // Line 1: CALLSIGN
+      // Line 2: ALT SPD
+      text.text = `${data.callsign}\n${altStr} ${spdStr}`
     }
-    text.text = label
   } else {
     text.visible = false
   }
@@ -197,23 +266,23 @@ export default function RadarCanvas() {
   const airportLabelTextsRef = useRef<PIXI.Text[]>([])
   const airportLabelKeyRef = useRef('')
 
-  // Compass dial: bezel ring + compass rose (screen-space furniture, drawn
-  // over the full-canvas picture rather than clipping it to a circle).
+  // Compass dial: bezel ring + compass rose
   const scopeRadiusRef = useRef(150)
   const glassBgRef = useRef<PIXI.Graphics | null>(null)
   const bezelLayerRef = useRef<PIXI.Container | null>(null)
   const bezelGraphicsRef = useRef<PIXI.Graphics | null>(null)
   const compassLabelsRef = useRef<PIXI.Text[]>([])
 
-  // HUD corner readouts (screen-space, outside the glass)
+  // HUD corner readouts & AMAN timeline layer
   const hudRangeTextRef = useRef<PIXI.Text | null>(null)
   const hudCursorTextRef = useRef<PIXI.Text | null>(null)
   const hudWindTextRef = useRef<PIXI.Text | null>(null)
   const windArrowGRef = useRef<PIXI.Graphics | null>(null)
+  const amanContainerRef = useRef<PIXI.Container | null>(null)
+  const amanGraphicsRef = useRef<PIXI.Graphics | null>(null)
+  const amanTextsRef = useRef<PIXI.Text[]>([])
 
-  // Hover state, tracked from the React-level pointer handler (always a fresh
-  // closure) rather than per-sprite PIXI events (which go stale after the
-  // sprite's first creation and would read outdated aircraft positions).
+  // Hover state
   const hoveredIdRef = useRef<string | null>(null)
   const pointerWorldRef = useRef<{ x: number; y: number } | null>(null)
   const pointerInsideRef = useRef(false)
@@ -233,9 +302,7 @@ export default function RadarCanvas() {
     }
   }
 
-  // Glass background + scope radius. The radius only depends on canvas
-  // size, so it's cached on resize; the compass ring itself is drawn
-  // separately (redrawCompass) since its center must track pan.
+  // Glass background + scope radius in Pitch Black phosphor style
   function redrawBezel() {
     const app = appRef.current
     const glass = glassBgRef.current
@@ -247,7 +314,7 @@ export default function RadarCanvas() {
 
     glass.clear()
     glass.rect(0, 0, w, h)
-    glass.fill({ color: 0x0f172a })
+    glass.fill({ color: RADAR_RENDER_CONFIG.SCOPE_BG_COLOR })
 
     redrawCompass()
   }
@@ -315,9 +382,7 @@ export default function RadarCanvas() {
     })
   }
 
-  // Redraw static layer (airport diagram, runways, range rings) — called
-  // every frame alongside the dynamic layer (see the render-loop effect
-  // below for why).
+  // Redraw static layer (airport diagram, runways, extended approach funnels, navaids, range rings)
   function redrawStatic() {
     const app = appRef.current
     const g = staticLayerRef.current
@@ -332,17 +397,16 @@ export default function RadarCanvas() {
     const mapX = (x: number) => cx + x * zoom + ox
     const mapY = (y: number) => cy - y * zoom + oy
 
-    // Airport diagram (render-only geometry from the .airport file), drawn
-    // beneath the runways: aprons → taxiways → buildings → gates.
+    // Airport diagram (aprons → taxiways → buildings → gates)
     const diagram = state.airport.diagram
     if (diagram) {
       for (const poly of diagram.aprons) {
         g.poly(poly.flatMap(p => [mapX(p.x), mapY(p.y)]))
-        g.fill({ color: 0x1c2534 })
+        g.fill({ color: 0x141c28 })
       }
       for (const twy of diagram.taxiways) {
         if (twy.points.length < 2) continue
-        g.setStrokeStyle({ width: Math.max(2, twy.widthNM * zoom), color: 0x24344a })
+        g.setStrokeStyle({ width: Math.max(2, twy.widthNM * zoom), color: 0x1d293b })
         g.moveTo(mapX(twy.points[0].x), mapY(twy.points[0].y))
         for (let i = 1; i < twy.points.length; i++) {
           g.lineTo(mapX(twy.points[i].x), mapY(twy.points[i].y))
@@ -351,17 +415,15 @@ export default function RadarCanvas() {
       }
       for (const poly of diagram.buildings) {
         g.poly(poly.flatMap(p => [mapX(p.x), mapY(p.y)]))
-        g.fill({ color: 0x2c3a4e })
+        g.fill({ color: 0x243246 })
       }
       for (const gate of state.airport.gates) {
         g.rect(mapX(gate.x) - 2, mapY(gate.y) - 2, 4, 4)
-        g.stroke({ width: 1, color: 0x475569 })
+        g.stroke({ width: 1, color: 0x334155 })
       }
     }
 
-    // Airport Runways — the whole airport spans <2 NM, so at default zoom a
-    // 1px hairline stroke is invisible; draw a strip with a 3px floor that
-    // tracks the runway's real width once zoomed in far enough to exceed it.
+    // Airport Runways & Extended Approach Corridors
     for (const rwy of state.airport.runways) {
       const widthPx = Math.max(3, (rwy.width / 6076.12) * zoom)
       g.setStrokeStyle({ width: widthPx, color: 0x94a3b8 })
@@ -369,18 +431,61 @@ export default function RadarCanvas() {
       g.lineTo(mapX(rwy.endX), mapY(rwy.endY))
       g.stroke()
 
-      // Extended centerline
+      // Extended Centerline up to 10 NM with 1 NM tick marks
       const rad = (rwy.trueHeading - 180) * (Math.PI / 180)
       const extX = rwy.thresholdX + Math.sin(rad) * 10
       const extY = rwy.thresholdY + Math.cos(rad) * 10
-      g.setStrokeStyle({ width: 1, color: 0x334155 })
+      g.setStrokeStyle({ width: 1, color: 0x1e3a5f, alpha: 0.8 })
       g.moveTo(mapX(rwy.thresholdX), mapY(rwy.thresholdY))
       g.lineTo(mapX(extX), mapY(extY))
       g.stroke()
+
+      // 1 NM tick marks & Approach Funnel (Glide Cone)
+      const perpRad = rad + Math.PI / 2
+      const perpX = Math.sin(perpRad)
+      const perpY = Math.cos(perpRad)
+
+      for (let nm = 1; nm <= 10; nm++) {
+        const tx = rwy.thresholdX + Math.sin(rad) * nm
+        const ty = rwy.thresholdY + Math.cos(rad) * nm
+        const tickWidthNM = nm === 5 || nm === 10 ? 0.3 : 0.15
+        
+        g.setStrokeStyle({ width: nm === 5 || nm === 10 ? 1.5 : 1, color: 0x1e3a5f, alpha: 0.9 })
+        g.moveTo(mapX(tx - perpX * tickWidthNM), mapY(ty - perpY * tickWidthNM))
+        g.lineTo(mapX(tx + perpX * tickWidthNM), mapY(ty + perpY * tickWidthNM))
+        g.stroke()
+      }
+
+      // Approach Funnel guidelines (3° cone width out to 10 NM)
+      const funnelAngleNM = 0.5 // 0.5 NM half-width at 10 NM
+      const fLeftX = extX + perpX * funnelAngleNM
+      const fLeftY = extY + perpY * funnelAngleNM
+      const fRightX = extX - perpX * funnelAngleNM
+      const fRightY = extY - perpY * funnelAngleNM
+
+      g.setStrokeStyle({ width: 1, color: 0x1e3a5f, alpha: 0.4 })
+      g.moveTo(mapX(rwy.thresholdX), mapY(rwy.thresholdY))
+      g.lineTo(mapX(fLeftX), mapY(fLeftY))
+      g.moveTo(mapX(rwy.thresholdX), mapY(rwy.thresholdY))
+      g.lineTo(mapX(fRightX), mapY(fRightY))
+      g.stroke()
     }
 
-    // Hold-short bars — authored T-009 holding points from the taxi graph,
-    // drawn perpendicular to their taxiway so the bar reads as a stop line
+    // Terminal Navaids / Waypoint Fixes
+    for (const fix of HHAS_NAVAIDS) {
+      const fx = mapX(fix.x)
+      const fy = mapY(fix.y)
+      const r = 4
+
+      g.setStrokeStyle({ width: 1.5, color: RADAR_RENDER_CONFIG.NAVAID_SYMBOL_COLOR, alpha: 0.7 })
+      g.moveTo(fx, fy - r)
+      g.lineTo(fx + r, fy + r)
+      g.lineTo(fx - r, fy + r)
+      g.closePath()
+      g.stroke()
+    }
+
+    // Hold-short bars
     for (const twy of state.airport.taxiways) {
       for (const node of twy.nodes) {
         if (node.kind !== 'hold-short') continue
@@ -392,7 +497,7 @@ export default function RadarCanvas() {
           : 0
         const px = Math.cos(angle + Math.PI / 2)
         const py = Math.sin(angle + Math.PI / 2)
-        const half = Math.max(5, (twy.width / 1852) * zoom) // spans the taxiway
+        const half = Math.max(5, (twy.width / 1852) * zoom)
         g.setStrokeStyle({ width: 2, color: 0xf59e0b, alpha: 0.8 })
         g.moveTo(mapX(node.x) - px * half, mapY(node.y) - py * half)
         g.lineTo(mapX(node.x) + px * half, mapY(node.y) + py * half)
@@ -400,8 +505,7 @@ export default function RadarCanvas() {
       }
     }
 
-    // Airport Reference Point — a fixed instrument marker distinct from any
-    // runway geometry, so the scope's own origin is always identifiable.
+    // Airport Reference Point (ARP)
     const arpR = 5
     g.setStrokeStyle({ width: 1.5, color: 0xf59e0b })
     g.moveTo(mapX(0) - arpR, mapY(0))
@@ -412,8 +516,8 @@ export default function RadarCanvas() {
     g.circle(mapX(0), mapY(0), arpR * 0.6)
     g.stroke()
 
-    // Range Rings (center follows pan offset) + labels along a fixed radial
-    g.setStrokeStyle({ width: 1, color: 0x1e293b })
+    // Range Rings + labels
+    g.setStrokeStyle({ width: 1, color: 0x162338 })
     for (let i = 1; i <= RANGE_RING_COUNT; i++) {
       g.circle(cx + ox, cy + oy, i * RANGE_RING_STEP_NM * zoom)
       g.stroke()
@@ -442,7 +546,7 @@ export default function RadarCanvas() {
       })
     }
 
-    // Runway numbers + gate labels (texts rebuilt when the airport changes)
+    // Runway numbers + gate labels
     if (labelContainer) {
       const key = state.airport.metadata.icao
       if (airportLabelKeyRef.current !== key) {
@@ -459,6 +563,9 @@ export default function RadarCanvas() {
           ...state.airport.gates.map(() => new PIXI.Text({
             text: '', style: { fontFamily: 'SF Mono, Consolas, monospace', fontSize: 8, fill: 0x64748b },
           })),
+          ...HHAS_NAVAIDS.map(() => new PIXI.Text({
+            text: '', style: { fontFamily: 'SF Mono, Consolas, monospace', fontSize: 9, fontWeight: '600', fill: RADAR_RENDER_CONFIG.NAVAID_SYMBOL_COLOR },
+          })),
         ]
         for (const t of texts) {
           t.anchor.set(0.5)
@@ -469,15 +576,12 @@ export default function RadarCanvas() {
       let i = 0
       for (const rwy of state.airport.runways) {
         const t = texts[i++]
-        // Just past the threshold, opposite the takeoff direction — where the
-        // painted numbers would be
         const rad = (rwy.trueHeading - 180) * (Math.PI / 180)
         const backNM = 14 / zoom
         t.text = rwy.id
         t.position.set(mapX(rwy.thresholdX + Math.sin(rad) * backNM), mapY(rwy.thresholdY + Math.cos(rad) * backNM))
       }
-      // Gate names only render zoomed in enough to not collide with each other
-      const showGates = zoom > 400
+      const showGates = zoom > 80
       for (const gate of state.airport.gates) {
         const t = texts[i++]
         t.visible = showGates
@@ -485,10 +589,17 @@ export default function RadarCanvas() {
         t.anchor.set(0, 0.5)
         t.position.set(mapX(gate.x) + 5, mapY(gate.y))
       }
+      for (const fix of HHAS_NAVAIDS) {
+        const t = texts[i++]
+        t.visible = true
+        t.text = fix.id
+        t.anchor.set(0.5, 0)
+        t.position.set(mapX(fix.x), mapY(fix.y) + 6)
+      }
     }
   }
 
-  // Redraw dynamic layer (aircraft sprites, trails, vectors, datablocks)
+  // Redraw dynamic layer (aircraft sprites, history trails, vector ticks, datablocks)
   function redrawDynamic() {
     const app = appRef.current
     const container = dynamicLayerRef.current
@@ -507,9 +618,6 @@ export default function RadarCanvas() {
     const demo = tutorialDemoRef.current
 
     if (demo) {
-      // A tutorial demo is active: hide real traffic (without touching
-      // gameState — it's still there, just not drawn this frame) and draw
-      // only the staged mock aircraft.
       for (const sprite of sprites.values()) {
         sprite.g.visible = false
         sprite.text.visible = false
@@ -541,7 +649,6 @@ export default function RadarCanvas() {
       return
     }
 
-    // No demo active: hide any leftover demo sprites and draw real traffic.
     for (const sprite of demoSprites.values()) {
       sprite.g.visible = false
       sprite.text.visible = false
@@ -562,11 +669,6 @@ export default function RadarCanvas() {
         const g = new PIXI.Graphics()
         const text = new PIXI.Text({ text: '', style: { fontFamily: 'SF Mono', fontSize: 10, fill: 0xffffff, align: 'left' } })
 
-        // Make both the blip and its text clickable (bigger effective hit
-        // target than the label alone). These handlers only ever call
-        // selectAircraft(ac.id) — safe to attach once even though the
-        // closure goes stale, since selectAircraft mutates the singleton
-        // gameState directly and ac.id never changes for this sprite.
         g.eventMode = 'static'
         g.cursor = 'pointer'
         g.on('pointerdown', () => selectAircraft(ac.id))
@@ -582,7 +684,12 @@ export default function RadarCanvas() {
       sprite.g.visible = true
       sprite.text.visible = true
       const isGround = GROUND_PHASES.includes(ac.phase)
-      drawAircraftBody(sprite.g, sprite.text, { ...ac, isGround }, mapX, mapY, zoom, hoveredIdRef.current)
+      drawAircraftBody(sprite.g, sprite.text, {
+        ...ac,
+        isGround,
+        flightType: ac.flightType,
+        squawk: ac.squawk,
+      }, mapX, mapY, zoom, hoveredIdRef.current)
     }
   }
 
