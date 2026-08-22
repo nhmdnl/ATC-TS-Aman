@@ -43,12 +43,12 @@ export class TrafficScheduler {
     if (points.length === 0) return false
 
     const point = points[Math.floor(Math.random() * points.length)]
-    const suitableTypes = filterSuitableAircraftTypes(airport)
+    const suitableTypes = filterSuitableAircraftTypes(airport, state.enabledAircraftClasses)
     let type = suitableTypes.find(t => t.icao === flight.aircraftIcao)
     if (!type) {
       type = suitableTypes[Math.floor(Math.random() * suitableTypes.length)]
     }
-    const ac = spawnArrival(point, flight.callsign, type, airport)
+    const ac = spawnArrival(point, flight.callsign, type, airport, state.enabledAircraftClasses)
     ac.assignedRunway = selectActiveRunway(airport, state.wind)?.id ?? null
     state.addAircraft(ac)
     eventBus.emit(GameEventType.AIRCRAFT_SPAWNED, { callsign: ac.callsign, flightType: 'arrival' })
@@ -64,12 +64,12 @@ export class TrafficScheduler {
     if (!gate) return false
 
     const runway = selectActiveRunway(airport, state.wind)?.id ?? ''
-    const suitableTypes = filterSuitableAircraftTypes(airport)
+    const suitableTypes = filterSuitableAircraftTypes(airport, state.enabledAircraftClasses)
     let type = suitableTypes.find(t => t.icao === flight.aircraftIcao)
     if (!type) {
       type = suitableTypes[Math.floor(Math.random() * suitableTypes.length)]
     }
-    const ac = spawnDeparture(gate, runway, flight.callsign, type, airport)
+    const ac = spawnDeparture(gate, runway, flight.callsign, type, airport, state.enabledAircraftClasses)
     state.addAircraft(ac)
     eventBus.emit(GameEventType.AIRCRAFT_SPAWNED, { callsign: ac.callsign, flightType: 'departure' })
     return true

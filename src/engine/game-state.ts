@@ -63,6 +63,16 @@ export class GameState {
    *  (today's behavior) unless narrowed at the briefing screen. */
   playerStations: ControllerStation[] = [ControllerStation.GROUND, ControllerStation.TOWER, ControllerStation.APPROACH]
 
+  /** Active aircraft classes allowed to spawn this session */
+  enabledAircraftClasses: import('./types').AircraftClass[] = [
+    'LIGHT',
+    'MEDIUM',
+    'HEAVY',
+    'SUPER_HEAVY',
+    'MILITARY',
+    'HELICOPTER',
+  ]
+
   // ── Airport ──
   airport: Airport | null = null
   taxiwayGraph: TaxiwayGraph | null = null
@@ -225,6 +235,7 @@ export class GameState {
       wind: { ...this.wind },
       conditions: this.getConditions(),
       playerStations: [...this.playerStations],
+      enabledAircraftClasses: [...this.enabledAircraftClasses],
       runwayOccupied: new Set(this.runwayOccupied),
     }
   }

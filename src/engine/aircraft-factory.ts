@@ -1,4 +1,4 @@
-import type { Aircraft, AircraftType, GateData, SpawnPointData, Airport } from './types'
+import type { Aircraft, AircraftType, GateData, SpawnPointData, Airport, AircraftClass } from './types'
 import { AircraftPhase, ControllerStation } from './types'
 import { AIRCRAFT_TYPES, AIRLINE_PREFIXES, PHASE_CONTROLLER, SEPARATION_FT, MRS_NM, PUSHBACK_CALL_DELAY_MS } from './constants'
 import { distanceNM } from './movement'
@@ -27,8 +27,8 @@ function generateSquawk(): string {
   return squawk
 }
 
-export function randomAircraftType(airport?: Airport): AircraftType {
-  const catalog = airport ? filterSuitableAircraftTypes(airport) : AIRCRAFT_TYPES
+export function randomAircraftType(airport?: Airport, enabledClasses?: ReadonlyArray<AircraftClass>): AircraftType {
+  const catalog = airport ? filterSuitableAircraftTypes(airport, enabledClasses) : AIRCRAFT_TYPES
   return catalog[Math.floor(Math.random() * catalog.length)]
 }
 
@@ -41,8 +41,15 @@ function generateId(): string {
  * Spawn a new departure at a gate.
  * Starts in AT_GATE — the pilot will call for pushback after PUSHBACK_CALL_DELAY_MS.
  */
-export function spawnDeparture(gate: GateData, runwayId: string, callsign?: string, overrideType?: AircraftType, airport?: Airport): Aircraft {
-  const type = overrideType ?? randomAircraftType(airport)
+export function spawnDeparture(
+  gate: GateData,
+  runwayId: string,
+  callsign?: string,
+  overrideType?: AircraftType,
+  airport?: Airport,
+  enabledClasses?: ReadonlyArray<AircraftClass>
+): Aircraft {
+  const type = overrideType ?? randomAircraftType(airport, enabledClasses)
   const phase = AircraftPhase.AT_GATE
   const now = Date.now()
 
@@ -103,8 +110,14 @@ export function spawnDeparture(gate: GateData, runwayId: string, callsign?: stri
  * Spawn a new arrival at an entry point.
  * Starts in ENTERING — transitions to INBOUND_UNCONTROLLED near the field.
  */
-export function spawnArrival(spawnPoint: SpawnPointData, callsign?: string, overrideType?: AircraftType, airport?: Airport): Aircraft {
-  const type = overrideType ?? randomAircraftType(airport)
+export function spawnArrival(
+  spawnPoint: SpawnPointData,
+  callsign?: string,
+  overrideType?: AircraftType,
+  airport?: Airport,
+  enabledClasses?: ReadonlyArray<AircraftClass>
+): Aircraft {
+  const type = overrideType ?? randomAircraftType(airport, enabledClasses)
   const phase = AircraftPhase.ENTERING
   const now = Date.now()
   const initialSpeed = Math.min(Math.round(type.cruiseSpeed * 0.7), 250)

@@ -374,10 +374,18 @@ export function getMaxRunwayLengthFt(airport: Airport): number {
   return Math.max(...airport.runways.map(getRunwayLengthFt))
 }
 
-/** Filter aircraft catalog to models compatible with the airport's runway length capacity */
-export function filterSuitableAircraftTypes(airport: Airport): ReadonlyArray<AircraftType> {
+/** Filter aircraft catalog to models compatible with the airport's runway length capacity and active session aircraft class settings */
+export function filterSuitableAircraftTypes(
+  airport: Airport,
+  enabledClasses?: ReadonlyArray<import('./types').AircraftClass>
+): ReadonlyArray<AircraftType> {
   const maxFt = getMaxRunwayLengthFt(airport)
-  const suitable = AIRCRAFT_TYPES.filter((t) => (t.minRunwayLengthFt ?? 5000) <= maxFt)
-  return suitable.length > 0 ? suitable : AIRCRAFT_TYPES
+  let catalog = AIRCRAFT_TYPES
+  if (enabledClasses && enabledClasses.length > 0) {
+    const filtered = catalog.filter((t) => t.aircraftClass && enabledClasses.includes(t.aircraftClass))
+    if (filtered.length > 0) catalog = filtered
+  }
+  const suitable = catalog.filter((t) => (t.minRunwayLengthFt ?? 5000) <= maxFt)
+  return suitable.length > 0 ? suitable : catalog
 }
 

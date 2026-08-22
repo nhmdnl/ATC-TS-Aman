@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
-import type { GameStateSnapshot, DifficultyLevel, Airport, Command, ControllerStation } from '../engine/types'
+import type { GameStateSnapshot, DifficultyLevel, Airport, Command, ControllerStation, AircraftClass } from '../engine/types'
 import { gameState } from '../engine/game-state'
 import { processCommand } from '../engine/commands/command-registry'
 import { buildTaxiwayGraph } from '../engine/airport-loader'
@@ -19,6 +19,7 @@ export interface GameContextType {
   setDifficulty: (level: DifficultyLevel) => void
   startSession: () => void
   setPlayerStations: (stations: ControllerStation[]) => void
+  setEnabledAircraftClasses: (classes: AircraftClass[]) => void
   muted: boolean
   toggleMute: () => void
   airports: ReadonlyArray<AirportEntry>
@@ -114,6 +115,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setSnapshot(gameState.snapshot())
   }
 
+  const setEnabledAircraftClasses = useCallback((classes: AircraftClass[]) => {
+    gameState.enabledAircraftClasses = classes
+    setSnapshot(gameState.snapshot())
+  }, [])
+
   const value: GameContextType = {
     state: snapshot,
     selectAircraft,
@@ -123,6 +129,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setDifficulty,
     startSession,
     setPlayerStations,
+    setEnabledAircraftClasses,
     muted,
     toggleMute,
     airports: AIRPORTS,

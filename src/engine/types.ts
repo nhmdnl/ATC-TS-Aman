@@ -90,6 +90,7 @@ export enum WakeCategory {
 
 export type AircraftCategory = 'L' | 'M' | 'H' | 'J'
 export type ApproachCategory = 'C' | 'D'
+export type AircraftClass = 'LIGHT' | 'MEDIUM' | 'HEAVY' | 'SUPER_HEAVY' | 'MILITARY' | 'HELICOPTER'
 
 // ─── Aircraft Type Definition ─────────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ export interface AircraftType {
   readonly category: AircraftCategory
   readonly approachCategory: ApproachCategory
   readonly wakeCategory: WakeCategory
+  readonly aircraftClass?: AircraftClass
   readonly cruiseSpeed: number   // knots
   readonly approachSpeed: number // knots
   readonly rotationSpeed: number // knots
@@ -499,6 +501,7 @@ export interface GameStateSnapshot {
   readonly wind: Readonly<Wind>
   readonly conditions: 'VMC' | 'IMC'
   readonly playerStations: ReadonlyArray<ControllerStation>
+  readonly enabledAircraftClasses: ReadonlyArray<AircraftClass>
   readonly runwayOccupied: ReadonlySet<string>
 }
 

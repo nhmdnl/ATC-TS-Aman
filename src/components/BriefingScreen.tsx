@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import { useGame } from '../state/GameContext'
-import type { DifficultyLevel } from '../engine/types'
+import type { DifficultyLevel, AircraftClass } from '../engine/types'
 import { ControllerStation } from '../engine/types'
-import { DIFFICULTY_PRESETS, CSS_COLORS } from '../engine/constants'
+import { DIFFICULTY_PRESETS, CSS_COLORS, DEFAULT_ENABLED_AIRCRAFT_CLASSES } from '../engine/constants'
 import { careerSystem, DIFFICULTY_UNLOCK_LEVEL, airportUnlockLevel, rankTitle } from '../engine/career-system'
 import AirportPreview from './AirportPreview'
 
@@ -20,7 +20,18 @@ const STATION_LABELS: Record<ControllerStation, string> = {
   [ControllerStation.GROUND]: 'GROUND',
   [ControllerStation.TOWER]: 'TOWER',
   [ControllerStation.APPROACH]: 'APPROACH',
-  [ControllerStation.AREA]: 'AREA', // never shown — not a player-selectable station
+  [ControllerStation.AREA]: 'AREA',
+}
+
+const CLASS_ORDER: AircraftClass[] = ['LIGHT', 'MEDIUM', 'HEAVY', 'SUPER_HEAVY', 'MILITARY', 'HELICOPTER']
+
+const CLASS_LABELS: Record<AircraftClass, string> = {
+  LIGHT: 'Small GA',
+  MEDIUM: 'Medium Jets',
+  HEAVY: 'Heavy Jets',
+  SUPER_HEAVY: 'Super Heavy',
+  MILITARY: 'Military',
+  HELICOPTER: 'Helicopters',
 }
 
 const SECONDARY_BUTTON: React.CSSProperties = {
@@ -36,14 +47,14 @@ const SECONDARY_BUTTON: React.CSSProperties = {
 }
 
 export default function BriefingScreen() {
-  const { setDifficulty, setPlayerStations, startSession, muted, toggleMute, airports, selectedAirportId, setAirport } = useGame()
+  const { setDifficulty, setPlayerStations, setEnabledAircraftClasses, startSession, muted, toggleMute, airports, selectedAirportId, setAirport } = useGame()
   const level = careerSystem.state.level
   const diffUnlocked = (d: DifficultyLevel) => level >= (DIFFICULTY_UNLOCK_LEVEL[d] ?? 1)
-  // Default to the hardest unlocked difficulty so a locked preset is never pre-selected
   const [selected, setSelected] = useState<DifficultyLevel>(
     () => [...DIFF_ORDER].reverse().find(diffUnlocked) ?? 'easy'
   )
   const [stations, setStations] = useState<ControllerStation[]>(STATION_ORDER)
+  const [classes, setClasses] = useState<AircraftClass[]>([...DEFAULT_ENABLED_AIRCRAFT_CLASSES])
 
   const preset = DIFFICULTY_PRESETS[selected]
   const airportEntry = airports.find(a => a.id === selectedAirportId) ?? airports[0]
@@ -51,16 +62,27 @@ export default function BriefingScreen() {
   const toggleStation = (station: ControllerStation) => {
     setStations(prev => {
       if (prev.includes(station)) {
-        if (prev.length === 1) return prev // at least one must stay selected
+        if (prev.length === 1) return prev
         return prev.filter(s => s !== station)
       }
       return [...prev, station]
     })
   }
 
+  const toggleClass = (acClass: AircraftClass) => {
+    setClasses(prev => {
+      if (prev.includes(acClass)) {
+        if (prev.length === 1) return prev // keep at least one category active
+        return prev.filter(c => c !== acClass)
+      }
+      return [...prev, acClass]
+    })
+  }
+
   const handleStart = () => {
     setDifficulty(selected)
     setPlayerStations(stations)
+    setEnabledAircraftClasses(classes)
     startSession()
   }
 
@@ -208,6 +230,40 @@ export default function BriefingScreen() {
           </div>
           <div style={{ marginTop: 6, fontSize: 10, color: CSS_COLORS.text.muted }}>
             Unselected stations are handled automatically.
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ color: CSS_COLORS.text.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+            Aircraft Fleet (Session Categories)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+            {CLASS_ORDER.map((c) => {
+              const active = classes.includes(c)
+              return (
+                <button
+                  key={c}
+                  onClick={() => toggleClass(c)}
+                  style={{
+                    padding: '6px 4px',
+                    background: active ? '#0284C7' : '#1D2430',
+                    color: active ? '#FFF' : CSS_COLORS.text.secondary,
+                    border: active ? '1px solid #38BDF8' : '1px solid #1E293B',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontWeight: active ? 700 : 400,
+                    fontSize: 10,
+                    fontFamily: 'inherit',
+                    transition: 'all 0.1s',
+                  }}
+                >
+                  {active ? '✓ ' : ''}{CLASS_LABELS[c]}
+                </button>
+              )
+            })}
+          </div>
+          <div style={{ marginTop: 6, fontSize: 10, color: CSS_COLORS.text.muted }}>
+            Enable or disable specific aircraft categories (Small GA, Jets, Military, Helicopters).
           </div>
         </div>
 
