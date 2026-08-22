@@ -106,6 +106,7 @@ export interface AircraftType {
   readonly climbRate: number     // ft/min
   readonly descentRate: number   // ft/min
   readonly serviceCeiling: number // ft
+  readonly minRunwayLengthFt?: number // minimum required runway length in feet (optional in test fixtures)
 }
 
 // ─── Flight Identity ──────────────────────────────────────────────────────────

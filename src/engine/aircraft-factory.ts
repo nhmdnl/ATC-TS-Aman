@@ -1,7 +1,8 @@
-import type { Aircraft, AircraftType, GateData, SpawnPointData } from './types'
+import type { Aircraft, AircraftType, GateData, SpawnPointData, Airport } from './types'
 import { AircraftPhase, ControllerStation } from './types'
 import { AIRCRAFT_TYPES, AIRLINE_PREFIXES, PHASE_CONTROLLER, SEPARATION_FT, MRS_NM, PUSHBACK_CALL_DELAY_MS } from './constants'
 import { distanceNM } from './movement'
+import { filterSuitableAircraftTypes } from './airport-loader'
 
 /**
  * True when no existing traffic sits close enough to a spawn point that a
@@ -14,7 +15,6 @@ export function isSpawnPointClear(point: SpawnPointData, traffic: Aircraft[]): b
     Math.abs(ac.altitude - point.altitude) < SEPARATION_FT)
 }
 
-// ponytail: flat random callsign — sequential/realistic when T-019 schedule system added
 function generateCallsign(): string {
   const prefix = AIRLINE_PREFIXES[Math.floor(Math.random() * AIRLINE_PREFIXES.length)].prefix
   const number = Math.floor(Math.random() * 9000) + 100
@@ -27,8 +27,9 @@ function generateSquawk(): string {
   return squawk
 }
 
-function randomAircraftType(): AircraftType {
-  return AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)]
+export function randomAircraftType(airport?: Airport): AircraftType {
+  const catalog = airport ? filterSuitableAircraftTypes(airport) : AIRCRAFT_TYPES
+  return catalog[Math.floor(Math.random() * catalog.length)]
 }
 
 function generateId(): string {
@@ -40,8 +41,8 @@ function generateId(): string {
  * Spawn a new departure at a gate.
  * Starts in AT_GATE — the pilot will call for pushback after PUSHBACK_CALL_DELAY_MS.
  */
-export function spawnDeparture(gate: GateData, runwayId: string, callsign?: string, overrideType?: AircraftType): Aircraft {
-  const type = overrideType ?? randomAircraftType()
+export function spawnDeparture(gate: GateData, runwayId: string, callsign?: string, overrideType?: AircraftType, airport?: Airport): Aircraft {
+  const type = overrideType ?? randomAircraftType(airport)
   const phase = AircraftPhase.AT_GATE
   const now = Date.now()
 
@@ -55,7 +56,7 @@ export function spawnDeparture(gate: GateData, runwayId: string, callsign?: stri
     x: gate.x,
     y: gate.y,
     altitude: 0,
-    heading: 90, // default east; will be updated on pushback
+    heading: 90,
     speed: 0,
 
     phase,
@@ -102,8 +103,8 @@ export function spawnDeparture(gate: GateData, runwayId: string, callsign?: stri
  * Spawn a new arrival at an entry point.
  * Starts in ENTERING — transitions to INBOUND_UNCONTROLLED near the field.
  */
-export function spawnArrival(spawnPoint: SpawnPointData, callsign?: string, overrideType?: AircraftType): Aircraft {
-  const type = overrideType ?? randomAircraftType()
+export function spawnArrival(spawnPoint: SpawnPointData, callsign?: string, overrideType?: AircraftType, airport?: Airport): Aircraft {
+  const type = overrideType ?? randomAircraftType(airport)
   const phase = AircraftPhase.ENTERING
   const now = Date.now()
   const initialSpeed = Math.min(Math.round(type.cruiseSpeed * 0.7), 250)

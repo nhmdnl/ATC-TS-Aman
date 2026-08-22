@@ -50,20 +50,31 @@ export function validateCommand(command: Command, aircraft: Aircraft, airport: A
       if (!/^[0-7]{4}$/.test(command.params.squawk)) return 'Invalid squawk code'
       break
 
+    case CommandType.LINE_UP_WAIT:
+    case CommandType.CLEARED_TAKEOFF:
+    case CommandType.CLEARED_LAND:
     case CommandType.CLEARED_APPROACH: {
-      // In IMC, only ILS approaches are valid — no airport = assume VMC
-      if (airport && gameState.getConditions() === 'IMC') {
-        const hasIls = airport.runways.some(r => r.id === aircraft.assignedRunway && r.ils?.available)
-        if (!hasIls) return 'IMC conditions — ILS not available on this runway'
+      const rwyId = aircraft.assignedRunway
+      if (airport && rwyId) {
+        const rwy = airport.runways.find(r => r.id === rwyId)
+        if (rwy) {
+          const lengthFt = rwy.length * 3.28084
+          const minFt = aircraft.type.minRunwayLengthFt ?? 5000
+          if (lengthFt < minFt) {
+            return `Runway ${rwyId} (${Math.round(lengthFt)} ft) is too short for ${aircraft.type.name} (requires ${minFt} ft)`
+          }
+        }
       }
-      break
-    }
 
-    case CommandType.CLEARED_LAND: {
-      // Golden Rule: reject if the assigned runway is occupied
-      const rwy = aircraft.assignedRunway
-      if (rwy && gameState.runwayOccupied.has(rwy)) {
-        return `Runway ${rwy} is occupied — clear the runway before issuing landing clearance`
+      if (command.type === CommandType.CLEARED_APPROACH) {
+        if (airport && gameState.getConditions() === 'IMC') {
+          const hasIls = airport.runways.some(r => r.id === aircraft.assignedRunway && r.ils?.available)
+          if (!hasIls) return 'IMC conditions — ILS not available on this runway'
+        }
+      } else if (command.type === CommandType.CLEARED_LAND) {
+        if (rwyId && gameState.runwayOccupied.has(rwyId)) {
+          return `Runway ${rwyId} is occupied — clear the runway before issuing landing clearance`
+        }
       }
       break
     }

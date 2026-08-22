@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { loadAirport, selectActiveRunway, buildTaxiwayGraph } from '../airport-loader'
+import { loadAirport, selectActiveRunway, buildTaxiwayGraph, filterSuitableAircraftTypes } from '../airport-loader'
 import hhasData from '../../data/airports/hhas.airport.json'
 
 const airport = loadAirport(hhasData)
@@ -128,5 +128,22 @@ describe('selectActiveRunway', () => {
 
   it('returns null when the airport has no runways', () => {
     expect(selectActiveRunway({ ...airport, runways: [] }, { direction: 70, speed: 10 })).toBeNull()
+  })
+})
+
+describe('filterSuitableAircraftTypes', () => {
+  it('filters out heavy aircraft models requiring longer runways than a short airfield has', () => {
+    const shortField = loadAirport(makeV11File())
+    // Modify runway length to 1000m (~3280 ft)
+    const shortApt = {
+      ...shortField,
+      runways: shortField.runways.map(r => ({ ...r, length: 1000 }))
+    }
+    const suitable = filterSuitableAircraftTypes(shortApt)
+    // C172 (1600 ft) & BE20 (2500 ft) fit within 3280 ft; A388 (9500 ft) & B744 (8200 ft) do not
+    expect(suitable.map(t => t.icao)).toContain('C172')
+    expect(suitable.map(t => t.icao)).toContain('BE20')
+    expect(suitable.map(t => t.icao)).not.toContain('A388')
+    expect(suitable.map(t => t.icao)).not.toContain('B744')
   })
 })

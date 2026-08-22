@@ -193,47 +193,47 @@ export const AIRCRAFT_TYPES: ReadonlyArray<AircraftType> = [
   {
     icao: 'B738', name: 'Boeing 737-800', category: 'M', approachCategory: 'C', wakeCategory: Wake.MEDIUM,
     cruiseSpeed: 460, approachSpeed: 137, rotationSpeed: 145, taxiSpeed: 20,
-    climbRate: 2500, descentRate: 1800, serviceCeiling: 41000,
+    climbRate: 2500, descentRate: 1800, serviceCeiling: 41000, minRunwayLengthFt: 6200,
   },
   {
     icao: 'A320', name: 'Airbus A320', category: 'M', approachCategory: 'C', wakeCategory: Wake.MEDIUM,
     cruiseSpeed: 450, approachSpeed: 135, rotationSpeed: 142, taxiSpeed: 20,
-    climbRate: 2400, descentRate: 1800, serviceCeiling: 39000,
+    climbRate: 2400, descentRate: 1800, serviceCeiling: 39000, minRunwayLengthFt: 6200,
   },
   {
     icao: 'CRJ9', name: 'Bombardier CRJ-900', category: 'M', approachCategory: 'C', wakeCategory: Wake.MEDIUM,
     cruiseSpeed: 430, approachSpeed: 130, rotationSpeed: 135, taxiSpeed: 18,
-    climbRate: 2200, descentRate: 1600, serviceCeiling: 41000,
+    climbRate: 2200, descentRate: 1600, serviceCeiling: 41000, minRunwayLengthFt: 5200,
   },
   {
     icao: 'E175', name: 'Embraer E175', category: 'M', approachCategory: 'C', wakeCategory: Wake.MEDIUM,
     cruiseSpeed: 430, approachSpeed: 128, rotationSpeed: 130, taxiSpeed: 18,
-    climbRate: 2200, descentRate: 1500, serviceCeiling: 41000,
+    climbRate: 2200, descentRate: 1500, serviceCeiling: 41000, minRunwayLengthFt: 5200,
   },
   {
     icao: 'B772', name: 'Boeing 777-200', category: 'H', approachCategory: 'D', wakeCategory: Wake.HEAVY,
     cruiseSpeed: 490, approachSpeed: 145, rotationSpeed: 155, taxiSpeed: 20,
-    climbRate: 2000, descentRate: 1800, serviceCeiling: 43100,
+    climbRate: 2000, descentRate: 1800, serviceCeiling: 43100, minRunwayLengthFt: 8200,
   },
   {
     icao: 'B744', name: 'Boeing 747-400', category: 'H', approachCategory: 'D', wakeCategory: Wake.HEAVY,
     cruiseSpeed: 490, approachSpeed: 150, rotationSpeed: 160, taxiSpeed: 20,
-    climbRate: 1800, descentRate: 1700, serviceCeiling: 45100,
+    climbRate: 1800, descentRate: 1700, serviceCeiling: 45100, minRunwayLengthFt: 8200,
   },
   {
     icao: 'A388', name: 'Airbus A380-800', category: 'J', approachCategory: 'D', wakeCategory: Wake.SUPER_HEAVY,
     cruiseSpeed: 480, approachSpeed: 145, rotationSpeed: 155, taxiSpeed: 20,
-    climbRate: 1600, descentRate: 1500, serviceCeiling: 43000,
+    climbRate: 1600, descentRate: 1500, serviceCeiling: 43000, minRunwayLengthFt: 9500,
   },
   {
     icao: 'C172', name: 'Cessna 172 Skyhawk', category: 'L', approachCategory: 'C', wakeCategory: Wake.LIGHT,
     cruiseSpeed: 120, approachSpeed: 60, rotationSpeed: 55, taxiSpeed: 10,
-    climbRate: 700, descentRate: 500, serviceCeiling: 14000,
+    climbRate: 700, descentRate: 500, serviceCeiling: 14000, minRunwayLengthFt: 1600,
   },
   {
     icao: 'BE20', name: 'Beechcraft King Air 200', category: 'L', approachCategory: 'C', wakeCategory: Wake.LIGHT,
     cruiseSpeed: 280, approachSpeed: 100, rotationSpeed: 105, taxiSpeed: 15,
-    climbRate: 1500, descentRate: 1200, serviceCeiling: 35000,
+    climbRate: 1500, descentRate: 1200, serviceCeiling: 35000, minRunwayLengthFt: 2500,
   },
 ] as const
 

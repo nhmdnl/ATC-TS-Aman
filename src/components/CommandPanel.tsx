@@ -304,9 +304,35 @@ export default function CommandPanel() {
       {/* Content */}
       <div style={S.content}>
         <div style={S.selectedInfo}>
-          {selectedAircraft
-            ? `${selectedAircraft.callsign} - ${selectedAircraft.type.icao} - ${selectedAircraft.phase.replace(/_/g, ' ')} (${STATION_ABBREV[PHASE_CONTROLLER[selectedAircraft.phase]]})`
-            : 'No aircraft selected'}
+          {selectedAircraft ? (
+            (() => {
+              const reqFt = selectedAircraft.type.minRunwayLengthFt ?? 5000
+              return (
+                <div>
+                  <div style={{ fontWeight: 700, color: '#F8FAFC', fontSize: 11 }}>
+                    {selectedAircraft.callsign} · {selectedAircraft.type.name} ({selectedAircraft.type.icao})
+                  </div>
+                  <div style={{ color: '#00E5FF', fontSize: 10, marginTop: 2 }}>
+                    CLASS: <span style={{ fontWeight: 700 }}>{selectedAircraft.type.wakeCategory}</span> · REQ RWY: {reqFt.toLocaleString()} FT
+                  </div>
+                  {selectedAircraft.assignedRunway && state.airport && (
+                    (() => {
+                      const rwy = state.airport.runways.find(r => r.id === selectedAircraft.assignedRunway)
+                      const lenFt = rwy ? Math.round(rwy.length * 3.28084) : 0
+                      const isSuitable = lenFt >= reqFt
+                      return (
+                        <div style={{ fontSize: 9, marginTop: 3, color: isSuitable ? '#00FF66' : '#FF1744', fontWeight: 700 }}>
+                          RWY {selectedAircraft.assignedRunway} ({lenFt.toLocaleString()} FT) — {isSuitable ? 'SUITABLE [OK]' : 'WARNING: TOO SHORT'}
+                        </div>
+                      )
+                    })()
+                  )}
+                </div>
+              )
+            })()
+          ) : (
+            'No aircraft selected'
+          )}
         </div>
 
         {/* Param input row */}

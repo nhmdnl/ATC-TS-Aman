@@ -104,7 +104,10 @@ function StripCard({ ac }: { ac: Aircraft }) {
           <span style={{ color: '#F8FAFC', fontWeight: 700, fontSize: 12, letterSpacing: 0.5 }}>
             {ac.callsign}
           </span>
-          <span style={{ color: '#64748B', fontSize: 10, background: '#1E293B', padding: '1px 4px', borderRadius: 2 }}>
+          <span
+            title={`${ac.type.name} (${ac.type.wakeCategory}) — Min RWY: ${(ac.type.minRunwayLengthFt ?? 5000).toLocaleString()} ft`}
+            style={{ color: '#64748B', fontSize: 10, background: '#1E293B', padding: '1px 4px', borderRadius: 2, cursor: 'help' }}
+          >
             {ac.type.icao} {ac.type.wakeCategory?.slice(0, 1) ?? ''}
           </span>
         </div>

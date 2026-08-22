@@ -1,4 +1,5 @@
-import type { Airport, TaxiwayGraph, TaxiwayData, RunwayData, GateData, SpawnPointData, AirportDiagram, DiagramPoint, Wind } from './types'
+import type { Airport, TaxiwayGraph, TaxiwayData, RunwayData, GateData, SpawnPointData, AirportDiagram, DiagramPoint, Wind, AircraftType } from './types'
+import { AIRCRAFT_TYPES } from './constants'
 
 /**
  * MVA floor: explicit `metadata.mva` if the file has one, else field elevation
@@ -361,3 +362,22 @@ export function getReciprocalRunway(airport: Airport, runwayId: string): RunwayD
   
   return minDiff < 5 ? closest : null
 }
+
+/** Calculate runway length in feet (1 meter = 3.28084 feet) */
+export function getRunwayLengthFt(rwy: RunwayData): number {
+  return rwy.length * 3.28084
+}
+
+/** Calculate maximum runway length available at an airport in feet */
+export function getMaxRunwayLengthFt(airport: Airport): number {
+  if (!airport.runways || airport.runways.length === 0) return 10000
+  return Math.max(...airport.runways.map(getRunwayLengthFt))
+}
+
+/** Filter aircraft catalog to models compatible with the airport's runway length capacity */
+export function filterSuitableAircraftTypes(airport: Airport): ReadonlyArray<AircraftType> {
+  const maxFt = getMaxRunwayLengthFt(airport)
+  const suitable = AIRCRAFT_TYPES.filter((t) => (t.minRunwayLengthFt ?? 5000) <= maxFt)
+  return suitable.length > 0 ? suitable : AIRCRAFT_TYPES
+}
+
