@@ -12,6 +12,7 @@ import {
   PX_PER_NM,
   AIRBORNE_PHASES,
   PHASE_CONTROLLER,
+  AIRCRAFT_TYPES,
 } from '../constants'
 import {
   AircraftPhase,
@@ -213,6 +214,26 @@ describe('constants', () => {
       expect(AIRBORNE_PHASES.has(AircraftPhase.HOLD_SHORT)).toBe(false)
       expect(AIRBORNE_PHASES.has(AircraftPhase.DEPARTED)).toBe(false)
       expect(AIRBORNE_PHASES.has(AircraftPhase.ARRIVED)).toBe(false)
+    })
+  })
+
+  describe('AIRCRAFT_TYPES', () => {
+    it('flags rotorcraft exactly on the HELICOPTER-class entries (T-013 sync guard)', () => {
+      for (const t of AIRCRAFT_TYPES) {
+        expect(t.rotorcraft ?? false).toBe(t.aircraftClass === 'HELICOPTER')
+      }
+    })
+
+    it('rotorcraft entries need no runway and carry the spec perf trio', () => {
+      const helos = AIRCRAFT_TYPES.filter(t => t.rotorcraft)
+      expect(helos.length).toBeGreaterThanOrEqual(5)
+      for (const h of helos) {
+        expect(h.minRunwayLengthFt).toBe(0)
+        expect(h.rotationSpeed).toBe(0)
+      }
+      for (const icao of ['H125', 'H135', 'AW139']) {
+        expect(helos.some(h => h.icao === icao)).toBe(true)
+      }
     })
   })
 })

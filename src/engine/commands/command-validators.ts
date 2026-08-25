@@ -3,6 +3,22 @@ import { CommandType, AircraftPhase } from '../types'
 import { PHASE_COMMANDS } from '../constants'
 import { gameState } from '../game-state'
 
+/**
+ * Ground-movement commands rotorcraft can never receive (T-014): they lift
+ * off and land vertically on their pad and skip the entire taxi ecosystem.
+ */
+const ROTOR_REJECTED_COMMANDS: ReadonlySet<CommandType> = new Set([
+  CommandType.PUSHBACK_APPROVED,
+  CommandType.STARTUP_APPROVED,
+  CommandType.TAXI,
+  CommandType.HOLD_SHORT,
+  CommandType.CANCEL_TAXI,
+  CommandType.CROSS_RUNWAY,
+  CommandType.CONTINUE_TAXI,
+  CommandType.LINE_UP_WAIT,
+  CommandType.EXIT_RUNWAY,
+])
+
 export function validateCommand(command: Command, aircraft: Aircraft, airport: Airport): string | null {
   // 1. INBOUND_UNCONTROLLED: only STANDBY allowed (pilot not yet on frequency)
   if (aircraft.phase === AircraftPhase.INBOUND_UNCONTROLLED && command.type !== CommandType.STANDBY) {
@@ -12,7 +28,19 @@ export function validateCommand(command: Command, aircraft: Aircraft, airport: A
   // 2. Phase-allowed command check
   const allowedCommands = PHASE_COMMANDS[aircraft.phase as keyof typeof PHASE_COMMANDS] ?? []
   if (!allowedCommands.includes(command.type)) {
-    return `${command.type} not allowed in phase ${aircraft.phase}`
+    // Rotorcraft exception: they liftoff straight from the pad (no pushback/
+    // taxi/line-up chain), so CLEARED_TAKEOFF is valid at AT_GATE
+    const rotorLiftoff = aircraft.type.rotorcraft &&
+      aircraft.phase === AircraftPhase.AT_GATE &&
+      command.type === CommandType.CLEARED_TAKEOFF
+    if (!rotorLiftoff) {
+      return `${command.type} not allowed in phase ${aircraft.phase}`
+    }
+  }
+
+  // 2b. Rotorcraft reject all ground-movement clearances
+  if (aircraft.type.rotorcraft && ROTOR_REJECTED_COMMANDS.has(command.type)) {
+    return `${aircraft.callsign} is a rotorcraft — no ground movement clearances required`
   }
 
   // 3. Parameter & logic checks

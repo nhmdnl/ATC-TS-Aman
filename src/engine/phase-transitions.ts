@@ -1,4 +1,4 @@
-import type { Aircraft, RunwayData, Airport, PilotCall } from './types'
+import type { Aircraft, RunwayData, Airport, PilotCall, GateData } from './types'
 import { AircraftPhase, GameEventType, PilotCallType } from './types'
 import {
   APPROACH_TRIGGER_NM,
@@ -54,6 +54,7 @@ export function processPhaseTransitions(
   aircraft: Aircraft,
   runway: RunwayData | null,
   airport: Airport,
+  helipad: GateData | null = null,
 ): boolean {
   const oldPhase = aircraft.phase
 
@@ -61,7 +62,10 @@ export function processPhaseTransitions(
 
     // ── AT_GATE: waiting to call for pushback ──────────────────────────────
     case AircraftPhase.AT_GATE:
-      if (aircraft.pushbackCallAt !== null && Date.now() >= aircraft.pushbackCallAt) {
+      // Rotorcraft (T-014) never push back — they wait on the pad for a
+      // liftoff clearance (AI tower or player TOWER issues CLEARED_TAKEOFF)
+      if (!aircraft.type.rotorcraft &&
+          aircraft.pushbackCallAt !== null && Date.now() >= aircraft.pushbackCallAt) {
         aircraft.phase = AircraftPhase.AWAITING_PUSHBACK
         firePilotCall(aircraft, PilotCallType.REQUEST_PUSHBACK, pilotCallMessage(aircraft, PilotCallType.REQUEST_PUSHBACK, airport))
       }
@@ -141,7 +145,12 @@ export function processPhaseTransitions(
 
     // ── APPROACH: cleared for approach gates FINAL ────────────────────────
     case AircraftPhase.APPROACH:
-      if (runway && aircraft.clearedForApproach &&
+      // Rotorcraft (T-014): final gate is pad proximity, not the runway
+      if (aircraft.type.rotorcraft && helipad && aircraft.clearedForApproach &&
+          distanceNM(aircraft.x, aircraft.y, helipad.x, helipad.y) < FINAL_DISTANCE_NM) {
+        aircraft.phase = AircraftPhase.FINAL
+        if (!aircraft.clearedToLand) aircraft.urgent = true
+      } else if (runway && !aircraft.type.rotorcraft && aircraft.clearedForApproach &&
           distanceNM(aircraft.x, aircraft.y, runway.thresholdX, runway.thresholdY) < FINAL_DISTANCE_NM) {
         aircraft.phase = AircraftPhase.FINAL
         if (!aircraft.clearedToLand) aircraft.urgent = true
@@ -150,7 +159,23 @@ export function processPhaseTransitions(
 
     // ── FINAL: land or go around ──────────────────────────────────────────
     case AircraftPhase.FINAL:
-      if (runway) {
+      if (aircraft.type.rotorcraft && helipad) {
+        const distPadNM = THRESHOLD_DISTANCE_M / METERS_PER_NM
+        if (distanceNM(aircraft.x, aircraft.y, helipad.x, helipad.y) < distPadNM) {
+          if (aircraft.clearedToLand) {
+            aircraft.phase = AircraftPhase.LANDING
+            aircraft.urgent = false
+          } else {
+            // Not cleared → auto go-around (pads have no occupancy tracking)
+            aircraft.phase = AircraftPhase.MISSED
+            aircraft.clearedToLand = false
+            aircraft.urgent = false
+            aircraft.missedHeading = aircraft.heading
+            aircraft.missedAltitude = (runway?.elevationFt ?? 0) + 4000
+            eventBus.emit(GameEventType.MISSED_APPROACH, { callsign: aircraft.callsign })
+          }
+        }
+      } else if (runway) {
         const distThreshNM = THRESHOLD_DISTANCE_M / METERS_PER_NM
         if (distanceNM(aircraft.x, aircraft.y, runway.thresholdX, runway.thresholdY) < distThreshNM) {
           const runwayHot = aircraft.assignedRunway
@@ -178,7 +203,20 @@ export function processPhaseTransitions(
 
     // ── LANDING: touch down ───────────────────────────────────────────────
     case AircraftPhase.LANDING:
-      if (aircraft.altitude <= (runway?.elevationFt ?? 0) + 5 && aircraft.speed <= 80) {
+      // Rotorcraft (T-014): touch down on the pad and go straight to ARRIVED
+      // (no rollout/vacate/taxi-in). Both scoring events fire here so rotor
+      // arrivals score exactly like a fixed-wing landing + gate arrival.
+      if (aircraft.type.rotorcraft && helipad &&
+          distanceNM(aircraft.x, aircraft.y, helipad.x, helipad.y) < 0.01 &&
+          aircraft.altitude <= (runway?.elevationFt ?? 0) + 5 && aircraft.speed <= 30) {
+        aircraft.phase = AircraftPhase.ARRIVED
+        aircraft.speed = 0
+        aircraft.x = helipad.x
+        aircraft.y = helipad.y
+        eventBus.emit(GameEventType.LANDING, { callsign: aircraft.callsign })
+        eventBus.emit(GameEventType.ARRIVED_GATE, { callsign: aircraft.callsign })
+      } else if (!aircraft.type.rotorcraft &&
+          aircraft.altitude <= (runway?.elevationFt ?? 0) + 5 && aircraft.speed <= 80) {
         aircraft.phase = AircraftPhase.ROLLOUT
         eventBus.emit(GameEventType.LANDING, { callsign: aircraft.callsign })
       }

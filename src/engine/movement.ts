@@ -1,4 +1,4 @@
-import type { Aircraft, RunwayData } from './types'
+import type { Aircraft, RunwayData, GateData } from './types'
 import { AircraftPhase } from './types'
 import { METERS_PER_NM, FT_PER_NM_GLIDESLOPE, MAX_TRAIL_LENGTH } from './constants'
 
@@ -193,6 +193,18 @@ function moveTakeoffRoll(aircraft: Aircraft, dtSeconds: number, runway: RunwayDa
 }
 
 function moveClimb(aircraft: Aircraft, dtSeconds: number): void {
+  // Rotorcraft liftoff (T-014): hover-climb vertically until ~500 ft, then
+  // accelerate out on heading like any departure. Departure altitudes run
+  // from 0 at the pad, matching the fixed-wing climb profile frame.
+  if (aircraft.type.rotorcraft && aircraft.altitude < 500) {
+    const targetAlt = aircraft.clearedAltitude ?? aircraft.type.serviceCeiling
+    if (aircraft.altitude < targetAlt) {
+      const climbFt = aircraft.type.climbRate * (dtSeconds / 60)
+      aircraft.altitude = Math.min(aircraft.altitude + climbFt, targetAlt)
+    }
+    return // no translation while transitioning to forward flight
+  }
+
   // Heading
   const targetHeading = aircraft.clearedHeading !== null ? aircraft.clearedHeading : aircraft.heading
   aircraft.heading = turnToward(aircraft.heading, targetHeading, 3) // standard rate ~3 deg/sec
@@ -222,10 +234,14 @@ function moveClimb(aircraft: Aircraft, dtSeconds: number): void {
   aircraft.y += Math.sin(rad) * travelNM
 }
 
-function moveApproach(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null): void {
+function moveApproach(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null, helipad: GateData | null = null): void {
   // If on vector, fly the vector
   if (aircraft.clearedHeading !== null && !aircraft.clearedForApproach) {
     aircraft.heading = turnToward(aircraft.heading, aircraft.clearedHeading, 3)
+  } else if (aircraft.type.rotorcraft && helipad && aircraft.clearedForApproach) {
+    // Rotorcraft (T-014): steer onto the assigned helipad, not a runway centerline
+    aircraft.heading = turnToward(aircraft.heading,
+      bearingBetween(aircraft.x, aircraft.y, helipad.x, helipad.y), 3)
   } else if (aircraft.clearedForApproach && runway) {
     // Steer toward extended centerline (PRD §7.4 Centerline Alignment)
     aircraft.heading = turnToward(aircraft.heading, centerlineHeading(aircraft, runway), 3)
@@ -241,7 +257,14 @@ function moveApproach(aircraft: Aircraft, dtSeconds: number, runway: RunwayData 
   }
 
   // Altitude
-  if (aircraft.clearedForApproach && runway) {
+  if (aircraft.type.rotorcraft && helipad && aircraft.clearedForApproach) {
+    // Rotorcraft: descend straight toward the pad elevation — no glideslope
+    const fieldElev = runway?.elevationFt ?? 0
+    if (aircraft.altitude > fieldElev) {
+      const descFt = aircraft.type.descentRate * (dtSeconds / 60)
+      aircraft.altitude = Math.max(aircraft.altitude - descFt, fieldElev)
+    }
+  } else if (aircraft.clearedForApproach && runway) {
     const distToThresh = distanceNM(aircraft.x, aircraft.y, runway.thresholdX, runway.thresholdY)
     // 3 deg glideslope altitude
     const gsAlt = runway.elevationFt + (distToThresh * FT_PER_NM_GLIDESLOPE)
@@ -278,12 +301,37 @@ function moveApproach(aircraft: Aircraft, dtSeconds: number, runway: RunwayData 
   aircraft.y += Math.sin(rad) * travelNM
 }
 
-function moveFinal(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null): void {
+function moveFinal(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null, helipad: GateData | null = null): void {
   // Essentially the same as approach but with tighter descent tracking
-  moveApproach(aircraft, dtSeconds, runway)
+  moveApproach(aircraft, dtSeconds, runway, helipad)
 }
 
-function moveLanding(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null): void {
+function moveLanding(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null, helipad: GateData | null = null): void {
+  // Rotorcraft (T-014): flare onto the pad — track the pad bearing and slow
+  // to a hover; phase-transitions completes ARRIVED once over the pad
+  if (aircraft.type.rotorcraft && helipad) {
+    aircraft.heading = turnToward(aircraft.heading,
+      bearingBetween(aircraft.x, aircraft.y, helipad.x, helipad.y), 5)
+    aircraft.speed = Math.max(aircraft.speed - 3, 0)
+    const fieldElev = runway?.elevationFt ?? 0
+    if (aircraft.altitude > fieldElev) {
+      aircraft.altitude = Math.max(aircraft.altitude - 50, fieldElev)
+    }
+    const travelNM = (aircraft.speed / 3600) * dtSeconds
+    const dist = distanceNM(aircraft.x, aircraft.y, helipad.x, helipad.y)
+    if (dist <= 0.005 || travelNM >= dist) {
+      // On the pad — stay planted (oscillating around the target would never
+      // satisfy the ARRIVED proximity check)
+      aircraft.x = helipad.x
+      aircraft.y = helipad.y
+    } else {
+      const rad = headingToRadians(aircraft.heading)
+      aircraft.x += Math.cos(rad) * travelNM
+      aircraft.y += Math.sin(rad) * travelNM
+    }
+    return
+  }
+
   if (runway) {
     // Track the centerline so a touchdown offset is flown out during the flare
     aircraft.heading = turnToward(aircraft.heading, centerlineHeading(aircraft, runway), 5)
@@ -354,7 +402,7 @@ function movePushingBack(aircraft: Aircraft, dtSeconds: number): void {
   aircraft.y += Math.cos(headingRad) * speed * dtSeconds
 }
 
-export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null): void {
+export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: RunwayData | null, helipad: GateData | null = null): void {
   // Record trail position periodically
   // We'll push current position before moving to create the trail
   // In a real app we might only push every X seconds, but for now we'll push every tick
@@ -390,13 +438,13 @@ export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: Runw
       break
     case AircraftPhase.ENTERING:
     case AircraftPhase.APPROACH:
-      moveApproach(aircraft, dtSeconds, runway)
+      moveApproach(aircraft, dtSeconds, runway, helipad)
       break
     case AircraftPhase.FINAL:
-      moveFinal(aircraft, dtSeconds, runway)
+      moveFinal(aircraft, dtSeconds, runway, helipad)
       break
     case AircraftPhase.LANDING:
-      moveLanding(aircraft, dtSeconds, runway)
+      moveLanding(aircraft, dtSeconds, runway, helipad)
       break
     case AircraftPhase.ROLLOUT:
       moveRollout(aircraft, dtSeconds, runway)

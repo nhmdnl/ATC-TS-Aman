@@ -104,7 +104,7 @@ is acceptable); voice-pack tokens.
 
 ### T-014 — Helicopter support 2/3: flight model, phases, commands (blocked by T-013)
 
-**Status:** TODO · **Repo:** sim · **Priority:** P1
+**Status:** DONE (2026-08-25) · **Repo:** sim · **Priority:** P1
 
 **Goal:** End-to-end rotorcraft flights through the existing command pipeline.
 Design decision (lead, 2026-08-22): rotorcraft REUSE the existing phase FSM —
@@ -401,6 +401,60 @@ result.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-08-25 — T-014 — DONE
+- What changed:
+  - `movement.ts`: rotor branches — vertical liftoff (no translation below
+    500 ft; departure altitudes are 0-based like fixed-wing climbs), pad-
+    seeking approach/final descent onto the assigned helipad, hover-slow
+    landing that plants the aircraft on the pad. `moveAircraft`/approach/
+    final/landing take an optional `helipad` param.
+  - `phase-transitions.ts`: rotors never fire REQUEST_PUSHBACK from AT_GATE;
+    APPROACH→FINAL gates on pad proximity; FINAL lands at the pad (auto go-
+    around when uncleared, generic missed params — pads carry no ops data);
+    LANDING→ARRIVED directly over the pad, emitting both LANDING and
+    ARRIVED_GATE so scoring matches a fixed-wing landing + gate arrival.
+  - `command-validators.ts`: ROTOR_REJECTED_COMMANDS (pushback/startup/taxi/
+    hold-short/cancel/cross/continue/line-up/exit-runway) rejected with a
+    rotorcraft-specific error; CLEARED_TAKEOFF allowed at AT_GATE (rotors
+    skip the taxi chain). Spec also listed STARTUP_APPROVED/CANCEL_TAXI as
+    rejections-by-spirit — included.
+  - `command-executor.ts`: rotor CLEARED_TAKEOFF → CLIMBING directly (+ TAKEOFF
+    event for scoring parity, no runway occupancy); CLEARED_APPROACH no longer
+    auto-assigns a runway to rotors.
+  - `traffic-scheduler.ts`: scheduled rotor ICAOs spawn departures at their
+    named helipad / assign arrivals a free pad (occupied via occupiedGateIds,
+    freed by removeAircraft as usual); random fallback pools exclude
+    rotorcraft; rotor spawn with no free pad retries later.
+  - `aircraft-factory.ts`: ad-hoc default spawns use randomFixedWingType —
+    root-cause fix for a flake where any test drawing a random arrival type
+    could get a rotor and hit rotor-specific behavior.
+  - `simulation-tick.ts`: resolves each aircraft's helipad and passes it into
+    movement/transitions; MVA alert exempts rotorcraft (visual descents to
+    pads are under the floor by design); random spawnOne* pools pinned to
+    fixed-wing.
+  - `ai-controller.ts`: AT_GATE rotor → CLEARED_TAKEOFF; aiStationFor()
+    treats pad-side rotors as TOWER-controlled so an AI tower clears liftoff
+    even though PHASE_CONTROLLER maps AT_GATE→GROUND (player-run ground has
+    the button in the TOWER tab instead).
+  - `phraseology.ts`: rotor wording for cleared-liftoff / land-at-the-helipad /
+    visual-approach-to-the-helipad.
+  - `airport-loader.ts`: v1.1 editor loader now parses `heliport` objects too
+    (T-013 had only wired the v1 path — caught by the HHAS guard test);
+    findHelipadById/getAvailableHelipads helpers.
+  - `RadarCanvas.tsx`: static layer draws H-marked circles + id labels for pads.
+  - Tests: new `__tests__/rotorcraft.test.ts` (19 cases: validator matrix,
+    departure lifecycle incl. vertical profile, arrival lifecycle incl. auto
+    go-around, AI handling, scheduler routing); constants.test.ts sync guard
+    (rotorcraft ⇔ HELICOPTER class, spec perf trio present).
+- Verification: `npx tsc --noEmit` + `npx tsc -p tsconfig.main.json --noEmit`
+  clean; `npm test` 1155/1155 green across 8 consecutive runs (fixed-wing
+  suites pass unmodified — an earlier MVA-test flake traced to random type
+  draws picking helicopters, fixed at the factory, not by editing tests).
+- Notes: Rotor departures hand off at DEPARTURE_HANDOFF_ALT_FT (10,000 ft) via
+  the untouched CLIMBING logic — ~7 min sim time at H135 climb rate. Pads have
+  no occupancy/go-around tracking (single-user pads); wake/separation treat
+  rotors as LIGHT per T-013 mapping.
 
 ### 2026-08-25 — T-013 — DONE
 - What changed:

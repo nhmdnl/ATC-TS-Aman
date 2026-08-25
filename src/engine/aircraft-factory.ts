@@ -32,6 +32,18 @@ export function randomAircraftType(airport?: Airport, enabledClasses?: ReadonlyA
   return catalog[Math.floor(Math.random() * catalog.length)]
 }
 
+/**
+ * Default type for ad-hoc spawns: fixed-wing only. Rotorcraft enter through
+ * the authored schedule (named ICAO + assigned helipad), never by random
+ * chance at a gate/spawn point (T-014).
+ */
+function randomFixedWingType(airport?: Airport, enabledClasses?: ReadonlyArray<AircraftClass>): AircraftType {
+  const catalog = airport ? filterSuitableAircraftTypes(airport, enabledClasses) : AIRCRAFT_TYPES
+  const pool = catalog.filter(t => !t.rotorcraft)
+  const list = pool.length > 0 ? pool : catalog
+  return list[Math.floor(Math.random() * list.length)]
+}
+
 function generateId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
@@ -49,7 +61,7 @@ export function spawnDeparture(
   airport?: Airport,
   enabledClasses?: ReadonlyArray<AircraftClass>
 ): Aircraft {
-  const type = overrideType ?? randomAircraftType(airport, enabledClasses)
+  const type = overrideType ?? randomFixedWingType(airport, enabledClasses)
   const phase = AircraftPhase.AT_GATE
   const now = Date.now()
 
@@ -117,7 +129,7 @@ export function spawnArrival(
   airport?: Airport,
   enabledClasses?: ReadonlyArray<AircraftClass>
 ): Aircraft {
-  const type = overrideType ?? randomAircraftType(airport, enabledClasses)
+  const type = overrideType ?? randomFixedWingType(airport, enabledClasses)
   const phase = AircraftPhase.ENTERING
   const now = Date.now()
   const initialSpeed = Math.min(Math.round(type.cruiseSpeed * 0.7), 250)

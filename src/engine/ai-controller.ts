@@ -1,5 +1,5 @@
 import type { Aircraft } from './types'
-import { AircraftPhase, CommandType } from './types'
+import { AircraftPhase, CommandType, ControllerStation } from './types'
 import type { GameState } from './game-state'
 import { processCommand } from './commands/command-registry'
 import { AI_MIN_DECISION_INTERVAL_MS } from './constants'
@@ -19,6 +19,8 @@ export function nextExpectedCommand(aircraft: Aircraft): CommandType | null {
   switch (aircraft.phase) {
     // ── Departure ────────────────────────────────────────────────────────
     case AircraftPhase.AT_GATE:
+      // Rotorcraft (T-014) liftoff straight from the pad — AI tower clears it
+      if (aircraft.type.rotorcraft) return CommandType.CLEARED_TAKEOFF
       return null // waiting for pushback call timer — phase-transitions handles it
 
     case AircraftPhase.AWAITING_PUSHBACK:
@@ -68,11 +70,24 @@ export function nextExpectedCommand(aircraft: Aircraft): CommandType | null {
   }
 }
 
+/**
+ * Station whose AI should act on this aircraft. Rotorcraft sitting at a pad
+ * are tower-controlled (liftoff clearance), even though PHASE_CONTROLLER maps
+ * AT_GATE to GROUND — without the override an AI-run tower would never touch
+ * them and a player-run ground would have no liftoff button to press.
+ */
+function aiStationFor(aircraft: Aircraft): ControllerStation {
+  if (aircraft.type.rotorcraft && aircraft.phase === AircraftPhase.AT_GATE) {
+    return ControllerStation.TOWER
+  }
+  return aircraft.controller
+}
+
 export function runAiControllers(state: GameState, nowMs: number): void {
   if (!state.airport) return
 
   for (const aircraft of state.allAircraft()) {
-    if (state.playerStations.includes(aircraft.controller)) continue
+    if (state.playerStations.includes(aiStationFor(aircraft))) continue
     if (aircraft.readbackTimer !== null) continue
     if (nowMs - aircraft.lastCommandTime < AI_MIN_DECISION_INTERVAL_MS) continue
 

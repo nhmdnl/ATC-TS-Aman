@@ -6,7 +6,7 @@ import { runAiControllers } from './ai-controller'
 import { spawnArrival, spawnDeparture, isSpawnPointClear } from './aircraft-factory'
 import { trafficScheduler } from './traffic-scheduler'
 import type { ScheduledFlight } from './traffic-scheduler'
-import { findRunwayById, getAvailableGates, getArrivalSpawnPoints, selectActiveRunway } from './airport-loader'
+import { findRunwayById, findHelipadById, getAvailableGates, getArrivalSpawnPoints, selectActiveRunway, filterSuitableAircraftTypes } from './airport-loader'
 import { GameEventType, AircraftPhase, RadioSpeaker, PilotCallType } from './types'
 import { eventBus } from './event-bus'
 import { MVA_FT } from './constants'
@@ -32,12 +32,13 @@ export function tick(state: GameState, dtSeconds: number): void {
 
   for (const aircraft of allAircraft) {
     const runway = aircraft.assignedRunway ? findRunwayById(state.airport, aircraft.assignedRunway) : null
+    const helipad = aircraft.assignedGate ? findHelipadById(state.airport, aircraft.assignedGate) : null
 
     // 2. Movement
-    moveAircraft(aircraft, dtSeconds, runway)
+    moveAircraft(aircraft, dtSeconds, runway, helipad)
 
     // 3. Phase Transitions
-    processPhaseTransitions(aircraft, runway, state.airport)
+    processPhaseTransitions(aircraft, runway, state.airport, helipad)
 
     // 4. MVA Violation Check (PRD §15)
     // The MVA is a vectoring floor: it only applies where the controller can
@@ -46,7 +47,10 @@ export function tick(state: GameState, dtSeconds: number): void {
     // climb-out, go-arounds, final/landing traffic, and aircraft on the
     // ground (landed arrivals keep field elevation ~7,661 ft MSL, which
     // used to false-alert every rollout/taxi-in).
-    if (aircraft.altitude < (state.airport?.mvaFt ?? MVA_FT) &&
+    // Rotorcraft are exempt: they fly visual descents straight onto their
+    // pad, well under any MVA, by design.
+    if (!aircraft.type.rotorcraft &&
+        aircraft.altitude < (state.airport?.mvaFt ?? MVA_FT) &&
         (aircraft.phase === AircraftPhase.ENTERING || aircraft.phase === AircraftPhase.APPROACH)) {
 
       // Alert once per aircraft — repeating every 10 s was radio spam
@@ -123,11 +127,15 @@ function spawnOneArrival(state: GameState): void {
   if (points.length === 0) return // all entries blocked — retry next spawn cycle
 
   const point = points[Math.floor(Math.random() * points.length)]
-  const ac = spawnArrival(point)
-  
+  // Random arrivals stay fixed-wing — rotorcraft arrive via the authored
+  // schedule, which assigns their helipad (T-014)
+  const pool = filterSuitableAircraftTypes(state.airport, state.enabledAircraftClasses)
+    .filter(t => !t.rotorcraft)
+  const ac = spawnArrival(point, undefined, pool[Math.floor(Math.random() * pool.length)])
+
   // Assign the wind-favored active runway
   ac.assignedRunway = selectActiveRunway(state.airport, state.wind)?.id ?? null
-  
+
   state.addAircraft(ac)
   eventBus.emit(GameEventType.AIRCRAFT_SPAWNED, { callsign: ac.callsign, flightType: 'arrival' })
 }
@@ -136,12 +144,16 @@ function spawnOneDeparture(state: GameState): void {
   if (!state.airport) return
   const availableGates = getAvailableGates(state.airport, state.occupiedGateIds)
   if (availableGates.length === 0) return
-  
+
   const gate = availableGates[Math.floor(Math.random() * availableGates.length)]
   // Departures use the same wind-favored runway as arrivals — never opposite ends
   const runway = selectActiveRunway(state.airport, state.wind)?.id ?? ''
-  const ac = spawnDeparture(gate, runway)
-  
+  // Random departures stay fixed-wing — a rotorcraft at a gate would have no
+  // pad to return to and skip the entire taxi chain (T-014)
+  const pool = filterSuitableAircraftTypes(state.airport, state.enabledAircraftClasses)
+    .filter(t => !t.rotorcraft)
+  const ac = spawnDeparture(gate, runway, undefined, pool[Math.floor(Math.random() * pool.length)])
+
   state.addAircraft(ac)
   eventBus.emit(GameEventType.AIRCRAFT_SPAWNED, { callsign: ac.callsign, flightType: 'departure' })
 }

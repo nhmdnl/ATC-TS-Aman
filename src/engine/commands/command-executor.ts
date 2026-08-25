@@ -84,7 +84,8 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
 
     case CommandType.CLEARED_APPROACH:
       aircraft.clearedForApproach = true
-      if (!aircraft.assignedRunway && airport) {
+      // Rotorcraft (T-014) approach their assigned helipad — no runway to pick
+      if (!aircraft.type.rotorcraft && !aircraft.assignedRunway && airport) {
         aircraft.assignedRunway = selectActiveRunway(airport, gameState.wind)?.id ?? null
       }
       break
@@ -200,6 +201,15 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
     }
 
     case CommandType.CLEARED_TAKEOFF:
+      // Rotorcraft (T-014): liftoff straight into the climb — no roll phase,
+      // no runway occupancy. TAKEOFF fires here because TAKEOFF_ROLL (where
+      // fixed-wing rotations emit it) is never entered.
+      if (aircraft.type.rotorcraft) {
+        changePhase(aircraft, AircraftPhase.CLIMBING)
+        aircraft.departureHandoffAlt = DEPARTURE_HANDOFF_ALT_FT
+        eventBus.emit(GameEventType.TAKEOFF, { callsign: aircraft.callsign })
+        break
+      }
       changePhase(aircraft, AircraftPhase.TAKEOFF_ROLL)
       // Keep any remaining line-up route — moveTakeoffRoll finishes the
       // backtrack to the threshold before rolling (wiping it here meant a

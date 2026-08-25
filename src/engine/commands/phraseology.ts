@@ -106,6 +106,12 @@ export function generatePhraseology(command: Command, aircraft: Aircraft, airpor
     }
 
     case CommandType.CLEARED_TAKEOFF: {
+      // Rotorcraft (T-014): liftoff wording, no runway in the call
+      if (aircraft.type.rotorcraft) {
+        atc = `${cs}, cleared for liftoff, on departure contact departure`
+        pilot = `Cleared for liftoff, ${cs}`
+        break
+      }
       const w = gameState.wind
       const windDir = w.direction.toString().padStart(3, '0').split('').map(digitToWord).join(' ')
       const windSpd = w.speed.toString().split('').map(digitToWord).join(' ')
@@ -116,11 +122,21 @@ export function generatePhraseology(command: Command, aircraft: Aircraft, airpor
     }
 
     case CommandType.CLEARED_LAND:
-      atc = `${cs}, runway ${aircraft.assignedRunway || 'ahead'}, cleared to land`
-      pilot = `Cleared to land runway ${aircraft.assignedRunway || 'ahead'}, ${cs}`
+      if (aircraft.type.rotorcraft) {
+        atc = `${cs}, cleared to land at the helipad`
+        pilot = `Cleared to land at the helipad, ${cs}`
+      } else {
+        atc = `${cs}, runway ${aircraft.assignedRunway || 'ahead'}, cleared to land`
+        pilot = `Cleared to land runway ${aircraft.assignedRunway || 'ahead'}, ${cs}`
+      }
       break
 
     case CommandType.CLEARED_APPROACH: {
+      if (aircraft.type.rotorcraft) {
+        atc = `${cs}, cleared visual approach to the helipad`
+        pilot = `Cleared visual approach to the helipad, ${cs}`
+        break
+      }
       const ilsRwy = airport.runways.find(r => r.id === aircraft.assignedRunway && r.ils?.available)
       const imcConditions = gameState.getConditions() === 'IMC'
       const approachType = (ilsRwy && (imcConditions || Math.random() > 0.3)) ? 'ILS' : 'visual'

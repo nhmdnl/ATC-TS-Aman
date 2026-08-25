@@ -1,7 +1,7 @@
 import type { Airport, Wind } from './types'
 import { AIRCRAFT_TYPES } from './constants'
 import { spawnArrival, spawnDeparture, isSpawnPointClear } from './aircraft-factory'
-import { getArrivalSpawnPoints, getAvailableGates, selectActiveRunway, filterSuitableAircraftTypes } from './airport-loader'
+import { getArrivalSpawnPoints, getAvailableGates, getAvailableHelipads, selectActiveRunway, filterSuitableAircraftTypes } from './airport-loader'
 import type { GameState } from './game-state'
 import { GameEventType } from './types'
 import { eventBus } from './event-bus'
@@ -46,10 +46,28 @@ export class TrafficScheduler {
     const suitableTypes = filterSuitableAircraftTypes(airport, state.enabledAircraftClasses)
     let type = suitableTypes.find(t => t.icao === flight.aircraftIcao)
     if (!type) {
-      type = suitableTypes[Math.floor(Math.random() * suitableTypes.length)]
+      // Random fallback: only draw rotorcraft when the airport can park them
+      const hasPads = (airport.heliports?.length ?? 0) > 0
+      const pool = hasPads ? suitableTypes : suitableTypes.filter(t => !t.rotorcraft)
+      type = pool[Math.floor(Math.random() * pool.length)]
     }
+    if (!type) return false
+
+    // Rotorcraft arrivals (T-014) land on an assigned helipad, not a runway
+    let helipadId: string | null = null
+    if (type.rotorcraft) {
+      const pads = getAvailableHelipads(airport, state.occupiedGateIds)
+      if (pads.length === 0) return false
+      helipadId = pads[Math.floor(Math.random() * pads.length)].id
+    }
+
     const ac = spawnArrival(point, flight.callsign, type, airport, state.enabledAircraftClasses)
-    ac.assignedRunway = selectActiveRunway(airport, state.wind)?.id ?? null
+    if (helipadId !== null) {
+      ac.assignedGate = helipadId
+      state.occupiedGateIds.add(helipadId)
+    } else {
+      ac.assignedRunway = selectActiveRunway(airport, state.wind)?.id ?? null
+    }
     state.addAircraft(ac)
     eventBus.emit(GameEventType.AIRCRAFT_SPAWNED, { callsign: ac.callsign, flightType: 'arrival' })
     return true
@@ -57,6 +75,27 @@ export class TrafficScheduler {
 
   private trySpawnDeparture(flight: ScheduledFlight, state: GameState): boolean {
     const airport = state.airport!
+    const suitableTypes = filterSuitableAircraftTypes(airport, state.enabledAircraftClasses)
+    let type = suitableTypes.find(t => t.icao === flight.aircraftIcao)
+    if (!type) {
+      // Random fallback never picks rotorcraft — scheduled rotors name their
+      // ICAO explicitly and spawn at a helipad below (T-014)
+      const pool = suitableTypes.filter(t => !t.rotorcraft)
+      type = pool[Math.floor(Math.random() * pool.length)]
+    }
+    if (!type) return false
+
+    if (type.rotorcraft) {
+      const pads = getAvailableHelipads(airport, state.occupiedGateIds)
+      let pad = flight.gate ? pads.find(p => p.id === flight.gate) : undefined
+      if (!pad) pad = pads[Math.floor(Math.random() * pads.length)]
+      if (!pad) return false
+      const ac = spawnDeparture(pad, '', flight.callsign, type, airport, state.enabledAircraftClasses)
+      state.addAircraft(ac)
+      eventBus.emit(GameEventType.AIRCRAFT_SPAWNED, { callsign: ac.callsign, flightType: 'departure' })
+      return true
+    }
+
     const available = getAvailableGates(airport, state.occupiedGateIds)
 
     let gate = flight.gate ? available.find(g => g.id === flight.gate) : undefined
@@ -64,11 +103,6 @@ export class TrafficScheduler {
     if (!gate) return false
 
     const runway = selectActiveRunway(airport, state.wind)?.id ?? ''
-    const suitableTypes = filterSuitableAircraftTypes(airport, state.enabledAircraftClasses)
-    let type = suitableTypes.find(t => t.icao === flight.aircraftIcao)
-    if (!type) {
-      type = suitableTypes[Math.floor(Math.random() * suitableTypes.length)]
-    }
     const ac = spawnDeparture(gate, runway, flight.callsign, type, airport, state.enabledAircraftClasses)
     state.addAircraft(ac)
     eventBus.emit(GameEventType.AIRCRAFT_SPAWNED, { callsign: ac.callsign, flightType: 'departure' })

@@ -421,6 +421,18 @@ export default function RadarCanvas() {
         g.rect(mapX(gate.x) - 2, mapY(gate.y) - 2, 4, 4)
         g.stroke({ width: 1, color: 0x334155 })
       }
+      // Heliports (T-014): marked circle with the classic H
+      for (const pad of state.airport.heliports ?? []) {
+        const px = mapX(pad.x)
+        const py = mapY(pad.y)
+        g.circle(px, py, 5)
+        g.stroke({ width: 1.5, color: 0x94a3b8 })
+        g.moveTo(px - 2.5, py)
+        g.lineTo(px + 2.5, py)
+        g.moveTo(px, py - 2.5)
+        g.lineTo(px, py + 2.5)
+        g.stroke({ width: 1.5, color: 0x94a3b8 })
+      }
     }
 
     // Airport Runways & Extended Approach Corridors
@@ -563,6 +575,9 @@ export default function RadarCanvas() {
           ...state.airport.gates.map(() => new PIXI.Text({
             text: '', style: { fontFamily: 'SF Mono, Consolas, monospace', fontSize: 8, fill: 0x64748b },
           })),
+          ...(state.airport.heliports ?? []).map(() => new PIXI.Text({
+            text: '', style: { fontFamily: 'SF Mono, Consolas, monospace', fontSize: 8, fontWeight: '700', fill: 0x94a3b8 },
+          })),
           ...HHAS_NAVAIDS.map(() => new PIXI.Text({
             text: '', style: { fontFamily: 'SF Mono, Consolas, monospace', fontSize: 9, fontWeight: '600', fill: RADAR_RENDER_CONFIG.NAVAID_SYMBOL_COLOR },
           })),
@@ -588,6 +603,13 @@ export default function RadarCanvas() {
         t.text = gate.id
         t.anchor.set(0, 0.5)
         t.position.set(mapX(gate.x) + 5, mapY(gate.y))
+      }
+      for (const pad of state.airport.heliports ?? []) {
+        const t = texts[i++]
+        t.visible = showGates
+        t.text = pad.id
+        t.anchor.set(0.5, 0)
+        t.position.set(mapX(pad.x), mapY(pad.y) + 7)
       }
       for (const fix of HHAS_NAVAIDS) {
         const t = texts[i++]

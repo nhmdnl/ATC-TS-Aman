@@ -102,6 +102,7 @@ function loadEditorAirport(data: any, SCALE: number): Airport {
   const objects = data.objects || []
   const runways: RunwayData[] = []
   const gates: GateData[] = []
+  const heliports: GateData[] = []
   const spawnPoints: SpawnPointData[] = []
   const diagramTaxiways: Array<{ name: string; points: DiagramPoint[]; widthNM: number }> = []
   const diagramAprons: DiagramPoint[][] = []
@@ -196,6 +197,9 @@ function loadEditorAirport(data: any, SCALE: number): Airport {
     } else if (obj.type === 'gate' && obj.position) {
       const p = toNM(obj.position)
       gates.push({ id: obj.name || `G${gates.length + 1}`, x: p.x, y: p.y, taxiwayId: '' })
+    } else if (obj.type === 'heliport' && obj.position) {
+      const p = toNM(obj.position)
+      heliports.push({ id: obj.name || `H${heliports.length + 1}`, x: p.x, y: p.y, taxiwayId: '' })
     } else if (obj.type === 'label' && obj.position && obj.text) {
       const p = toNM(obj.position)
       diagramLabels.push({ text: obj.text, x: p.x, y: p.y })
@@ -260,6 +264,7 @@ function loadEditorAirport(data: any, SCALE: number): Airport {
     runways,
     taxiways,
     gates,
+    heliports,
     parking: [],
     frequencies,
     navaids: [],
@@ -321,6 +326,14 @@ export function getFrequency(airport: Airport, stationName: string): number | nu
 
 export function getAvailableGates(airport: Airport, occupiedGateIds: Set<string>): GateData[] {
   return airport.gates.filter(g => !occupiedGateIds.has(g.id))
+}
+
+export function findHelipadById(airport: Airport, id: string): GateData | null {
+  return (airport.heliports ?? []).find(h => h.id === id) || null
+}
+
+export function getAvailableHelipads(airport: Airport, occupiedGateIds: Set<string>): GateData[] {
+  return (airport.heliports ?? []).filter(h => !occupiedGateIds.has(h.id))
 }
 
 /**
