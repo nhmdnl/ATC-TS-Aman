@@ -94,7 +94,10 @@ export function validateCommand(command: Command, aircraft: Aircraft, airport: A
         }
       }
 
-      if (command.type === CommandType.CLEARED_APPROACH) {
+      if (command.type === CommandType.CLEARED_APPROACH && !aircraft.type.rotorcraft) {
+        // Rotorcraft fly visual approaches onto their assigned pad (T-014) —
+        // they have no runway, so an ILS requirement would make them
+        // un-clearable in every IMC session
         if (airport && gameState.getConditions() === 'IMC') {
           const hasIls = airport.runways.some(r => r.id === aircraft.assignedRunway && r.ils?.available)
           if (!hasIls) return 'IMC conditions — ILS not available on this runway'

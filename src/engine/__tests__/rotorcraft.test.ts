@@ -163,6 +163,19 @@ describe('validateCommand — rotorcraft ground clearances rejected', () => {
     const final = makeHelicopter({ phase: AircraftPhase.FINAL, flightType: 'arrival' })
     expect(validateCommand(cmd(CommandType.CLEARED_LAND), final, airport)).toBeNull()
   })
+
+  it('allows CLEARED_APPROACH for rotorcraft in IMC — visual pad approach needs no ILS', () => {
+    const airport = makeHeliportAirport()
+    const approaching = makeHelicopter({ phase: AircraftPhase.APPROACH, flightType: 'arrival' })
+    const savedWind = gameState.wind
+    gameState.wind = { ...savedWind, visibilityNM: 1, ceiling: 500 }
+    try {
+      expect(gameState.getConditions()).toBe('IMC')
+      expect(validateCommand(cmd(CommandType.CLEARED_APPROACH), approaching, airport)).toBeNull()
+    } finally {
+      gameState.wind = savedWind
+    }
+  })
 })
 
 describe('rotorcraft departure lifecycle — vertical liftoff into the climb FSM', () => {
