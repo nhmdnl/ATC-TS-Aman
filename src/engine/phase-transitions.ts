@@ -40,6 +40,9 @@ function pilotCallMessage(aircraft: Aircraft, type: PilotCallType, airport: Airp
     case PilotCallType.REQUEST_STARTUP:
       return `${airportName} Ground, ${aircraft.callsign}, request startup, expecting runway ${aircraft.assignedRunway ?? 'active'}`
     case PilotCallType.WITH_YOU_FINAL:
+      if (aircraft.type.rotorcraft) {
+        return `${airportName} Tower, ${aircraft.callsign}, with you on final for the helipad`
+      }
       return `${airportName} Tower, ${aircraft.callsign}, with you on final, runway ${aircraft.assignedRunway ?? 'active'}`
     case PilotCallType.REQUEST_CROSSING:
       return `${airportName} Ground, ${aircraft.callsign}, holding short runway ${aircraft.awaitingCrossingRunway ?? ''}, request crossing`
@@ -131,9 +134,17 @@ export function processPhaseTransitions(
       break
 
     // ── INBOUND_UNCONTROLLED: fires "with you" call near threshold ────────
-    case AircraftPhase.INBOUND_UNCONTROLLED:
-      if (runway && !aircraft.withYouCallFired &&
-          distanceNM(aircraft.x, aircraft.y, runway.thresholdX, runway.thresholdY) < WITH_YOU_CALL_NM) {
+    case AircraftPhase.INBOUND_UNCONTROLLED: {
+      // Rotorcraft carry no assignedRunway (they land on an assigned pad),
+      // so their pad is the initial-contact reference — a runway-only check
+      // meant the "with you" call could never fire for them.
+      const contactRef = aircraft.type.rotorcraft && helipad
+        ? { x: helipad.x, y: helipad.y }
+        : runway
+          ? { x: runway.thresholdX, y: runway.thresholdY }
+          : null
+      if (contactRef && !aircraft.withYouCallFired &&
+          distanceNM(aircraft.x, aircraft.y, contactRef.x, contactRef.y) < WITH_YOU_CALL_NM) {
         aircraft.withYouCallFired = true
         firePilotCall(aircraft, PilotCallType.WITH_YOU_FINAL, pilotCallMessage(aircraft, PilotCallType.WITH_YOU_FINAL, airport))
       }
@@ -142,6 +153,7 @@ export function processPhaseTransitions(
         aircraft.phase = AircraftPhase.APPROACH
       }
       break
+    }
 
     // ── APPROACH: cleared for approach gates FINAL ────────────────────────
     case AircraftPhase.APPROACH:

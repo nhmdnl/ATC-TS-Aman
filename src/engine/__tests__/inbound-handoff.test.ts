@@ -121,4 +121,47 @@ describe('INBOUND_UNCONTROLLED handoff (regression: arrivals froze at 12 NM)', (
     processPhaseTransitions(aircraft, rwy, airport)
     expect(aircraft.phase).toBe(AircraftPhase.APPROACH)
   })
+
+  it('fires the with-you call for a rotorcraft against its assigned helipad', () => {
+    const airport = loadAirport(hhasData)
+    const rwy = selectActiveRunway(airport, gameState.wind)!
+    // Scheduled rotor arrivals (traffic-scheduler) get assignedGate, never
+    // assignedRunway — the pad must drive initial contact
+    const helipad = { id: 'H1', x: rwy.thresholdX + 0.4, y: rwy.thresholdY + 0.3, taxiwayId: '' }
+    const rad = headingToRadians(rwy.trueHeading)
+    const aircraft = {
+      ...makeInbound(
+        rwy.thresholdX - Math.cos(rad) * 14,
+        rwy.thresholdY - Math.sin(rad) * 14,
+        rwy.trueHeading,
+        4000
+      ),
+      callsign: 'HMS501',
+      type: {
+        ...makeInbound(0, 0, 0, 0).type,
+        icao: 'H135',
+        name: 'Airbus H135',
+        cruiseSpeed: 132,
+        approachSpeed: 70,
+        rotationSpeed: 0,
+        rotorcraft: true,
+      },
+      assignedGate: 'H1',
+      assignedRunway: null,
+    }
+
+    let guard = 0
+    while (!aircraft.withYouCallFired && guard++ < 1800) {
+      moveAircraft(aircraft, 1, null, helipad)
+      processPhaseTransitions(aircraft, null, airport, helipad)
+    }
+    expect(guard).toBeLessThan(1800)
+    expect(aircraft.withYouCallFired).toBe(true)
+    expect(aircraft.pendingPilotCall).not.toBeNull()
+    expect(String((aircraft.pendingPilotCall as { message?: string }).message)).toContain('helipad')
+
+    executeCommand({ type: CommandType.STANDBY, targetCallsign: aircraft.callsign, params: {} }, aircraft, airport)
+    processPhaseTransitions(aircraft, null, airport, helipad)
+    expect(aircraft.phase).toBe(AircraftPhase.APPROACH)
+  })
 })
