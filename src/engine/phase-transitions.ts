@@ -186,7 +186,22 @@ export function processPhaseTransitions(
 
     // ── ROLLOUT: decelerate; transition to VACATED once clear ───────────
     case AircraftPhase.ROLLOUT:
-      if (aircraft.speed <= 5) {
+      if (aircraft.taxiRoute && aircraft.taxiRoute.length > 0) {
+        const end = aircraft.taxiRoute[aircraft.taxiRoute.length - 1]
+        if (aircraft.taxiRouteIndex >= aircraft.taxiRoute.length - 1 &&
+            distanceNM(aircraft.x, aircraft.y, end.x, end.y) < 0.02) {
+          if (aircraft.assignedRunway) gameState.runwayOccupied.delete(aircraft.assignedRunway)
+          if (!aircraft.assignedGate && airport.gates.length > 0) {
+            const free = getAvailableGates(airport, gameState.occupiedGateIds)
+            aircraft.assignedGate = (free[0] ?? airport.gates[0]).id
+            gameState.occupiedGateIds.add(aircraft.assignedGate)
+          }
+          aircraft.phase = AircraftPhase.VACATED
+          aircraft.speed = 0
+          firePilotCall(aircraft, PilotCallType.VACATED_REQUEST_TAXI,
+            pilotCallMessage(aircraft, PilotCallType.VACATED_REQUEST_TAXI, airport))
+        }
+      } else if (aircraft.speed <= 5) {
         if (aircraft.assignedRunway) gameState.runwayOccupied.delete(aircraft.assignedRunway)
         // Assign a free gate now so the taxi-in route can be built
         if (!aircraft.assignedGate && airport.gates.length > 0) {

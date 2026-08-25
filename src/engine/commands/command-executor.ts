@@ -2,7 +2,7 @@ import type { Command, Aircraft, Airport } from '../types'
 import { CommandType, AircraftPhase, ControllerStation, GameEventType } from '../types'
 import { PHASE_CONTROLLER, PUSHING_BACK_DURATION_MS, DEPARTURE_HANDOFF_ALT_FT } from '../constants'
 import { headingToRadians } from '../movement'
-import { findRunwayById, selectActiveRunway, missedApproachParams } from '../airport-loader'
+import { findRunwayById, selectActiveRunway, missedApproachParams, getAvailableGates } from '../airport-loader'
 import { buildTaxiRoute, findNearestNodeByRef } from '../taxi-routing'
 import { eventBus } from '../event-bus'
 import { gameState } from '../game-state'
@@ -209,7 +209,35 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
       if (aircraft.assignedRunway) gameState.runwayOccupied.add(aircraft.assignedRunway)
       break
 
-    case CommandType.EXIT_RUNWAY:
+    case CommandType.EXIT_RUNWAY: {
+      if (aircraft.phase === AircraftPhase.ROLLOUT || aircraft.phase === AircraftPhase.LANDING) {
+        if (!aircraft.assignedGate && airport && airport.gates.length > 0) {
+          const free = getAvailableGates(airport, gameState.occupiedGateIds)
+          aircraft.assignedGate = (free[0] ?? airport.gates[0]).id
+          gameState.occupiedGateIds.add(aircraft.assignedGate)
+        }
+        if (airport && aircraft.assignedRunway) {
+          const route = gameState.taxiwayGraph && aircraft.assignedGate
+            ? buildTaxiRoute(airport, gameState.taxiwayGraph, aircraft.x, aircraft.y, {
+                kind: 'gate',
+                ref: aircraft.assignedGate,
+              })
+            : null
+          if (route) {
+            aircraft.taxiRoute = route
+            aircraft.taxiRouteIndex = 0
+            aircraft.taxiTarget = route[0]
+          } else {
+            const entry = findNearestNodeByRef(airport, 'runway-entry', aircraft.assignedRunway, aircraft.x, aircraft.y)
+            if (entry) {
+              aircraft.taxiRoute = [{ x: entry.x, y: entry.y }]
+              aircraft.taxiRouteIndex = 0
+              aircraft.taxiTarget = aircraft.taxiRoute[0]
+            }
+          }
+        }
+      }
       break
+    }
   }
 }

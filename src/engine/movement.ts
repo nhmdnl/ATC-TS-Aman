@@ -82,7 +82,7 @@ function moveTaxi(aircraft: Aircraft, dtSeconds: number): void {
   if (!target) return // Nowhere to go
 
   const dist = distanceNM(aircraft.x, aircraft.y, target.x, target.y)
-  const onRunway = aircraft.phase === AircraftPhase.LINE_UP || aircraft.phase === AircraftPhase.TAKEOFF_ROLL
+  const onRunway = aircraft.phase === AircraftPhase.LINE_UP || aircraft.phase === AircraftPhase.TAKEOFF_ROLL || aircraft.phase === AircraftPhase.ROLLOUT
   const taxiSpeedKnots = aircraft.clearedSpeed ??
     (onRunway ? Math.max(RUNWAY_TAXI_SPEED_KT, aircraft.type.taxiSpeed) : aircraft.type.taxiSpeed)
 

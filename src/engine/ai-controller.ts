@@ -56,6 +56,9 @@ export function nextExpectedCommand(aircraft: Aircraft): CommandType | null {
       return CommandType.CLEARED_LAND
 
     // ── Post-landing ─────────────────────────────────────────────────────
+    case AircraftPhase.ROLLOUT:
+      return aircraft.speed <= 60 && !aircraft.taxiRoute ? CommandType.EXIT_RUNWAY : null
+
     case AircraftPhase.VACATED:
       // AI Ground issues TAXI TO TERMINAL after pilot calls vacated
       return aircraft.pendingPilotCall !== null ? CommandType.TAXI : null

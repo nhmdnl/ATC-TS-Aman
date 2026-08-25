@@ -341,4 +341,23 @@ describe('executeCommand — routed taxi along the taxiway graph', () => {
     const dist = Math.hypot(aircraft.taxiTarget!.x - rwy.thresholdX, aircraft.taxiTarget!.y - rwy.thresholdY)
     expect(dist).toBeCloseTo(0.05, 5)
   })
+
+  it('EXIT_RUNWAY builds an exit and taxi-in route to the assigned gate for an arrival on rollout', () => {
+    const airport = makeRoutedAirport()
+    gameState.taxiwayGraph = buildTaxiwayGraph(airport)
+    const aircraft = makeAircraft({
+      phase: AircraftPhase.ROLLOUT,
+      controller: ControllerStation.TOWER,
+      flightType: 'arrival',
+      assignedRunway: '07',
+      x: -0.72, y: -0.22,
+    })
+
+    executeCommand(cmd(CommandType.EXIT_RUNWAY), aircraft, airport)
+
+    expect(aircraft.assignedGate).toBeDefined()
+    expect(aircraft.taxiRoute).not.toBeNull()
+    const end = aircraft.taxiRoute![aircraft.taxiRoute!.length - 1]
+    expect(end).toEqual({ x: 0.1, y: 0.15 }) // Gate G1 position
+  })
 })
