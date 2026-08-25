@@ -437,6 +437,10 @@ export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: Runw
       moveClimb(aircraft, dtSeconds)
       break
     case AircraftPhase.ENTERING:
+    // INBOUND_UNCONTROLLED keeps flying inbound: the "with you" call only
+    // fires within WITH_YOU_CALL_NM of the threshold, so a stationary phase
+    // here would deadlock every arrival at the 12 NM handoff boundary.
+    case AircraftPhase.INBOUND_UNCONTROLLED:
     case AircraftPhase.APPROACH:
       moveApproach(aircraft, dtSeconds, runway, helipad)
       break
@@ -458,7 +462,6 @@ export function moveAircraft(aircraft: Aircraft, dtSeconds: number, runway: Runw
     case AircraftPhase.AT_GATE:
     case AircraftPhase.AWAITING_PUSHBACK:
     case AircraftPhase.READY_TO_TAXI:
-    case AircraftPhase.INBOUND_UNCONTROLLED:
     case AircraftPhase.VACATED:
     case AircraftPhase.HOLD_SHORT:
     case AircraftPhase.ARRIVED:
