@@ -156,7 +156,7 @@ T-010 instead).
 
 ### T-015 — Helicopter support 3/3: HHAS data + end-to-end session (blocked by T-014)
 
-**Status:** TODO · **Repo:** sim · **Priority:** P2
+**Status:** IN REVIEW (data + changelog landed; live rotor-session watch pending — see Worklog 2026-08-25) · **Repo:** sim · **Priority:** P2
 
 **Steps:**
 1. Hand-edit `src/data/airports/hhas.airport.json`: add 1–2 `heliport`
@@ -401,6 +401,34 @@ result.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-08-25 — T-015 — IN REVIEW
+- What changed:
+  - `src/data/airports/hhas.airport.json`: two `heliport` objects (H1
+    2010,1255 / H2 2035,1320 — open ramp east of the gate aprons, clear of
+    Taxiway 1 and both buildings); `referenceImage` verified identical;
+    rest of the file byte-identical (24-line append).
+  - `src/data/airports/hhas.schedule.json`: HMS501 H135 arrival @900000,
+    HMS502 H125 departure @1080000 gate H1 (3-line append, formatting
+    preserved).
+  - `CHANGELOG.md`: `[Unreleased]` entry describing helicopter support.
+- Verification:
+  - Throwaway vitest smoke (run, then deleted): real `loadAirport(hhasData)`
+    exposes H1/H2; schedule parses with both rotor entries. Full suite
+    1155/1155 green; both typechecks clean.
+  - Live `npm run dev` via CDP (:9222): briefing renders; START begins a
+    session; radar static layer draws the two H-marked pad circles with H1/H2
+    labels beside the apron; fixed-wing schedule flow intact (ERE101 + ETD5108
+    departures firing pushback calls, ETD651 arrival ENTERING at FL120, radio
+    log live). Renderer console: only the pre-existing React duplicate-key
+    warning on the briefing airport list (unrelated to helicopters — filed
+    under Questions/Escalations) plus the known DevTools Autofill noise.
+- Notes / remaining for review: the rotor spawns themselves (HMS501 @ 15 min,
+  HMS502 @ 18 min) need 15+ min of real-time play to observe — NOT observed
+  live by the lead-executor; their full flows (liftoff, vectoring, pad
+  landing, scoring) are covered by the 19-case `rotorcraft.test.ts` engine
+  suite against real movement/phase/command code. A short supervised play
+  session closes this task.
 
 ### 2026-08-25 — T-014 — DONE
 - What changed:
@@ -725,3 +753,9 @@ AI TWR/APP):**
 ## Questions / Escalations
 
 (open items for the planning lead; include file:line and what you expected vs found)
+
+- 2026-08-25: React logs `Encountered two children with the same key: "HHAS"`
+  repeatedly on the briefing screen (airport picker list). Pre-dates the
+  helicopter work (airport registry / `BriefingScreen.tsx` airport rows);
+  cosmetic but noisy in the console. Likely the same airport appearing twice
+  in the registry (`.airport` + `.airport.json` duplicates?) — needs a look.

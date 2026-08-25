@@ -513,6 +513,30 @@
       "rotation": 0,
       "heading": 90,
       "altitude": 12000
+    },
+    {
+      "id": "heli-h1-0000-4000-8000-000000000001",
+      "type": "heliport",
+      "name": "H1",
+      "layerId": "a948ca28-6ad9-449e-9a2f-5de4db2687b1",
+      "position": {
+        "x": 2010.0,
+        "y": 1255.0
+      },
+      "rotation": 0,
+      "heading": 65
+    },
+    {
+      "id": "heli-h2-0000-4000-8000-000000000002",
+      "type": "heliport",
+      "name": "H2",
+      "layerId": "a948ca28-6ad9-449e-9a2f-5de4db2687b1",
+      "position": {
+        "x": 2035.0,
+        "y": 1320.0
+      },
+      "rotation": 0,
+      "heading": 65
     }
   ],
   "editorSettings": {

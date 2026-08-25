@@ -4,6 +4,23 @@ All notable changes to ATC Aman are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Helicopter support** — airports can now host rotorcraft traffic end to end:
+  - Five flyable helicopter types (H125, H135, AW139, UH-60, EC135) with
+  realistic performance; heliports are authorable in airport files
+  (`"type": "heliport"` objects) and render as H-marked circles on the radar.
+  - Rotorcraft skip the entire ground chain: they liftoff vertically from
+  their pad on a cleared-liftoff instruction and land straight onto an
+  assigned pad — no pushback, taxi, or runway. Arrivals are vectored to the
+  pad and go around if not cleared; departures climb out via the normal
+  handoff. Ground-movement clearances are rejected for rotorcraft with a
+  clear radio message.
+  - HHAS gains two apron-side helipads (H1/H2) plus scheduled traffic
+  (HMS501 arrival, HMS502 departure).
+
 ## [0.2.0] — 2026-07-22
 
 ### Added

@@ -20,5 +20,7 @@
   { "callsign": "KNE333", "flightType": "departure",  "aircraftIcao": "A320", "offsetMs": 1440000, "gate": "G5" },
   { "callsign": "TQR203", "flightType": "arrival",    "aircraftIcao": "B738", "offsetMs": 1560000 },
   { "callsign": "ERE505", "flightType": "arrival",    "aircraftIcao": "B738", "offsetMs": 1620000 },
-  { "callsign": "MSR603", "flightType": "departure",  "aircraftIcao": "E175", "offsetMs": 1680000, "gate": "G1" }
+  { "callsign": "MSR603", "flightType": "departure",  "aircraftIcao": "E175", "offsetMs": 1680000, "gate": "G1" },
+  { "callsign": "HMS501", "flightType": "arrival",     "aircraftIcao": "H135", "offsetMs": 900000 },
+  { "callsign": "HMS502", "flightType": "departure",   "aircraftIcao": "H125", "offsetMs": 1080000, "gate": "H1" }
 ]

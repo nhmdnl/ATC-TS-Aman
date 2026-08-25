@@ -408,9 +408,9 @@ describe('traffic-scheduler — rotorcraft spawn routing', () => {
   })
 })
 
-describe('loadAirport — real HHAS data still loads without heliports (T-013 guard)', () => {
-  it('defaults heliports to an empty array', () => {
+describe('loadAirport — real HHAS data carries the T-015 heliports', () => {
+  it('parses both apron-side pads from the v1.1 file', () => {
     const airport = loadAirport(hhasData)
-    expect(airport.heliports).toEqual([])
+    expect(airport.heliports!.map(h => h.id).sort()).toEqual(['H1', 'H2'])
   })
 })
