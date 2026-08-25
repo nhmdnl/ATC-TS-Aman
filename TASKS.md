@@ -69,6 +69,116 @@ Both repos are in scope:
 
 ## Backlog (priority order)
 
+### T-013 — Helicopter support 1/3: rotorcraft types + heliport schema (user request, 2026-08-22)
+
+**Status:** DONE (2026-08-25) · **Repo:** sim · **Priority:** P1
+
+**Goal:** Groundwork so airports can host helicopter traffic. No flight-behavior
+changes in this task — fixed-wing sessions must behave identically afterward.
+
+**Steps:**
+1. `src/engine/types.ts`: add `readonly rotorcraft: boolean` to `AircraftType`.
+   No enum changes — rotorcraft map to existing `WakeCategory.LIGHT`,
+   `AircraftCategory 'L'`.
+2. `src/engine/constants.ts`: set `rotorcraft: false` on all 9 existing
+   `AIRCRAFT_TYPES` entries; append three rotorcraft entries (realistic perf,
+   `rotationSpeed` unused — set 0):
+   - `H125` "Airbus H125" — cruise 120, approach 60, taxi 25, climb 1300, ceiling 23000
+   - `H135` "Airbus H135" — cruise 132, approach 70, taxi 25, climb 1400, ceiling 20000
+   - `AW139` "Leonardo AW139" — cruise 145, approach 80, taxi 30, climb 1600, ceiling 20000
+   Update `constants.test.ts` sync guards if they assert counts/fields.
+3. Airport schema: accept `type: "heliport"` elements shaped like gates
+   (id/name/position). `src/engine/airport-loader.ts`: parse them into a new
+   `airport.heliports` array (default `[]`). Do NOT bump the schema version —
+   v1.1 files without heliports must load unchanged.
+4. Extend the loaded `Airport` type accordingly.
+
+**Verification:** `npx tsc --noEmit`, `tsc -p tsconfig.main.json --noEmit`,
+`npm test` — all green, existing fixed-wing tests unmodified and passing.
+
+**Out of scope:** any phase/movement/command changes; schedule entries;
+editor support (spstudio doesn't know the element type yet — hand-edited JSON
+is acceptable); voice-pack tokens.
+
+---
+
+### T-014 — Helicopter support 2/3: flight model, phases, commands (blocked by T-013)
+
+**Status:** TODO · **Repo:** sim · **Priority:** P1
+
+**Goal:** End-to-end rotorcraft flights through the existing command pipeline.
+Design decision (lead, 2026-08-22): rotorcraft REUSE the existing phase FSM —
+departures `AT_GATE → (CLEARED_TAKEOFF) → CLIMBING → DEPARTED`; arrivals
+`ENTERING → APPROACH → FINAL → (CLEARED_LAND) → LANDING → ARRIVED` landing
+directly on their assigned helipad. NO new phases — branching happens inside
+movement/validators on `type.rotorcraft`. Adding phases would churn every
+manual sync table (`PHASE_CONTROLLER`, validators, AI controller) for no
+gameplay gain.
+
+**Steps:**
+1. `src/engine/movement.ts`: rotorcraft branches —
+   - Departure liftoff: vertical climb from pad at `climbRate`, accelerating
+     toward `cruiseSpeed` on current heading once airborne; skip runway/
+     centerline logic entirely.
+   - Arrival: descend onto the `assignedGate` helipad position; LANDING →
+     ARRIVED when over the pad and at field elevation. Skip ROLLOUT/VACATED/
+     TAXI_IN.
+2. `src/engine/phase-transitions.ts`: rotorcraft never fire
+   `REQUEST_PUSHBACK` / `VACATED_REQUEST_TAXI` pilot calls; transition rules
+   skip pushback/taxi/line-up/rollout states.
+3. `src/engine/commands/validators.ts` + `command-executor.ts`: reject
+   `PUSHBACK_APPROVED`, `TAXI`, `HOLD_SHORT`, `LINE_UP_WAIT`, `EXIT_RUNWAY`
+   (and `CROSS_RUNWAY`/`CONTINUE_TAXI`) for rotorcraft with an error result;
+   allow `CLEARED_TAKEOFF` (worded as liftoff clearance),
+   `CLEARED_LAND` (targets helipad), `CLEARED_APPROACH`, `VECTOR`,
+   `ALTITUDE`, `SPEED`, `SQUAWK`, `STANDBY`, `CONTACT_*`.
+4. `src/engine/traffic-scheduler.ts` / aircraft factory: rotorcraft departures
+   spawn AT_GATE at a free helipad (`assignedGate` = helipad id); arrivals use
+   the normal spawn path.
+5. `src/engine/ai-controller.ts`: handle rotorcraft at stations the player
+   doesn't control (issue liftoff/landing clearances per station mapping).
+6. `src/engine/commands/phraseology.ts`: rotorcraft wording (e.g. liftoff /
+   "land at the helipad" phrasing, no taxi readbacks).
+7. `src/components/RadarCanvas.tsx`: draw heliports on the static layer
+   (marked circle, label).
+8. Tests in `src/engine/__tests__/`: constants sync guards, validator
+   rejections, full rotor departure AND arrival lifecycle through
+   phase transitions, movement vertical profiles, AI controller coverage.
+
+**Verification:** `npm run typecheck`; `npm test` green including new suites;
+existing fixed-wing lifecycle tests still pass unchanged.
+
+**Out of scope:** air-taxi routing between pads, rotorcraft using runways,
+editor tools, scoring special-casing, voice-pack tokens (note findings under
+T-010 instead).
+
+---
+
+### T-015 — Helicopter support 3/3: HHAS data + end-to-end session (blocked by T-014)
+
+**Status:** TODO · **Repo:** sim · **Priority:** P2
+
+**Steps:**
+1. Hand-edit `src/data/airports/hhas.airport.json`: add 1–2 `heliport`
+   elements near the apron (schema per T-013 step 3); preserve
+   `referenceImage` byte-for-byte. If loader validation rejects, BLOCKED +
+   escalation — do not weaken validation to pass.
+2. Append two entries to `hhas.schedule.json`:
+   `{ "callsign": "HMS501", "flightType": "arrival", "aircraftIcao": "H135", "offsetMs": 900000 }`
+   and a matching H125 departure at a later offset with the helipad id as
+   `"gate"`.
+3. Manual verification via `npm run dev`: rotor arrival vectors, lands on the
+   pad, scores; rotor departure lifts off and departs; a fixed-wing-only
+   session is unaffected; radio log wording sensible; no console errors.
+4. Add an "Unreleased" entry to `CHANGELOG.md` describing helicopter support
+   (changelog ships with the next version bump — see release rule).
+
+**Verification:** Step 3 observations recorded in Worklog; typecheck + tests
+green.
+
+**Out of scope:** spstudio authoring support (file as its own task if wanted);
+tutorial content updates.
+
 ### T-012 — UI design pass 3: radar scope readability + panel upgrades (user request, 2026-07-23)
 Follow-up to the 22-item UI/UX audit (16 shipped 2026-07-22). Four batches,
 in impact order — user approved starting with (a):
@@ -106,8 +216,9 @@ the derived graph.
 ships: line-up now taxis hold-short → runway-entry → threshold and takes
 off on the drawn centerline (sim commit 4cfce52); hold-short bars are
 authorable via the editor's Holding Point tool and override the synthesized
-setback in the derived graph. Still open in this task: arrival-side
-authored paths (rollout exit, visible taxi-in).
+setback in the derived graph.
+**Arrival-side scope: DONE (2026-08-14).** Exit-runway routing, rollout turn-off,
+and visible taxi-in to gate complete.
 
 ### T-010 — recorded radio voice pack replaces Web Speech TTS (user request, 2026-07-18) — target: next major version (v2)
 Replace runtime TTS with concatenative pre-recorded audio: a token library
@@ -290,6 +401,38 @@ result.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-08-25 — T-013 — DONE
+- What changed:
+  - `src/engine/types.ts`: `AircraftType.rotorcraft?: boolean` (optional, like
+    `minRunwayLengthFt?`, so existing test fixtures stay valid);
+    `Airport.heliports?: ReadonlyArray<GateData>`.
+  - `src/engine/constants.ts`: `rotorcraft: false` on all fixed-wing types;
+    `rotorcraft: true` on H60/EC35 (already present as HELICOPTER class from an
+    earlier commit); appended H125/H135/AW139 with spec perf numbers and
+    `rotationSpeed: 0`.
+  - `src/engine/airport-loader.ts`: v1 loader parses optional top-level
+    `heliports` into gate-shaped entries (default `[]`); schema version not
+    bumped; files without heliports load unchanged.
+- Verification: `npx tsc --noEmit` clean; `npx tsc -p tsconfig.main.json
+  --noEmit` clean; `npm test` 1134/1134 green — fixed-wing suites untouched.
+- Notes: Spec assumed 9 existing aircraft types; repo had drifted to 12
+  fixed-wing plus H60/EC35 helicopters (commit 46e9cb4 line) — flag applied
+  across all of them. Bare `tsc` on this machine now resolves to a global
+  TypeScript 7 that removed `moduleResolution: node10`; use project-local
+  `npx tsc -p tsconfig.main.json --noEmit` until tsconfig.main.json is
+  modernized (out of scope here). Unrelated uncommitted work observed in tree
+  (Electron ^43 bump in package.json/lockfile; serialized-radio queue rework in
+  useAudio.ts) — left uncommitted, not covered by any task spec.
+
+### 2026-08-14 — T-009 — DONE
+- What changed:
+  - `src/engine/commands/command-executor.ts`: Implemented `EXIT_RUNWAY` command to assign a gate and build `taxiRoute` via `buildTaxiRoute` (or nearest `runway-entry` node).
+  - `src/engine/movement.ts`: Included `AircraftPhase.ROLLOUT` in `onRunway` check so rollout exit taxis smoothly at high-speed turn-off speed (35 kt).
+  - `src/engine/phase-transitions.ts`: Handled exit route completion in `ROLLOUT` phase transition to transition to `VACATED`, release runway occupancy, and prompt for taxi-to-terminal clearance.
+  - `src/engine/ai-controller.ts`: Added `ROLLOUT` phase handling to AI controller to issue `EXIT_RUNWAY` when decelerated (≤ 60 kt).
+  - `src/engine/__tests__/ai-controller.test.ts` & `src/engine/__tests__/command-executor.test.ts`: Updated AI controller sequence test and added `EXIT_RUNWAY` command execution test.
+- Verification: `npm run typecheck` clean; `npx vitest run src/engine/__tests__/` 1,118 tests passing.
 
 ### 2026-07-22 — LEAD (Claude) — TS3→main merge, voice pack, weather, UI/UX pass — DONE
 - **Merged `feature/ts3-migration` into `main`** (8 commits, conflict-free) — main

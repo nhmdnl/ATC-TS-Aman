@@ -77,6 +77,12 @@ function loadV1Airport(data: any): Airport {
     runways,
     taxiways: data.taxiways || [],
     gates: data.gates || [],
+    heliports: (data.heliports || []).map((h: any) => ({
+      id: h.id,
+      x: h.x,
+      y: h.y,
+      taxiwayId: h.taxiway_id || h.taxiwayId || ''
+    })),
     parking: data.parking || [],
     frequencies: data.frequencies || [],
     navaids: data.navaids || [],

@@ -109,6 +109,7 @@ export interface AircraftType {
   readonly descentRate: number   // ft/min
   readonly serviceCeiling: number // ft
   readonly minRunwayLengthFt?: number // minimum required runway length in feet (optional in test fixtures)
+  readonly rotorcraft?: boolean       // true for helicopters / VTOL aircraft
 }
 
 // ─── Flight Identity ──────────────────────────────────────────────────────────
@@ -326,6 +327,7 @@ export interface Airport {
   readonly runways: ReadonlyArray<RunwayData>
   readonly taxiways: ReadonlyArray<TaxiwayData>
   readonly gates: ReadonlyArray<GateData>
+  readonly heliports?: ReadonlyArray<GateData>
   readonly parking: ReadonlyArray<ParkingData>
   readonly frequencies: ReadonlyArray<FrequencyData>
   readonly navaids: ReadonlyArray<NavaidData>
