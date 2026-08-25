@@ -156,7 +156,7 @@ T-010 instead).
 
 ### T-015 — Helicopter support 3/3: HHAS data + end-to-end session (blocked by T-014)
 
-**Status:** IN REVIEW (data + changelog landed; live rotor-session watch pending — see Worklog 2026-08-25) · **Repo:** sim · **Priority:** P2
+**Status:** DONE (live rotor-session watch completed 2026-08-26; see Worklog) · **Repo:** sim · **Priority:** P2
 
 **Steps:**
 1. Hand-edit `src/data/airports/hhas.airport.json`: add 1–2 `heliport`
@@ -401,6 +401,50 @@ result.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-08-26 — T-015 — DONE (live watch + three engine fixes)
+- Live supervised session (CDP on :9222, hard/GROUND-only, AI TWR+APP),
+  schedule time jumped to 14:00–14:40 to reach the rotor offsets:
+  - **HMS502 departure (H125, pad H1/H2):** spawned at its offset once spawn
+    fixes cleared → AI tower "cleared for liftoff" → pilot readback →
+    vertical climb AT_GATE→CLIMBING→DEPARTED → "contact departure 120
+    decimal 7" handoff. Observed twice. Score +5 TAKEOFF.
+  - **HMS501 arrival (H135, pad H2/H1):** ENTERING inbound → INBOUND
+    UNCONTROLLED while still flying → "with you on final for the helipad"
+    → AI tower standby ack → APPROACH → AI app "cleared visual approach to
+    the helipad" (IMC) → tower handoff 118.1 → FINAL → "cleared to land at
+    the helipad" → hover-descent onto the pad → ARRIVED (aircraft removed).
+    Full chain observed end-to-end.
+  - Radio wording sensible throughout; renderer console clean in monitored
+    runs; fixed-wing flows unaffected.
+  - Score stayed flat for the arrival — correct: clearances were AI-issued
+    and AI outcomes are excluded from scoring (QWEN.md). The scoring
+    contract itself is pinned by `rotorcraft.test.ts` (LANDING +
+    ARRIVED_GATE emission through real movement/phase code).
+- Engine fixes found BY the watch (each its own commit, suite green after):
+  - **84a0045** — arrivals froze forever at 12 NM: TS3 migration put
+    INBOUND_UNCONTROLLED in the no-movement bucket while the "with you"
+    call only fires <9 NM from the threshold → every arrival deadlocked,
+    permanently blocking all spawn fixes (scheduled traffic could never
+    fire). Fix: phase keeps flying inbound (movement.ts). Regression:
+    `inbound-handoff.test.ts`.
+  - **2df3ea2** — rotorcraft arrivals never made the contact call:
+    scheduled rotors get assignedGate and no runway, but the trigger was
+    runway-only. Fix: assigned helipad drives initial contact
+    (phase-transitions.ts); new WITH_YOU_FINAL rotor wording. Same file's
+    second regression case.
+  - **6a52d7d** — CLEARED_APPROACH was impossible for rotorcraft in IMC:
+    the ILS gate demands an assignedRunway, which rotors never have (hard
+    sessions are IMC by preset). Fix: visual pad approaches exempt
+    (command-validators.ts); regression case in rotorcraft.test.ts.
+- Verification: 1158/1158 tests green, both typechecks clean after each
+  commit; live observations above via CDP automation with a page-side
+  flight recorder (`window.__trace`), console-error trap installed per run.
+- Notes: schedule offsets 15:00/18:00 are only reachable on HARD (easy/
+  medium expire at exactly 15:00) — consistent with existing >15-min
+  fixed-wing entries; left as designed. Overdue scheduled flights retry
+  until spawn preconditions pass (they fire late when fixes congest) —
+  expected scheduler behavior, not a bug.
 
 ### 2026-08-25 — T-015 — IN REVIEW
 - What changed:
@@ -759,3 +803,28 @@ AI TWR/APP):**
   helicopter work (airport registry / `BriefingScreen.tsx` airport rows);
   cosmetic but noisy in the console. Likely the same airport appearing twice
   in the registry (`.airport` + `.airport.json` duplicates?) — needs a look.
+- 2026-08-26: **Fixed-wing arrivals are un-clearable on HARD at HHAS.**
+  Hard preset forces IMC (ceiling 700, `constants.ts` DIFFICULTY_PRESETS)
+  and no HHAS runway carries an ILS block (`hhas.airport.json` —
+  `ils.available` absent on all four runways), so the IMC gate in
+  `command-validators.ts` (CLEARED_APPROACH) rejects every fixed-wing
+  approach clearance → arrivals overfly and are removed at 20 NM. Observed
+  live during the T-015 watch; rotorcraft were exempted in 6a52d7d because
+  their visual pad approach needs no runway. Needs a design call: add ILS
+  data to one HHAS runway (editor/data change) or relax the hard-preset
+  weather, plus AI-app behavior when it cannot clear.
+- 2026-08-26: Helipads land below field elevation. Pads carry no elevation
+  data, so the rotor hover-descent runs to ~0 ft MSL while the airfield is
+  7,661 ft — radar altitude readouts show a helicopter "landing" ~2 mi low
+  before ARRIVED (observed: alt 3217→67 ft while d≈0.5 NM from pad H1).
+  Cosmetic/state quirk; fix would be deriving heliport elevation from
+  airport elevation in `airport-loader.ts`.
+- 2026-08-26 (T-010 note): voice-tokenizer WITH_YOU_FINAL branch emits
+  "…on final runway <digits>" tokens for rotorcraft too (no assignedRunway
+  → digit tokens empty) while the text line now says "for the helipad" —
+  token library will need a pc_with_you_final_helipad chunk.
+- 2026-08-26 (low priority, automation-only): sessions created by
+  mutating the gameState singleton directly (CDP harness) can end up with
+  the scheduler not firing until poked manually — never reproduced through
+  the normal briefing→START path; noted in case someone debugs CDP-driven
+  sessions later.
