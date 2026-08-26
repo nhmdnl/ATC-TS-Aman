@@ -34,19 +34,53 @@ const CLASS_LABELS: Record<AircraftClass, string> = {
   HELICOPTER: 'Helicopters',
 }
 
-const SECONDARY_BUTTON: React.CSSProperties = {
-  padding: '10px 16px',
-  background: '#1D2430',
-  color: '#E2E8F0',
-  border: '1px solid #334155',
-  borderRadius: 4,
-  cursor: 'pointer',
-  fontWeight: 700,
-  fontSize: 14,
-  fontFamily: 'inherit',
+// Menu-local chrome values not covered by CSS_COLORS (hairline borders,
+// panel fills) — one place, not sprinkled literals.
+const BORDER = '#1D2430'
+const FIELD_BG = '#141B26'
+const MONO = "ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace"
+
+const SECTION_LABEL: React.CSSProperties = {
+  color: CSS_COLORS.text.secondary,
+  fontSize: 10,
+  textTransform: 'uppercase',
+  letterSpacing: 1.5,
+  marginBottom: 6,
 }
 
-export default function BriefingScreen() {
+const HELPER: React.CSSProperties = {
+  marginTop: 6,
+  fontSize: 10,
+  color: CSS_COLORS.text.muted,
+}
+
+/** Segmented selector button (difficulty / stations). */
+function segStyle(active: boolean, locked: boolean): React.CSSProperties {
+  return {
+    flex: 1,
+    padding: '9px 0',
+    background: active ? CSS_COLORS.accent.blue : FIELD_BG,
+    color: locked ? CSS_COLORS.text.disabled : active ? CSS_COLORS.bg.primary : CSS_COLORS.text.secondary,
+    border: active ? `1px solid ${CSS_COLORS.accent.blue}` : `1px solid ${BORDER}`,
+    borderRadius: 3,
+    cursor: locked ? 'not-allowed' : 'pointer',
+    opacity: locked ? 0.55 : 1,
+    fontWeight: active ? 700 : 400,
+    fontSize: 12,
+    fontFamily: 'inherit',
+  }
+}
+
+function ParamCell({ label, value }: { label: string; value: string }): React.ReactElement {
+  return (
+    <div style={{ background: CSS_COLORS.bg.card, border: `1px solid ${BORDER}`, borderRadius: 3, padding: '6px 8px' }}>
+      <div style={{ fontSize: 9, color: CSS_COLORS.text.muted, textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
+      <div style={{ fontSize: 12, color: CSS_COLORS.text.primary, fontFamily: MONO, marginTop: 2 }}>{value}</div>
+    </div>
+  )
+}
+
+export default function BriefingScreen(): React.ReactElement {
   const { setDifficulty, setPlayerStations, setEnabledAircraftClasses, startSession, muted, toggleMute, airports, selectedAirportId, setAirport } = useGame()
   const level = careerSystem.state.level
   const diffUnlocked = (d: DifficultyLevel) => level >= (DIFFICULTY_UNLOCK_LEVEL[d] ?? 1)
@@ -95,242 +129,218 @@ export default function BriefingScreen() {
       // (Pixi/WebGL init), it just shouldn't bleed through the main menu.
       background: `radial-gradient(ellipse at center, #131A24 0%, ${CSS_COLORS.bg.primary} 75%)`,
       display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      flexDirection: 'column',
+      padding: '20px 28px 16px',
+      overflowY: 'auto',
     }}>
       <div style={{
-        background: CSS_COLORS.bg.surface,
-        border: '1px solid #1D2430',
-        borderRadius: 8,
-        padding: 32,
-        maxWidth: 420,
-        width: '90%',
+        width: '100%',
+        maxWidth: 1180,
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
       }}>
-        <h1 style={{ margin: '0 0 4px', color: '#0EA5E9', fontSize: 32, fontWeight: 700, letterSpacing: 3, textAlign: 'center' }}>ATC AMAN</h1>
-        <p style={{ margin: '0 0 2px', color: CSS_COLORS.text.muted, fontSize: 12, textAlign: 'center' }}>
-          {airportEntry ? `${airportEntry.airport.metadata.icao} — ${airportEntry.airport.metadata.name}` : 'No airports found'}
-        </p>
-        <p style={{ margin: '0 0 24px', color: '#f59e0b', fontSize: 11, letterSpacing: 1, textAlign: 'center', textTransform: 'uppercase' }}>
-          {rankTitle(level)} · Level {level}
-        </p>
-
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ color: CSS_COLORS.text.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-            Airport
-          </div>
-          {airports.length > 1 && (
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              {airports.map((a) => {
-                const locked = level < airportUnlockLevel(a.id)
-                const active = selectedAirportId === a.id
-                return (
-                  <button
-                    key={a.id}
-                    onClick={() => !locked && setAirport(a.id)}
-                    disabled={locked}
-                    title={locked ? `Unlocks at level ${airportUnlockLevel(a.id)}` : undefined}
-                    style={{
-                      flex: 1,
-                      padding: '8px 0',
-                      background: active ? '#0EA5E9' : '#1D2430',
-                      color: locked ? CSS_COLORS.text.muted : active ? '#FFF' : CSS_COLORS.text.secondary,
-                      border: active ? '1px solid #0EA5E9' : '1px solid #1E293B',
-                      borderRadius: 4,
-                      cursor: locked ? 'not-allowed' : 'pointer',
-                      opacity: locked ? 0.5 : 1,
-                      fontWeight: active ? 700 : 400,
-                      fontSize: 12,
-                      fontFamily: 'inherit',
-                      transition: 'all 0.1s',
-                    }}
-                  >
-                    {locked ? `🔒 ${a.id} · L${airportUnlockLevel(a.id)}` : a.id}
-                  </button>
-                )
-              })}
+        {/* ── Identity header ─────────────────────────────────────────── */}
+        <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <h1 style={{ margin: 0, color: CSS_COLORS.accent.blue, fontSize: 28, fontWeight: 700, letterSpacing: 4, lineHeight: 1.1 }}>ATC AMAN</h1>
+            <p style={{ margin: '2px 0 0', color: CSS_COLORS.text.muted, fontSize: 12 }}>
+              {airportEntry ? `${airportEntry.airport.metadata.icao} — ${airportEntry.airport.metadata.name}` : 'No airports found'}
+            </p>
             </div>
-          )}
-          {airportEntry && (
-            <div style={{ background: '#0B1017', border: '1px solid #1E293B', borderRadius: 4, overflow: 'hidden' }}>
-              <AirportPreview airport={airportEntry.airport} />
-              <div style={{ padding: '6px 10px', fontSize: 10, color: CSS_COLORS.text.muted, display: 'flex', justifyContent: 'space-between' }}>
-                <span>RWY {Array.from(new Set(airportEntry.airport.runways.map(r => r.id))).join(' / ')}</span>
-                <span>{airportEntry.airport.gates.length} gates</span>
-                <span>ELEV {airportEntry.airport.metadata.elevationFt} ft</span>
+          <div style={{ color: CSS_COLORS.accent.amber, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', paddingBottom: 2 }}>
+            {rankTitle(level)} · Level {level}
+          </div>
+        </header>
+
+        {/* ── Briefing sheet: airport context | session setup ─────────── */}
+        <main style={{ display: 'flex', gap: 20, flex: 1, minHeight: 0, alignItems: 'stretch' }}>
+
+          {/* Left — the field you will control */}
+          <section style={{ flex: '1.25 1 0', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div style={SECTION_LABEL}>Airport</div>
+            {airports.length > 1 && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                {airports.map((a) => {
+                  const locked = level < airportUnlockLevel(a.id)
+                  const active = selectedAirportId === a.id
+                  return (
+                    <button
+                      key={a.id}
+                      className="briefing-btn"
+                      onClick={() => !locked && setAirport(a.id)}
+                      disabled={locked}
+                      title={locked ? `Unlocks at level ${airportUnlockLevel(a.id)}` : undefined}
+                      style={segStyle(active, locked)}
+                    >
+                      {locked ? `${a.id} · L${airportUnlockLevel(a.id)}` : a.id}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {airportEntry && (
+              <div style={{ background: CSS_COLORS.bg.surface, border: `1px solid ${BORDER}`, borderRadius: 4, overflow: 'hidden', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
+                  <AirportPreview airport={airportEntry.airport} height="100%" />
+                </div>
+                <div style={{
+                  padding: '7px 12px',
+                  fontSize: 11,
+                  fontFamily: MONO,
+                  color: CSS_COLORS.text.secondary,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  borderTop: `1px solid ${BORDER}`,
+                  background: CSS_COLORS.bg.card,
+                }}>
+                  <span>RWY {Array.from(new Set(airportEntry.airport.runways.map(r => r.id))).join(' / ')}</span>
+                  <span>{airportEntry.airport.gates.length} GATES</span>
+                  <span>ELEV {airportEntry.airport.metadata.elevationFt} FT</span>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Right — the session you are about to run */}
+          <section style={{ flex: '1 1 0', display: 'flex', flexDirection: 'column', gap: 14, minWidth: 280 }}>
+            <div>
+              <div style={SECTION_LABEL}>Difficulty</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {DIFF_ORDER.map((d) => {
+                  const locked = !diffUnlocked(d)
+                  const active = selected === d
+                  return (
+                    <button
+                      key={d}
+                      className="briefing-btn"
+                      onClick={() => !locked && setSelected(d)}
+                      disabled={locked}
+                      title={locked ? `Unlocks at level ${DIFFICULTY_UNLOCK_LEVEL[d]}` : undefined}
+                      style={segStyle(active, locked)}
+                    >
+                      {locked ? `${DIFF_LABELS[d]} · L${DIFFICULTY_UNLOCK_LEVEL[d]}` : DIFF_LABELS[d]}
+                    </button>
+                  )
+                })}
               </div>
             </div>
-          )}
-        </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ color: CSS_COLORS.text.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-            Difficulty
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {DIFF_ORDER.map((d) => {
-              const locked = !diffUnlocked(d)
-              const active = selected === d
-              return (
-                <button
-                  key={d}
-                  onClick={() => !locked && setSelected(d)}
-                  disabled={locked}
-                  title={locked ? `Unlocks at level ${DIFFICULTY_UNLOCK_LEVEL[d]}` : undefined}
-                  style={{
-                    flex: 1,
-                    padding: '8px 0',
-                    background: active ? '#0EA5E9' : '#1D2430',
-                    color: locked ? CSS_COLORS.text.muted : active ? '#FFF' : CSS_COLORS.text.secondary,
-                    border: active ? '1px solid #0EA5E9' : '1px solid #1E293B',
-                    borderRadius: 4,
-                    cursor: locked ? 'not-allowed' : 'pointer',
-                    opacity: locked ? 0.5 : 1,
-                    fontWeight: active ? 700 : 400,
-                    fontSize: 12,
-                    fontFamily: 'inherit',
-                    transition: 'all 0.1s',
-                  }}
-                >
-                  {locked ? `🔒 ${DIFF_LABELS[d]} · L${DIFFICULTY_UNLOCK_LEVEL[d]}` : DIFF_LABELS[d]}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+            <div>
+              <div style={SECTION_LABEL}>Your Stations</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {STATION_ORDER.map((s) => {
+                  const active = stations.includes(s)
+                  return (
+                    <button
+                      key={s}
+                      className="briefing-btn"
+                      onClick={() => toggleStation(s)}
+                      style={segStyle(active, false)}
+                    >
+                      {STATION_LABELS[s]}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={HELPER}>Unselected stations are handled by the computer.</div>
+            </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ color: CSS_COLORS.text.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-            Your Stations
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {STATION_ORDER.map((s) => {
-              const active = stations.includes(s)
-              return (
-                <button
-                  key={s}
-                  onClick={() => toggleStation(s)}
-                  style={{
-                    flex: 1,
-                    padding: '8px 0',
-                    background: active ? '#0EA5E9' : '#1D2430',
-                    color: active ? '#FFF' : CSS_COLORS.text.secondary,
-                    border: active ? '1px solid #0EA5E9' : '1px solid #1E293B',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    fontWeight: active ? 700 : 400,
-                    fontSize: 12,
-                    fontFamily: 'inherit',
-                    transition: 'all 0.1s',
-                  }}
-                >
-                  {STATION_LABELS[s]}
-                </button>
-              )
-            })}
-          </div>
-          <div style={{ marginTop: 6, fontSize: 10, color: CSS_COLORS.text.muted }}>
-            Unselected stations are handled automatically.
-          </div>
-        </div>
+            <div>
+              <div style={SECTION_LABEL}>Fleet</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                {CLASS_ORDER.map((c) => {
+                  const active = classes.includes(c)
+                  return (
+                    <button
+                      key={c}
+                      className="briefing-btn"
+                      onClick={() => toggleClass(c)}
+                      style={{
+                        padding: '7px 4px',
+                        background: active ? CSS_COLORS.bg.card : 'transparent',
+                        color: active ? CSS_COLORS.text.primary : CSS_COLORS.text.muted,
+                        border: active ? `1px solid ${CSS_COLORS.accent.blue}` : `1px solid ${BORDER}`,
+                        borderRadius: 3,
+                        cursor: 'pointer',
+                        fontWeight: active ? 700 : 400,
+                        fontSize: 11,
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      {active ? '✓ ' : ''}{CLASS_LABELS[c]}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={HELPER}>Aircraft types that may spawn this session.</div>
+            </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ color: CSS_COLORS.text.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
-            Aircraft Fleet (Session Categories)
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
-            {CLASS_ORDER.map((c) => {
-              const active = classes.includes(c)
-              return (
-                <button
-                  key={c}
-                  onClick={() => toggleClass(c)}
-                  style={{
-                    padding: '6px 4px',
-                    background: active ? '#0284C7' : '#1D2430',
-                    color: active ? '#FFF' : CSS_COLORS.text.secondary,
-                    border: active ? '1px solid #38BDF8' : '1px solid #1E293B',
-                    borderRadius: 4,
-                    cursor: 'pointer',
-                    fontWeight: active ? 700 : 400,
-                    fontSize: 10,
-                    fontFamily: 'inherit',
-                    transition: 'all 0.1s',
-                  }}
-                >
-                  {active ? '✓ ' : ''}{CLASS_LABELS[c]}
-                </button>
-              )
-            })}
-          </div>
-          <div style={{ marginTop: 6, fontSize: 10, color: CSS_COLORS.text.muted }}>
-            Enable or disable specific aircraft categories (Small GA, Jets, Military, Helicopters).
-          </div>
-        </div>
+            {preset && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <ParamCell label="Spawn interval" value={`${preset.spawnIntervalMs / 1000}s`} />
+                <ParamCell label="Max traffic" value={`${preset.maxAircraft}`} />
+                <ParamCell label="Wind" value={`${preset.windDirection}° / ${preset.windSpeed}kt`} />
+                <ParamCell label="Duration" value={`${preset.sessionDurationMs / 60000} min`} />
+              </div>
+            )}
+          </section>
+        </main>
 
-        {preset && (
-          <div style={{
-            background: '#1D2430',
-            borderRadius: 4,
-            padding: 12,
-            marginBottom: 20,
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '4px 12px',
-            fontSize: 11,
-            color: CSS_COLORS.text.secondary,
-          }}>
-            <span>Spawn interval: <span style={{ color: CSS_COLORS.text.primary }}>{preset.spawnIntervalMs / 1000}s</span></span>
-            <span>Max traffic: <span style={{ color: CSS_COLORS.text.primary }}>{preset.maxAircraft}</span></span>
-            <span>Wind: <span style={{ color: CSS_COLORS.text.primary }}>{preset.windDirection}° / {preset.windSpeed}kt</span></span>
-            <span>Duration: <span style={{ color: CSS_COLORS.text.primary }}>{preset.sessionDurationMs / 60000}min</span></span>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            autoFocus
-            onClick={handleStart}
-            style={{
-              flex: 1,
-              padding: '10px 0',
-              background: '#22C55E',
-              color: '#FFF',
-              border: 'none',
-              borderRadius: 4,
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: 14,
-              fontFamily: 'inherit',
-            }}
-          >
-            START
-          </button>
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('toggle-tutorial'))}
-            style={SECONDARY_BUTTON}
-          >
-            TUTORIALS
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <button onClick={toggleMute} style={{ ...SECONDARY_BUTTON, flex: 1, fontSize: 12 }}>
-            {muted ? 'UNMUTE' : 'MUTE'}
-          </button>
-          {window.electronAPI && (
+        {/* ── Actions ─────────────────────────────────────────────────── */}
+        <footer style={{ marginTop: 14 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={() => window.electronAPI.send('app-quit', null)}
-              style={{ ...SECONDARY_BUTTON, flex: 1, fontSize: 12 }}
+              autoFocus
+              className="briefing-btn"
+              onClick={handleStart}
+              style={{
+                flex: 1.4,
+                padding: '12px 0',
+                background: CSS_COLORS.accent.primary,
+                color: CSS_COLORS.bg.primary,
+                border: 'none',
+                borderRadius: 3,
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: 14,
+                letterSpacing: 2,
+                fontFamily: 'inherit',
+              }}
             >
-              QUIT
+              START
             </button>
-          )}
-        </div>
-
-        <div style={{ marginTop: 16, fontSize: 10, color: CSS_COLORS.text.muted, textAlign: 'center', lineHeight: 1.6 }}>
-          Click aircraft on radar → select commands → issue via buttons<br />
-          or type commands in the input bar below
-        </div>
+            <button
+              className="briefing-btn"
+              onClick={() => window.dispatchEvent(new CustomEvent('toggle-tutorial'))}
+              style={{ padding: '12px 18px', background: FIELD_BG, color: CSS_COLORS.text.secondary, border: `1px solid ${BORDER}`, borderRadius: 3, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit' }}
+            >
+              TUTORIALS
+            </button>
+            <button
+              className="briefing-btn"
+              onClick={toggleMute}
+              title={muted ? 'Enable audio' : 'Mute audio'}
+              style={{ padding: '12px 18px', background: FIELD_BG, color: CSS_COLORS.text.secondary, border: `1px solid ${BORDER}`, borderRadius: 3, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit' }}
+            >
+              {muted ? 'UNMUTE' : 'MUTE'}
+            </button>
+            {window.electronAPI && (
+              <button
+                className="briefing-btn"
+                onClick={() => window.electronAPI.send('app-quit', null)}
+                style={{ padding: '12px 18px', background: FIELD_BG, color: CSS_COLORS.text.secondary, border: `1px solid ${BORDER}`, borderRadius: 3, cursor: 'pointer', fontWeight: 700, fontSize: 12, fontFamily: 'inherit' }}
+              >
+                QUIT
+              </button>
+            )}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 10, color: CSS_COLORS.text.muted, textAlign: 'center', lineHeight: 1.6 }}>
+            Click aircraft on radar → select commands → issue via buttons, or type commands in the input bar below
+          </div>
+        </footer>
       </div>
     </div>
   )

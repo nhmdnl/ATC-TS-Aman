@@ -5,7 +5,7 @@ const FEET_PER_NM = 6076.12
 
 interface Props {
   airport: Airport
-  height?: number
+  height?: number | string
 }
 
 /**

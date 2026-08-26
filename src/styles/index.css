@@ -42,3 +42,17 @@ html, body, #root {
 .strip-attention {
   animation: strip-pulse 1.6s ease-in-out infinite;
 }
+
+/* Briefing-screen buttons: hover lift + keyboard focus ring (inline
+   styles can't express pseudo-classes) */
+.briefing-btn {
+  transition: filter 0.1s, border-color 0.1s;
+  font-family: inherit;
+}
+.briefing-btn:hover:not(:disabled) {
+  filter: brightness(1.18);
+}
+.briefing-btn:focus-visible {
+  outline: 1px solid #00E5FF;
+  outline-offset: 1px;
+}
