@@ -402,6 +402,28 @@ result.
 
 (newest first — see template in Protocol)
 
+### 2026-08-26 — LEAD (Claude) — main menu (briefing) layout redesign — DONE (user request)
+- What changed: `BriefingScreen.tsx` rebuilt from a single 420 px column
+  (which overflowed 1280×720 with no scroll — title and action rows were
+  unreachable at the kiosk size) into a full-width two-column briefing
+  sheet: identity header (title / field / rank), airport context left
+  (picker + preview filling the card + mono data strip), session setup
+  right (difficulty, stations, fleet, 2×2 instrument-style parameter
+  cells), actions anchored bottom. `AirportPreview.tsx` height prop
+  widened to `number | string` so the map fills its card; hover/focus
+  button states added to `styles/index.css` (inline styles can't express
+  pseudo-classes). Menu palette migrated from stale inline hexes
+  (#0EA5E9/#22C55E) to the CSS_COLORS tokens per PRODUCT.md's one-token-
+  source principle — menu now matches the console re-theme; active-state
+  text switched to dark-on-cyan for contrast. Lock emoji dropped from
+  locked buttons (`MEDIUM · L2` suffices). Logic/handlers untouched.
+- Verification: screenshots at 1280×720 and 820×580 (fits both, narrow
+  compresses without clipping), impeccable layout scan clean, START
+  smoke-tested in-browser (canvas + status bar mount). Electron visual
+  check = one `npm run dev` away, same renderer. Commit 7b497ad.
+- Notes: the two-HHAS picker buttons are the known registry-duplicate
+  escalation (untracked `HHAS2.airport` file), not a layout issue.
+
 ### 2026-08-26 — T-015 — DONE (live watch + three engine fixes)
 - Live supervised session (CDP on :9222, hard/GROUND-only, AI TWR+APP),
   schedule time jumped to 14:00–14:40 to reach the rotor offsets:
