@@ -43,6 +43,23 @@ This section overrides the older "side-task" guidance above: side work not in
 
 ---
 
+## Project Status (2026-08-28) — development branch: sim rate + emergencies-lite + conflict probe
+
+Feature pack implemented on `development` (authored via AI pair session,
+Co-Authored-By: Claude), pending merge review:
+
+- **Sim-rate controls** — `gameState.simRate` (1/2/4), status-bar RATE buttons
+  + `1`/`2`/`3` keys; `useGameLoop` runs the fixed tick N times per gate.
+- **Emergencies-lite** (`src/engine/emergencies.ts`) — low-fuel arrivals with
+  PAN PAN/MAYDAY calls and `fuel_priority_landed`/`fuel_emergency` score
+  reasons; NORDO radio failures (player stations only, command rejection in
+  `processCommand` step 0, AI skip + low-fuel fast path in `ai-controller`).
+- **Conflict prediction probe** (`src/engine/conflict-probe.ts`) — advisory
+  dead-reckoning to 180 s, wake-matrix aware, amber radar ring + `PC` tag;
+  `requiredSepNM` now exported from `separation.ts` for reuse.
+- Tick order extended (emergencies before separation, probe after) — see
+  CLAUDE.md. Tests: 256 passing (was 235). CI must stay green on push.
+
 ## Project Status (2026-07-07) — FEATURE-COMPLETE
 
 The full loop is verified end-to-end in the running Electron app (via CDP automation):

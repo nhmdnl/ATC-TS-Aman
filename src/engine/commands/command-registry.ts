@@ -7,6 +7,7 @@ import { executeCommand } from './command-executor'
 import { generatePhraseology } from './phraseology'
 import { READBACK_DELAY_MIN_MS, READBACK_DELAY_MAX_MS, DEFAULT_FREQUENCIES } from '../constants'
 import { getFrequency } from '../airport-loader'
+import { isNordo } from '../emergencies'
 
 /**
  * Validates, executes, and generates phraseology for a command.
@@ -16,6 +17,18 @@ export function processCommand(command: Command, airport: Airport): CommandResul
   const aircraft = gameState.getAircraftByCallsign(command.targetCallsign)
   if (!aircraft) {
     return { success: false, error: 'Aircraft not found' }
+  }
+
+  // 0. NORDO guard — an aircraft inside a radio-failure window cannot hear
+  //    the frequency. Reject before validation so nothing is scheduled; the
+  //    aircraft continues on its last clearance until contact is restored.
+  if (isNordo(aircraft, gameState.elapsedMs)) {
+    eventBus.emit(GameEventType.COMMAND_REJECTED, {
+      callsign: aircraft.callsign,
+      commandType: command.type,
+      reason: 'radio_failure',
+    })
+    return { success: false, error: `${aircraft.callsign} NORDO — no response (radio failure)` }
   }
 
   // 1. Validation

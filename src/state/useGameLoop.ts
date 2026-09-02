@@ -11,15 +11,19 @@ export function useGameLoop() {
   useEffect(() => {
     const loop = () => {
       const now = Date.now()
-      
-      // Fixed timestep logic for simulation tick (~1 Hz)
+
+      // Fixed timestep logic for simulation tick (~1 Hz). At higher sim
+      // rates the same fixed tick runs N times per gate — sim time simply
+      // advances N seconds per gate while physics/phase logic stays fixed-step.
       if (now - lastTickRef.current >= SIM_TICK_INTERVAL_MS) {
-        // Run physics/simulation tick
-        tick(gameState, 1.0)
-        
+        const rate = Math.max(1, Math.min(4, gameState.simRate))
+        for (let i = 0; i < rate; i++) {
+          tick(gameState, 1.0)
+        }
+
         // Update mission system
         missionSystem.update(gameState.snapshot())
-        
+
         lastTickRef.current = now
       }
 

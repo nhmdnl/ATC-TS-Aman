@@ -15,6 +15,7 @@ export interface GameContextType {
   selectAircraft: (id: string | null) => void
   issueCommand: (command: Command) => void
   togglePause: () => void
+  setSimRate: (rate: number) => void
   resetGame: () => void
   setDifficulty: (level: DifficultyLevel) => void
   startSession: () => void
@@ -94,6 +95,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setSnapshot(gameState.snapshot())
   }
 
+  const setSimRate = (rate: number) => {
+    gameState.simRate = rate
+    setSnapshot(gameState.snapshot())
+  }
+
   const resetGame = () => {
     gameState.reset()
     trafficScheduler.reset()
@@ -125,6 +131,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     selectAircraft,
     issueCommand,
     togglePause,
+    setSimRate,
     resetGame,
     setDifficulty,
     startSession,

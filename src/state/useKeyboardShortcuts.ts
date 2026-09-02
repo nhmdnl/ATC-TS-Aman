@@ -104,6 +104,14 @@ export function useKeyboardShortcuts() {
           window.dispatchEvent(new CustomEvent('radar-reset-view'))
           break
         }
+        case '1':
+        case '2':
+        case '3': {
+          // 1/2/3 — sim rate 1× / 2× / 4× (SIM_RATES order)
+          const rates = [1, 2, 4]
+          gameState.simRate = rates[Number(key) - 1]
+          break
+        }
       }
 
       // Trigger React update

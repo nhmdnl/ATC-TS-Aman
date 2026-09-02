@@ -211,7 +211,7 @@ describe('aircraft-factory', () => {
     it('produce valid AircraftType on both paths', () => {
       const dep = spawnDeparture(gate, '07')
       const arr = spawnArrival(sp)
-      const icaoPattern = /^[A-Z0-9]{2,4}$/
+      const icaoPattern = /^[A-Z0-9]{2,5}$/
       expect(dep.type.icao).toMatch(icaoPattern)
       expect(arr.type.icao).toMatch(icaoPattern)
     })

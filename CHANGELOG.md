@@ -8,18 +8,42 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Helicopter support** — airports can now host rotorcraft traffic end to end:
-  - Five flyable helicopter types (H125, H135, AW139, UH-60, EC135) with
-  realistic performance; heliports are authorable in airport files
-  (`"type": "heliport"` objects) and render as H-marked circles on the radar.
-  - Rotorcraft skip the entire ground chain: they liftoff vertically from
-  their pad on a cleared-liftoff instruction and land straight onto an
-  assigned pad — no pushback, taxi, or runway. Arrivals are vectored to the
-  pad and go around if not cleared; departures climb out via the normal
-  handoff. Ground-movement clearances are rejected for rotorcraft with a
-  clear radio message.
-  - HHAS gains two apron-side helipads (H1/H2) plus scheduled traffic
-  (HMS501 arrival, HMS502 departure).
+- **Sim-rate controls** — run the simulation at 1× / 2× / 4× via status-bar
+  RATE buttons or the `1` / `2` / `3` keys. The fixed 1 Hz tick runs N times
+  per gate, so physics and phase logic stay fixed-step while sim time (fuel
+  clocks, session duration, schedule) advances N×.
+- **Low-fuel arrivals** — some arrivals spawn fuel-critical. The pilot calls
+  **PAN PAN minimum fuel** when the clock runs low (amber urgent handling);
+  landing them safely earns the new `fuel_priority_landed` score reason
+  (+60, awareness/efficiency weighted). Letting the clock hit zero airborne
+  triggers **MAYDAY** and the `fuel_emergency` penalty (−120).
+- **Radio failures (NORDO)** — an airborne aircraft under player control may
+  squawk 7600 and go off the frequency for ~75 s: commands are rejected with
+  a NORDO notice, the aircraft continues on its last clearance, and the pilot
+  calls back when contact is restored. Never assigned to AI-controlled
+  aircraft; datablock shows a `NORDO` tag and the strip a gray status dot.
+- **Conflict prediction probe** — the scope now dead-reckons airborne traffic
+  up to 3 minutes ahead and flags pairs that will lose wake-matrix separation
+  if nothing changes: soft amber ring on the blip, `PC {s}s` datablock tag,
+  both aircraft involved. Advisory only — no scoring coupling, and pairs
+  already in violation are left to the red halo.
+
+### Changed
+
+- **constants.ts merged with GLM-web branch** — added `SIM_RATES`,
+  emergency fuel/radio-failure constants (`LOW_FUEL_ARRIVAL_CHANCE`,
+  `LOW_FUEL_TOTAL_MS`, `LOW_FUEL_DECLARE_MS`, `RADIO_FAILURE_CHANCE_PER_TICK`,
+  `RADIO_FAILURE_DURATION_MS`), conflict-probe constants
+  (`CONFLICT_PROBE_HORIZON_S`, `CONFLICT_PROBE_STEP_S`), and
+  `fuel_priority_landed` / `fuel_emergency` entries to `SCORE_DELTAS`,
+  `DIMENSION_DELTAS`, and `XP_PER_REASON`. All five rotorcraft entries
+  (H125, H135, AW139, H60, EC35) with `rotorcraft: true` preserved.
+- Radar datablocks grow an optional 4th advisory line (`NORDO` / `MIN FUEL` /
+  `PC 45s`) that also forces Full Data Block display for flagged traffic.
+- AI controllers now work declared low-fuel aircraft immediately (bypassing
+  the human-like decision interval) and skip NORDO aircraft entirely.
+- Test suite grew from 235 to 256 tests (sim-rate, conflict-probe, and
+  emergencies suites added).
 
 ## [0.2.0] — 2026-07-22
 

@@ -11,7 +11,13 @@ export function initializeScoringSystem(): void {
     if (e.payload.missedHandoff) handleScoreEvent('missed_handoff', e)
   })
   eventBus.on(GameEventType.TAKEOFF, (e: GameEvent) => handleScoreEvent('takeoff', e))
-  eventBus.on(GameEventType.LANDING, (e: GameEvent) => handleScoreEvent('landing', e))
+  eventBus.on(GameEventType.LANDING, (e: GameEvent) => {
+    // A declared low-fuel arrival that makes it down earns the priority-landing
+    // credit instead of the standard landing delta
+    if (e.payload.fuelPriority) handleScoreEvent('fuel_priority_landed', e)
+    else handleScoreEvent('landing', e)
+  })
+  eventBus.on(GameEventType.FUEL_EMERGENCY, (e: GameEvent) => handleScoreEvent('fuel_emergency', e))
   eventBus.on(GameEventType.ARRIVED_GATE, (e: GameEvent) => handleScoreEvent('arrived_gate', e))
   eventBus.on(GameEventType.MISSED_APPROACH, (e: GameEvent) => handleScoreEvent('missed_approach', e))
   eventBus.on(GameEventType.SEPARATION_VIOLATION, (e: GameEvent) => handleScoreEvent('separation_violation', e))

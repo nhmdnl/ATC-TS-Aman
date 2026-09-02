@@ -51,7 +51,9 @@ Missed approach: any arrival phase can transition to `MISSED`, which then re-ent
 
 ### Simulation tick (`src/engine/simulation-tick.ts`)
 
-`tick(state, dtSeconds)` is the per-second orchestrator, run in a fixed order: spawn aircraft → clear violation flags → for each aircraft: move (`movement.ts`) → phase transitions (`phase-transitions.ts`) → MVA violation check → removal check → separation check across all aircraft (`separation.ts`) → session-expiry check → flush queued events. Order matters (e.g. violation flags must be cleared before the per-aircraft loop re-evaluates them). New per-tick behavior should be inserted into this function at the appropriate stage rather than bolted on elsewhere.
+`tick(state, dtSeconds)` is the per-second orchestrator, run in a fixed order: spawn aircraft → clear violation flags → for each aircraft: move (`movement.ts`) → phase transitions (`phase-transitions.ts`) → MVA violation check → removal check → emergencies update (`emergencies.ts`: fuel burn, NORDO timers) → separation check across all aircraft (`separation.ts`) → conflict prediction probe (`conflict-probe.ts`: advisory amber flags) → session-expiry check → flush queued events. Order matters (e.g. violation flags must be cleared before the per-aircraft loop re-evaluates them; the probe runs after separation so already-violating pairs are skipped). New per-tick behavior should be inserted into this function at the appropriate stage rather than bolted on elsewhere.
+
+The render loop (`useGameLoop.ts`) runs the fixed tick N times per 1 Hz gate when `gameState.simRate` is 2 or 4 — sim time advances N× while physics stays fixed-step.
 
 ### Command pipeline
 
@@ -67,7 +69,7 @@ Key `GameEventType` values: `COMMAND_ISSUED`, `COMMAND_REJECTED`, `PHASE_CHANGED
 
 ### Controller stations and AI
 
-`ControllerStation` enum has four values: `GROUND`, `TOWER`, `APPROACH`, `AREA`. `gameState.playerStations` is the subset the human controls; `ai-controller.ts` issues textbook commands each tick for any station *not* in that set. The player picks their stations on `BriefingScreen.tsx` before starting.
+`ControllerStation` enum has four values: `GROUND`, `TOWER`, `APPROACH`, `AREA`. `gameState.playerStations` is the subset the human controls; `ai-controller.ts` issues textbook commands each tick for any station *not* in that set. The player picks their stations on `BriefingScreen.tsx` before starting. AI skips NORDO aircraft and works declared low-fuel aircraft immediately (no decision-interval wait).
 
 ### Audio / TTS (`src/state/useAudio.ts`)
 
@@ -84,6 +86,13 @@ PixiJS 8 canvas — airport diagram, aircraft sprites, range rings, sweep line, 
 ### `ponytail:` comments
 
 Comments prefixed `ponytail:` mark a known, deliberate simplification with an explicit upgrade path (e.g. "always picks first runway — active runway logic when wind-based runway selection is needed"). Treat these as documented tech debt, not bugs — don't silently "fix" them into a more general solution unless the task calls for it, since the simplification was a scoped choice.
+
+### Emergencies and advisories
+
+Two engine modules extend the tick without touching the phase machine:
+
+- `emergencies.ts` — **low-fuel arrivals** (some spawns get a `fuelMsRemaining` clock that only burns while airborne; pilot calls PAN PAN at the declare threshold → `urgent`, MAYDAY + `FUEL_EMERGENCY` event at zero; landing a declared aircraft maps to the `fuel_priority_landed` score reason) and **NORDO radio failures** (player-controlled airborne aircraft only, once per session; `processCommand` rejects before validation while the window is open; AI never receives NORDO aircraft).
+- `conflict-probe.ts` — dead-reckons airborne aircraft up to 180 s ahead (cleared heading/altitude convergence) and sets `predictedConflictWith`/`predictedConflictInS` for pairs that will lose wake-matrix separation. Purely advisory: no scoring, no `inViolation` coupling; pairs already in violation are skipped. The radar renders a soft amber ring plus a `PC {s}s` datablock tag; NORDO and MIN FUEL get their own datablock tags.
 
 ### Electron shell
 
@@ -103,6 +112,7 @@ Comments prefixed `ponytail:` mark a known, deliberate simplification with an ex
 | `G` | Toggle guide panel |
 | `+` / `-` | Zoom in / out |
 | `0` | Reset viewport |
+| `1` / `2` / `3` | Sim rate 1× / 2× / 4× |
 | `/` | Focus command input |
 
 Shortcuts are suppressed when a text input is focused. Viewport actions dispatch `CustomEvent`s on `window`; `RadarCanvas` listens for them.

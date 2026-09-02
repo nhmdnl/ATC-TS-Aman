@@ -84,6 +84,8 @@ export const SCORE_DELTAS: Record<ScoreReason, number> = {
   missed_approach: -100,
   separation_violation: -150,
   missed_handoff: -100,
+  fuel_priority_landed: 60,
+  fuel_emergency: -120,
 } as const
 
 /** Dimension weights per event — PRD §10.2 */
@@ -102,6 +104,8 @@ export const DIMENSION_DELTAS: Record<ScoreReason, {
   missed_approach:     { safety: -40, efficiency: -30, communication: 0, procedure:  0, awareness: 0 },
   separation_violation: { safety: -80, efficiency:  0, communication: 0, procedure:  0, awareness: 0 },
   missed_handoff:       { safety:  0, efficiency:  0, communication: -3, procedure: -2, awareness:  0 },
+  fuel_priority_landed: { safety:  0, efficiency: 15, communication:  5, procedure:  0, awareness: 15 },
+  fuel_emergency:       { safety: -60, efficiency: -10, communication: 0, procedure: -10, awareness: -20 },
 } as const
 
 /** Grade thresholds — PRD §10.3 */
@@ -134,6 +138,10 @@ export const SIM_TICK_INTERVAL_MS = 1000
 
 /** Target render FPS */
 export const TARGET_FPS = 60
+
+/** Available sim-rate multipliers — the tick loop runs N fixed ticks per
+ *  1 Hz gate at the selected rate. Keys 1/2/3 on the keyboard map by index. */
+export const SIM_RATES = [1, 2, 4] as const
 
 // ─── TTS / Audio ──────────────────────────────────────────────────────────────
 
@@ -186,7 +194,6 @@ export const DIFFICULTY_PRESETS: Record<string, DifficultyPreset> = {
   },
 } as const
 
-// ─── Aircraft Type Catalog ────────────────────────────────────────────────────
 // ─── Aircraft Type Catalog ────────────────────────────────────────────────────
 
 export const DEFAULT_ENABLED_AIRCRAFT_CLASSES: ReadonlyArray<import('./types').AircraftClass> = [
@@ -401,6 +408,33 @@ export const INBOUND_TRIGGER_NM = 12
 /** How long before repeating an unacknowledged pilot call (ms) */
 export const PILOT_CALL_REPEAT_MS = 20_000
 
+// ─── Emergencies (emergencies.ts) ────────────────────────────────────────────
+
+/** Chance that a randomly-spawned arrival is fuel-critical (fuel modeled) */
+export const LOW_FUEL_ARRIVAL_CHANCE = 0.18
+
+/** Fuel (sim ms) allotted at spawn for a low-fuel arrival — enough margin to
+ *  sequence them first, not enough to forget about them */
+export const LOW_FUEL_TOTAL_MS = 420_000
+
+/** Pilot declares PAN PAN minimum fuel below this much fuel left (sim ms) */
+export const LOW_FUEL_DECLARE_MS = 120_000
+
+/** Per-tick chance an airborne player-controlled aircraft goes NORDO —
+ *  ~1 failure per 28 min of sim time with 6 aircraft airborne */
+export const RADIO_FAILURE_CHANCE_PER_TICK = 0.0006
+
+/** How long a NORDO aircraft stays off the frequency (sim ms) */
+export const RADIO_FAILURE_DURATION_MS = 75_000
+
+// ─── Conflict Prediction Probe (conflict-probe.ts) ───────────────────────────
+
+/** How far ahead the probe dead-reckons each aircraft (sim seconds) */
+export const CONFLICT_PROBE_HORIZON_S = 180
+
+/** Dead-reckoning step size (sim seconds) */
+export const CONFLICT_PROBE_STEP_S = 15
+
 // ─── Speed Limit for Category D ───────────────────────────────────────────────
 // PRD §14 — Cat D aircraft: 210 kt outbound, 185 kt procedure turn
 
@@ -427,6 +461,8 @@ export const XP_PER_REASON: Record<ScoreReason, number> = {
   missed_approach: 0,
   separation_violation: 0,
   missed_handoff: 0,
+  fuel_priority_landed: 10,
+  fuel_emergency: 0,
 } as const
 
 // ─── Colors ───────────────────────────────────────────────────────────────────

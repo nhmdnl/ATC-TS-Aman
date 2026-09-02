@@ -3,6 +3,8 @@ import { moveAircraft } from './movement'
 import { processPhaseTransitions, checkAircraftRemoval, checkPilotCallRepeats } from './phase-transitions'
 import { separationChecker, clearViolationFlags } from './separation'
 import { runAiControllers } from './ai-controller'
+import { updateEmergencies } from './emergencies'
+import { predictConflicts } from './conflict-probe'
 import { spawnArrival, spawnDeparture, isSpawnPointClear } from './aircraft-factory'
 import { trafficScheduler } from './traffic-scheduler'
 import type { ScheduledFlight } from './traffic-scheduler'
@@ -79,24 +81,32 @@ export function tick(state: GameState, dtSeconds: number): void {
     }
   }
 
-  // 6. Separation Checking
+  // 6. Emergencies (fuel burn / NORDO) — before separation so a mayday
+  //    aircraft's urgency flags are current for this tick
+  updateEmergencies(state, dtSeconds)
+
+  // 7. Separation Checking
   separationChecker.checkSeparation(state.allAircraft(), nowMs)
 
-  // 7. Pilot call repeat check (re-fires unacknowledged calls)
+  // 8. Conflict prediction probe — after separation so currently-violating
+  //    pairs (inViolation) are excluded from amber advisories
+  predictConflicts(state.allAircraft())
+
+  // 9. Pilot call repeat check (re-fires unacknowledged calls)
   if (state.airport) checkPilotCallRepeats(state.allAircraft(), state.airport)
 
-  // 8. AI Controller Decisions — after separation checking so inViolation
+  // 10. AI Controller Decisions — after separation checking so inViolation
   // flags are current for this tick (nextExpectedCommand's FINAL branch
   // checks it).
   runAiControllers(state, nowMs)
 
-  // 9. Session Expiry Check
+  // 11. Session Expiry Check
   if (state.isSessionExpired() && !state.sessionEnded) {
     state.sessionEnded = true
     eventBus.emit(GameEventType.SESSION_ENDED, { score: state.score, grade: state.getGrade() })
   }
 
-  // 10. Flush queued events
+  // 12. Flush queued events
   eventBus.flush()
 }
 

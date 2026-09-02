@@ -230,7 +230,9 @@ export function processPhaseTransitions(
       } else if (!aircraft.type.rotorcraft &&
           aircraft.altitude <= (runway?.elevationFt ?? 0) + 5 && aircraft.speed <= 80) {
         aircraft.phase = AircraftPhase.ROLLOUT
-        eventBus.emit(GameEventType.LANDING, { callsign: aircraft.callsign })
+        // fuelPriority → scoring maps this landing to the higher
+        // fuel_priority_landed bonus instead of the standard landing credit
+        eventBus.emit(GameEventType.LANDING, { callsign: aircraft.callsign, fuelPriority: aircraft.fuelDeclared === true })
       }
       break
 

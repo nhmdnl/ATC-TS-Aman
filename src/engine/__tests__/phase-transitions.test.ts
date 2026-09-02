@@ -3,6 +3,7 @@ import { loadAirport, findRunwayById } from '../airport-loader'
 import { processPhaseTransitions, checkAircraftRemoval } from '../phase-transitions'
 import { spawnDeparture, spawnArrival } from '../aircraft-factory'
 import { moveAircraft } from '../movement'
+import { AIRCRAFT_TYPES } from '../constants'
 import { AircraftPhase } from '../types'
 import type { Aircraft, GateData } from '../types'
 import hhasData from '../../data/airports/hhas.airport.json'
@@ -18,35 +19,27 @@ function makeTaxiingDeparture(): Aircraft {
   ac.taxiRoute = [
     { x: 0, y: 0.3 },
     { x: 0, y: 0.14 },
-    { x: 0, y: 0.04 },
+    { x: 0, y: 0 },
   ]
   ac.taxiRouteIndex = 0
-  ac.taxiTarget = ac.taxiRoute[0]
   return ac
 }
 
-describe('TAXI_OUT → HOLD_SHORT (routed taxi)', () => {
+describe('departure hold-short triggers only on reaching route end', () => {
   it('does not hold short while still tracking an earlier waypoint, even near the route end', () => {
     const ac = makeTaxiingDeparture()
-    // Regression: within the old 0.1 NM radius of the end (dist 0.1) but only
-    // partway through the route — used to park mid-taxiway here
     ac.x = 0
-    ac.y = 0.14
-    ac.taxiRouteIndex = 1
-
-    processPhaseTransitions(ac, null, airport)
-
+    ac.y = 0.01 // within 0.02 NM threshold, but index is 0
+    processPhaseTransitions(ac, findRunwayById(airport, '07')!, airport)
     expect(ac.phase).toBe(AircraftPhase.TAXI_OUT)
   })
 
   it('holds short once the final route point is reached', () => {
     const ac = makeTaxiingDeparture()
-    ac.taxiRouteIndex = 2
     ac.x = 0
-    ac.y = 0.04
-
-    processPhaseTransitions(ac, null, airport)
-
+    ac.y = 0.01
+    ac.taxiRouteIndex = 2 // final point
+    processPhaseTransitions(ac, findRunwayById(airport, '07')!, airport)
     expect(ac.phase).toBe(AircraftPhase.HOLD_SHORT)
     expect(ac.speed).toBe(0)
   })
@@ -55,9 +48,11 @@ describe('TAXI_OUT → HOLD_SHORT (routed taxi)', () => {
 describe('APPROACH → FINAL requires approach clearance', () => {
   function arrivalAtThreshold(): Aircraft {
     const rwy = findRunwayById(airport, '07')!
-    const ac = spawnArrival({
-      id: 'ENTRY-S', type: 'arrival', x: 0, y: -14, heading: 360, altitude: 12000,
-    })
+    const ac = spawnArrival(
+      { id: 'ENTRY-S', type: 'arrival', x: 0, y: -14, heading: 360, altitude: 12000 },
+      undefined,
+      AIRCRAFT_TYPES.find(t => !t.rotorcraft)
+    )
     ac.phase = AircraftPhase.APPROACH
     ac.assignedRunway = rwy.id
     ac.x = rwy.thresholdX

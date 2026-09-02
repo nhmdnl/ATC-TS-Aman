@@ -1,6 +1,7 @@
 import type { Aircraft, AircraftType, GateData, SpawnPointData, Airport, AircraftClass } from './types'
 import { AircraftPhase, ControllerStation } from './types'
 import { AIRCRAFT_TYPES, AIRLINE_PREFIXES, PHASE_CONTROLLER, SEPARATION_FT, MRS_NM, PUSHBACK_CALL_DELAY_MS } from './constants'
+import { maybeAssignLowFuel } from './emergencies'
 import { distanceNM } from './movement'
 import { filterSuitableAircraftTypes } from './airport-loader'
 
@@ -134,7 +135,7 @@ export function spawnArrival(
   const now = Date.now()
   const initialSpeed = Math.min(Math.round(type.cruiseSpeed * 0.7), 250)
 
-  return {
+  const aircraft: Aircraft = {
     id: generateId(),
     callsign: callsign ?? generateCallsign(),
     type,
@@ -185,4 +186,9 @@ export function spawnArrival(
 
     trail: [],
   }
+
+  // Some arrivals are fuel-critical — emergencies.ts owns the clock
+  maybeAssignLowFuel(aircraft)
+
+  return aircraft
 }

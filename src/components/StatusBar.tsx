@@ -11,7 +11,7 @@ const STATION_SHORT_LABELS: Record<ControllerStation, string> = {
 }
 
 export default function StatusBar({ ttsAvailable }: { ttsAvailable: boolean }) {
-  const { state, togglePause } = useGame()
+  const { state, togglePause, setSimRate } = useGame()
 
   const h = Math.floor(state.elapsedMs / 3600000)
   const m = Math.floor((state.elapsedMs % 3600000) / 60000)
@@ -80,6 +80,29 @@ export default function StatusBar({ ttsAvailable }: { ttsAvailable: boolean }) {
         >
           G·O·T·M
         </span>
+
+        <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {[1, 2, 4].map((rate) => (
+            <button
+              key={rate}
+              onClick={() => setSimRate(rate)}
+              title={`Sim rate ${rate}× — keys 1/2/3`}
+              style={{
+                background: state.simRate === rate ? '#00FF66' : '#121824',
+                border: '1px solid #1E293B',
+                color: state.simRate === rate ? '#020408' : '#64748B',
+                padding: '2px 7px',
+                borderRadius: 3,
+                fontSize: 10,
+                fontWeight: 700,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              {rate}×
+            </button>
+          ))}
+        </div>
 
         <button
           onClick={togglePause}

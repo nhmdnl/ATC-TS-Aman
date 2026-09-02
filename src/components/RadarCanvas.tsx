@@ -46,6 +46,11 @@ interface DrawableAircraft {
   readonly trail?: ReadonlyArray<{ x: number; y: number }>
   readonly type?: { readonly icao: string; readonly wakeCategory?: string }
   readonly forceLabel?: boolean
+  // Emergencies / advisories (computed at draw-call time from the snapshot)
+  readonly nordo?: boolean            // radio failure active
+  readonly lowFuelDeclared?: boolean  // pilot called PAN PAN minimum fuel
+  readonly predictedConflictWith?: string | null   // probe: pair will lose separation
+  readonly predictedConflictInS?: number | null    // seconds until predicted loss
 }
 
 /** Draws one aircraft's blip, history dots, hover ring, violation pulse, vector ticks,
@@ -109,6 +114,14 @@ function drawAircraftBody(
     const phase = (Date.now() % 1200) / 1200
     g.setStrokeStyle({ width: 2, color: 0xff1744, alpha: 0.7 * (1 - phase) })
     g.circle(x, y, 6 + phase * 10)
+    g.stroke()
+  }
+
+  // Predicted-conflict advisory ring (soft amber) — the probe says this pair
+  // will lose separation if nothing changes; distinct from the red halo above
+  else if (data.predictedConflictWith) {
+    g.setStrokeStyle({ width: 1, color: 0xffd600, alpha: 0.5 })
+    g.circle(x, y, 9)
     g.stroke()
   }
 
@@ -202,17 +215,30 @@ function drawAircraftBody(
     const wakeStr = data.type?.wakeCategory ? ` ${data.type.wakeCategory.slice(0, 1)}` : ''
     const squawkStr = data.squawk ? ` ${data.squawk}` : ''
 
+    // Advisory tag line — NORDO beats fuel beats prediction (max one context
+    // each; joined so multiple simultaneous states still read)
+    const tags = [
+      data.nordo ? 'NORDO' : null,
+      data.lowFuelDeclared ? 'MIN FUEL' : null,
+      data.predictedConflictWith ? `PC ${data.predictedConflictInS ?? '?'}s` : null,
+    ].filter(Boolean).join(' ')
+
     // Full Data Block (FDB) vs Partial Data Block (PDB)
-    const isFDB = data.isSelected || data.urgent || data.inViolation || data.forceLabel
+    const isFDB = data.isSelected || data.urgent || data.inViolation || data.forceLabel ||
+      data.nordo === true || data.lowFuelDeclared === true || data.predictedConflictWith != null
 
     if (isFDB) {
       // 3-Line FDB:
       // Line 1: CALLSIGN WAKE SQUAWK
       // Line 2: ALT TREND SPD
       // Line 3: C:ALT SPD
+      // Line 4 (only when flagged): NORDO / MIN FUEL / PC 45s
       let label = `${data.callsign}${wakeStr}${squawkStr}\n${altStr} ${trend} ${spdStr}`
       if (cAltStr || cSpdStr) {
         label += `\nC:${cAltStr || '---'} ${cSpdStr || '--'}`
+      }
+      if (tags) {
+        label += `\n${tags}`
       }
       text.text = label
     } else {
@@ -711,6 +737,8 @@ export default function RadarCanvas() {
         isGround,
         flightType: ac.flightType,
         squawk: ac.squawk,
+        nordo: ac.radioFailureUntilMs != null && state.elapsedMs < ac.radioFailureUntilMs,
+        lowFuelDeclared: ac.fuelDeclared === true,
       }, mapX, mapY, zoom, hoveredIdRef.current)
     }
   }

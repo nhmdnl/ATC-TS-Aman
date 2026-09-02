@@ -14,8 +14,9 @@ function makePairKey(id1: string, id2: string): ViolationPairKey {
  * Required lateral separation for a pair using the TS3 wake turbulence matrix.
  * Takes the conservative (max) of both orderings since we don't resolve
  * leader/trailer in general airspace.
+ * Exported for the conflict prediction probe, which evaluates the same matrix.
  */
-function requiredSepNM(ac1: Aircraft, ac2: Aircraft): number {
+export function requiredSepNM(ac1: Aircraft, ac2: Aircraft): number {
   const cat1 = ac1.type.wakeCategory
   const cat2 = ac2.type.wakeCategory
   const a = WAKE_SEPARATION_NM[cat1]?.[cat2] ?? MRS_NM

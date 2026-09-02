@@ -114,6 +114,8 @@ function StripCard({ ac }: { ac: Aircraft }) {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {ac.pendingPilotCall !== null && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFD600', boxShadow: '0 0 6px #FFD600' }} title="Incoming pilot call" />}
+          {ac.fuelDeclared === true && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFD600' }} title="Minimum fuel — pilot declared PAN PAN" />}
+          {ac.radioFailureUntilMs != null && state.elapsedMs < ac.radioFailureUntilMs && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#94A3B8' }} title="NORDO — radio failure, no response" />}
           {ac.urgent && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFD600' }} title="Urgent" />}
           {ac.inViolation && <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#FF1744' }} />}
           <span

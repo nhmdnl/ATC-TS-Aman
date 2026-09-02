@@ -199,6 +199,23 @@ export interface Aircraft {
   missedHeading: number | null
   missedAltitude: number | null
 
+  // ── Emergencies (emergencies.ts) — all optional so test fixtures keep compiling ──
+  /** Sim-time (ms) of fuel left; arrivals only, null = fuel not modeled */
+  fuelMsRemaining?: number | null
+  /** Pilot has called PAN PAN minimum fuel */
+  fuelDeclared?: boolean
+  /** Fuel exhausted — MAYDAY fired once */
+  fuelEmergencyDeclared?: boolean
+  /** Sim elapsedMs deadline while the aircraft is NORDO (radio failure); null = none */
+  radioFailureUntilMs?: number | null
+  /** One radio failure per aircraft per session */
+  radioFailureUsed?: boolean
+  /** Conflict prediction probe (conflict-probe.ts): callsign of the aircraft
+   *  this one is predicted to lose separation with, or null */
+  predictedConflictWith?: string | null
+  /** Seconds from now until the predicted separation loss */
+  predictedConflictInS?: number | null
+
   // Trail history for radar display
   trail: Array<{ x: number; y: number }>
 }
@@ -302,6 +319,7 @@ export interface AirportMetadata {
   readonly country: string
   readonly elevationFt: number
   readonly magneticVariation: number
+  readonly mvaFt?: number
 }
 
 /** Render-only airport geometry for the radar diagram (all coords in NM) */
@@ -384,6 +402,8 @@ export type ScoreReason =
   | 'missed_approach'
   | 'separation_violation'
   | 'missed_handoff'
+  | 'fuel_priority_landed'
+  | 'fuel_emergency'
 
 export interface ScoreEvent {
   readonly timestamp: number     // ms
@@ -437,6 +457,8 @@ export enum GameEventType {
   SIM_RESET = 'SIM_RESET',
   SESSION_ENDED = 'SESSION_ENDED',
   PILOT_CALL = 'PILOT_CALL',
+  /** A low-fuel arrival burned its remaining fuel while airborne */
+  FUEL_EMERGENCY = 'FUEL_EMERGENCY',
 }
 
 export interface GameEvent {
@@ -505,6 +527,7 @@ export interface GameStateSnapshot {
   readonly playerStations: ReadonlyArray<ControllerStation>
   readonly enabledAircraftClasses: ReadonlyArray<AircraftClass>
   readonly runwayOccupied: ReadonlySet<string>
+  readonly simRate: number
 }
 
 // ─── Wind ─────────────────────────────────────────────────────────────────────

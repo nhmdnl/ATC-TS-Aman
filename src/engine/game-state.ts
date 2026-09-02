@@ -48,6 +48,9 @@ export class GameState {
 
   // ── Session ──
   paused: boolean = false
+  /** Sim-rate multiplier — 1 = real time; the tick loop runs this many fixed
+   *  ticks per 1 Hz gate. Keys 1/2/3 and the status bar RATE buttons set it. */
+  simRate: number = 1
   elapsedMs: number = 0
   difficulty: DifficultyPreset = DIFFICULTY_PRESETS.easy
   wind: Wind = { direction: 340, speed: 4 }
@@ -204,6 +207,7 @@ export class GameState {
     this.scoreEvents = []
     this.aircraftHandled = 0
     this.paused = false
+    this.simRate = 1
     this.elapsedMs = 0
     this.sessionStartTime = Date.now()
     this.sessionStarted = false
@@ -226,6 +230,7 @@ export class GameState {
       elapsedMs: this.elapsedMs,
       aircraftHandled: this.aircraftHandled,
       paused: this.paused,
+      simRate: this.simRate,
       difficulty: this.difficulty.level,
       grade: this.getGrade(),
       sessionStarted: this.sessionStarted,
