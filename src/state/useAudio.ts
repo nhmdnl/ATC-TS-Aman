@@ -55,7 +55,7 @@ class VoicePack {
     return d
   }
 
-  play(ctx: AudioContext, tokens: string[]): void {
+  play(ctx: AudioContext, tokens: string[], onEnded?: () => void): void {
     // bandpass filter simulates radio band (300–3400 Hz narrowed to 1500 Hz centre)
     const filter = ctx.createBiquadFilter()
     filter.type = 'bandpass'
@@ -68,15 +68,26 @@ class VoicePack {
 
     let offset = ctx.currentTime + 0.01
     const GAP = 0.05
-    for (const name of tokens) {
-      const buf = this.buffers.get(name)
-      if (!buf) continue
+    const validTokens = tokens.filter(name => this.buffers.has(name))
+
+    if (validTokens.length === 0) {
+      onEnded?.()
+      return
+    }
+
+    validTokens.forEach((name, i) => {
+      const buf = this.buffers.get(name)!
       const src = ctx.createBufferSource()
       src.buffer = buf
       src.connect(filter)
+      if (i === validTokens.length - 1 && onEnded) {
+        src.onended = () => {
+          onEnded()
+        }
+      }
       src.start(offset)
       offset += buf.duration + GAP
-    }
+    })
   }
 }
 
@@ -101,6 +112,14 @@ export function transmissionSchedule(
   }
 }
 
+export interface RadioTransmission {
+  readonly speaker: 'ATC' | 'PILOT' | 'INBOUND'
+  readonly text: string
+  readonly controller?: ControllerStation
+  readonly callsign?: string
+  readonly tokens?: string[]
+}
+
 // ─── Audio Engine ─────────────────────────────────────────────────────────────
 
 class AudioEngine {
@@ -112,6 +131,10 @@ class AudioEngine {
   private voicesListenerAttached = false
   private pendingUtterances = 0
   private busyUntilMs = 0 // performance.now() timestamp when the frequency goes quiet
+  private queue: RadioTransmission[] = []
+  private isTransmitting = false
+  private activeTimeoutId: ReturnType<typeof setTimeout> | null = null
+
   private static readonly MAX_PENDING = 3
   private static readonly STATION_ORDER = [
     ControllerStation.GROUND,
@@ -167,11 +190,79 @@ class AudioEngine {
   resetPendingSpeech(): void {
     this.pendingUtterances = 0
     this.busyUntilMs = 0
+    this.queue = []
+    this.isTransmitting = false
+    if (this.activeTimeoutId) {
+      clearTimeout(this.activeTimeoutId)
+      this.activeTimeoutId = null
+    }
   }
 
   setMuted(muted: boolean): void {
     this.muted = muted
     if (this.masterGain) this.masterGain.gain.value = muted ? 0 : 1
+    if (muted) {
+      this.resetPendingSpeech()
+    }
+  }
+
+  enqueueTransmission(tx: RadioTransmission): void {
+    if (this.muted) return
+    this.queue.push(tx)
+    if (!this.isTransmitting) {
+      this.processNextTransmission()
+    }
+  }
+
+  private processNextTransmission(): void {
+    if (this.muted || this.queue.length === 0) {
+      this.isTransmitting = false
+      return
+    }
+
+    this.isTransmitting = true
+    const tx = this.queue.shift()!
+    const ctx = this.ctx
+
+    let hasAudio = false
+    let doneCalled = false
+    let safetyTimer: ReturnType<typeof setTimeout> | null = null
+
+    const onDone = () => {
+      if (doneCalled) return
+      doneCalled = true
+      if (safetyTimer) {
+        clearTimeout(safetyTimer)
+        safetyTimer = null
+      }
+      this.activeTimeoutId = setTimeout(() => {
+        this.processNextTransmission()
+      }, READBACK_GAP_MS)
+    }
+
+    const hasClips = ctx && tx.tokens && this.pack.hasAll(tx.tokens)
+
+    if (hasClips && ctx) {
+      hasAudio = true
+      const durationMs = this.pack.duration(tx.tokens!) * 1000
+      safetyTimer = setTimeout(onDone, Math.max(500, durationMs + 300))
+      this.pack.play(ctx, tx.tokens!, onDone)
+    } else if (tx.text && ('speechSynthesis' in window) && this.voicePool.length > 0) {
+      hasAudio = true
+      const voice = tx.speaker === 'ATC'
+        ? this.atcVoice(tx.controller ?? ControllerStation.TOWER)
+        : this.pilotVoice(tx.callsign ?? 'PILOT')
+      const rate = tx.speaker === 'ATC' ? 1.1 : 1.15
+      const pitch = tx.speaker === 'ATC' ? 1.0 : 0.9
+
+      const estimatedMs = this.ttsEstimateMs(tx.text, rate)
+      safetyTimer = setTimeout(onDone, Math.max(1000, estimatedMs + 2000))
+      this.speakTTS(tx.text, voice, rate, pitch, onDone)
+    }
+
+    if (!hasAudio) {
+      onDone()
+    }
   }
 
   playBeep(freq1: number, freq2: number | null, durationMs: number, type: OscillatorType = 'sine'): void {
@@ -192,11 +283,30 @@ class AudioEngine {
   playRoger(): void  { this.playBeep(1000, null, 90, 'sine') }
   playAlert(): void  { this.playBeep(800, 600, 150, 'square') }
 
-  private speakTTS(text: string, voice: SpeechSynthesisVoice, rate: number, pitch: number): void {
-    if (!('speechSynthesis' in window) || !text) return
-    if (this.pendingUtterances >= AudioEngine.MAX_PENDING) return
+  private speakTTS(
+    text: string,
+    voice: SpeechSynthesisVoice,
+    rate: number,
+    pitch: number,
+    onDone?: () => void,
+  ): void {
+    if (!('speechSynthesis' in window) || !text) {
+      onDone?.()
+      return
+    }
+    if (this.pendingUtterances >= AudioEngine.MAX_PENDING) {
+      onDone?.()
+      return
+    }
     this.pendingUtterances++
-    const release = () => { this.pendingUtterances = Math.max(0, this.pendingUtterances - 1) }
+    let called = false
+    const release = () => {
+      this.pendingUtterances = Math.max(0, this.pendingUtterances - 1)
+      if (!called) {
+        called = true
+        onDone?.()
+      }
+    }
     try {
       const u = new SpeechSynthesisUtterance(text)
       u.voice = voice
@@ -205,11 +315,12 @@ class AudioEngine {
       u.onend  = release
       u.onerror = release
       window.speechSynthesis.speak(u)
-    } catch { release() }
+    } catch {
+      release()
+    }
   }
 
-  // ponytail: rough TTS pacing (~3 words/s at rate 1) — only used to hold the
-  // frequency; speechSynthesis itself already queues TTS-vs-TTS serially.
+  // ponytail: rough TTS pacing (~3 words/s at rate 1) — fallback duration estimate
   private ttsEstimateMs(text: string, rate: number): number {
     const words = text.split(/\s+/).filter(Boolean).length
     return (words / (3 * rate)) * 1000 + 300
@@ -224,13 +335,11 @@ class AudioEngine {
     pilotTokens?: string[],
   ): void {
     if (this.muted) return
-    const ctx = this.ctx
 
+    const ctx = this.ctx
     const atcClip   = ctx && atcTokens   && this.pack.hasAll(atcTokens)
     const pilotClip = ctx && pilotTokens && this.pack.hasAll(pilotTokens)
 
-    // One transmission at a time: wait for whatever is already on frequency,
-    // then ATC speaks in full, then the pilot reads back after a short gap.
     const now = performance.now()
     const atcDurMs = atcClip
       ? this.pack.duration(atcTokens!) * 1000
@@ -242,20 +351,24 @@ class AudioEngine {
     const sched = transmissionSchedule(now, this.busyUntilMs, atcDurMs, pilotDurMs)
     this.busyUntilMs = sched.busyUntilMs
 
-    if (atcDurMs > 0) {
-      setTimeout(() => {
-        if (this.muted) return
-        if (atcClip && ctx) this.pack.play(ctx, atcTokens!)
-        else this.speakTTS(atcText, this.atcVoice(controller), 1.1, 1.0)
-      }, sched.atcStartMs - now)
+    if (atcText || (atcTokens && atcTokens.length > 0)) {
+      this.enqueueTransmission({
+        speaker: 'ATC',
+        text: atcText,
+        controller,
+        callsign,
+        tokens: atcTokens,
+      })
     }
 
-    if (pilotDurMs > 0) {
-      setTimeout(() => {
-        if (this.muted) return
-        if (pilotClip && ctx) this.pack.play(ctx, pilotTokens!)
-        else this.speakTTS(pilotText, this.pilotVoice(callsign), 1.15, 0.9)
-      }, sched.pilotStartMs - now)
+    if (pilotText || (pilotTokens && pilotTokens.length > 0)) {
+      this.enqueueTransmission({
+        speaker: 'PILOT',
+        text: pilotText,
+        controller,
+        callsign,
+        tokens: pilotTokens,
+      })
     }
   }
 
