@@ -1,5 +1,5 @@
-// Pure data — no logic. Six replayable tutorial topics, grouped for the
-// TutorialMenu. UI Basics is the original 8-step walkthrough, unchanged.
+// Pure data — no logic. Seven replayable tutorial topics, grouped for the
+// TutorialMenu.
 
 /** A render-only aircraft staged for a tutorial step. Never enters gameState —
  *  RadarCanvas draws it with the same code path as real aircraft, but nothing
@@ -43,7 +43,7 @@ const UI_BASICS_STEPS: readonly TutorialStep[] = [
   },
   {
     title: 'STATUS BAR',
-    body: 'Session time, your score, and the current traffic count (AIR airborne / GND on the ground). The PAUSE button — or Space — freezes the simulation.',
+    body: 'Session time, score, and traffic count (AIR/GND). The weather strip shows wind direction and speed — the active runway is selected into the wind — plus visibility and VMC (green) or IMC (red) conditions. Station indicators show GND/TWR/APP as YOU or AI, so you always know who owns each frequency. The PAUSE button — or Space — freezes the simulation.',
     selector: '#status-bar-container',
   },
   {
@@ -68,12 +68,35 @@ const UI_BASICS_STEPS: readonly TutorialStep[] = [
   },
   {
     title: 'RADIO LOG',
-    body: 'The party line. Your transmissions, pilot readbacks, and system warnings appear here. Pilots take a moment to read back and comply — just like the real thing.',
+    body: 'The party line. Your transmissions, pilot readbacks, and system warnings appear here. Each controller position has a distinct voice; pilots\' voices are keyed to their callsign. Press M to mute audio at any time — the log still updates regardless. Pilots take a moment to read back and comply — just like the real thing.',
     selector: '#radio-log-container',
   },
   {
     title: 'YOU HAVE THE POSITION',
-    body: 'Press G for the full controller guide, O for the mission tracker, and T to reopen this tutorial menu. Good luck — Asmara Tower is yours.',
+    body: 'Press G for the full controller guide, O for the mission tracker, T to reopen this tutorial menu, and M to toggle audio mute. Good luck — Asmara Tower is yours.',
+    selector: null,
+  },
+]
+
+const CAREER_STEPS: readonly TutorialStep[] = [
+  {
+    title: 'CAREER PROGRESSION',
+    body: 'ATC Aman tracks your progress across sessions with XP and levels. You earn XP for every controlled movement — takeoffs, landings, handoffs — and lose it for separation violations and missed approaches. Your career level persists between sessions and unlocks harder difficulty presets.',
+    selector: null,
+  },
+  {
+    title: 'DIFFICULTY PRESETS',
+    body: 'Easy is available from Level 1 and gives light traffic in VMC. Medium unlocks at Level 2 with higher traffic volume. Hard unlocks at Level 3 and introduces IMC sessions with reduced visibility and faster spawn rates. The preset is selected on the briefing screen before each session.',
+    selector: null,
+  },
+  {
+    title: 'SCORING DIMENSIONS',
+    body: 'Your performance is tracked across five dimensions: Safety (separation — this is paramount), Efficiency (throughput and minimising missed approaches), Communication (correct phraseology and timely handoffs), Procedure (following the correct phase sequence), and Awareness (proactive conflict detection). Each outcome nudges the relevant bar.',
+    selector: null,
+  },
+  {
+    title: 'SESSION GRADES',
+    body: 'When a session ends — time-expired or ended from the pause menu — the end screen shows your total score, a letter grade, all five dimension bars, session duration, and your accumulated career rank. Ranks run from Trainee (Level 1) up to Watch Supervisor (Level 12). PLAY AGAIN returns you to the briefing with progress saved.',
     selector: null,
   },
 ]
@@ -81,7 +104,7 @@ const UI_BASICS_STEPS: readonly TutorialStep[] = [
 const ATC_FUNDAMENTALS_STEPS: readonly TutorialStep[] = [
   {
     title: 'ATC FUNDAMENTALS',
-    body: 'A quick primer on the concepts every controller decision here rests on: separation, datablocks, phase flow, and handoffs.',
+    body: 'A quick primer on the concepts every controller decision here rests on: separation, datablocks, phase flow, handoffs, and weather conditions.',
     selector: null,
   },
   {
@@ -103,6 +126,11 @@ const ATC_FUNDAMENTALS_STEPS: readonly TutorialStep[] = [
     title: 'HANDOFFS',
     body: 'An aircraft is always "on frequency" with exactly one controller: Ground, Tower, or Approach. A CONTACT command formally passes it to the next one — until you do, the receiving station\'s commands are not available for that aircraft. This is why an aircraft climbing out under Tower needs CONTACT DEPARTURE before it truly leaves your sector.',
     selector: '#commands-container',
+  },
+  {
+    title: 'WEATHER CONDITIONS',
+    body: 'The status bar shows current wind (direction/speed), visibility, and whether conditions are VMC (Visual Meteorological Conditions, green) or IMC (Instrument Meteorological Conditions, red). The active runway is always selected into the wind. IMC sessions — available on Hard difficulty — reduce visibility and require you to work entirely from instrument data on the radar scope.',
+    selector: '#status-bar-container',
   },
 ]
 
@@ -219,10 +247,17 @@ export const TUTORIAL_TOPICS: readonly TutorialTopic[] = [
     steps: UI_BASICS_STEPS,
   },
   {
+    id: 'career-sessions',
+    title: 'Career & Sessions',
+    group: 'getting-started',
+    menuDescription: 'XP, levels, difficulty presets, scoring dimensions, and session grades.',
+    steps: CAREER_STEPS,
+  },
+  {
     id: 'atc-fundamentals',
     title: 'ATC Fundamentals',
     group: 'atc-knowledge',
-    menuDescription: 'Separation minima, datablocks, phase flow, and handoffs.',
+    menuDescription: 'Separation minima, datablocks, phase flow, handoffs, and weather conditions.',
     steps: ATC_FUNDAMENTALS_STEPS,
   },
   {
