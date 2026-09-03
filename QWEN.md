@@ -43,10 +43,27 @@ This section overrides the older "side-task" guidance above: side work not in
 
 ---
 
-## Project Status (2026-08-28) — development branch: sim rate + emergencies-lite + conflict probe
+## Project Status (2026-09-03) — 0.3.0 prepared on `development`
 
-Feature pack implemented on `development` (authored via AI pair session,
-Co-Authored-By: Claude), pending merge review:
+Everything below is now **committed** on `development`. Version bumped to
+0.3.0 with the CHANGELOG promoted; **not tagged and not pushed** —
+`release.yml` builds the Windows installer off the tag, so tagging is the
+user's call. 292 tests green, both typechecks clean, production build OK.
+
+Landed 2026-09-03 on top of the pack:
+- Hard-mode arrivals are clearable again — the IMC ILS gate now applies only
+  at fields that actually have an ILS runway (`316658a`).
+- Heliports carry `elevationFt`, so rotorcraft land at field elevation instead
+  of 0 ft MSL (`46d494d`).
+- Airport registry keeps one entry per ICAO, killing the duplicate-key warning
+  and the twin briefing picker buttons (`a94e1e9`).
+
+Two caveats for merge review: the Electron **35 → 43** bump rode along in the
+uncommitted tree and has not been verified against a real Electron launch; and
+`npm test` is now scoped to `src/` to dodge the stray `Update GLM-web/` export
+dump, so it no longer runs literally everything.
+
+The feature pack itself (authored via AI pair session, Co-Authored-By: Claude):
 
 - **Sim-rate controls** — `gameState.simRate` (1/2/4), status-bar RATE buttons
   + `1`/`2`/`3` keys; `useGameLoop` runs the fixed tick N times per gate.
@@ -58,7 +75,16 @@ Co-Authored-By: Claude), pending merge review:
   dead-reckoning to 180 s, wake-matrix aware, amber radar ring + `PC` tag;
   `requiredSepNM` now exported from `separation.ts` for reuse.
 - Tick order extended (emergencies before separation, probe after) — see
-  CLAUDE.md. Tests: 256 passing (was 235). CI must stay green on push.
+  CLAUDE.md. CI must stay green on push.
+
+Merge-review note: as first written, the pack was authored against a
+pre-helicopter base and its `simulation-tick.ts`, `aircraft-factory.ts` and
+`RadarCanvas.tsx` silently reverted T-013/T-014/T-015 (helipad threading,
+rotorcraft MVA exemption, `randomFixedWingType`, heliport rendering). Neither
+typecheck nor the suite caught it — `rotorcraft.test.ts` drives movement and
+phase code directly, bypassing the tick. Those three files were re-derived
+from HEAD before committing. Worth remembering for any other work that was
+branched from an older base.
 
 ## Project Status (2026-07-07) — FEATURE-COMPLETE
 

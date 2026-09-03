@@ -195,13 +195,18 @@ Status: (a)–(d) DONE 2026-07-23 (uncommitted on worktree branch). Note: (d)
 station grouping already existed as the GND/TWR/APP tab bar (hidden when the
 player controls a single station); only the disabled-reason tooltip was added.
 
-### T-011 — PRD leftovers + 0.2.0 release (user decision 2026-07-18) — target: next minor
+### T-011 — PRD leftovers + release (user decision 2026-07-18) — target: next minor
 Bundle for the next minor version: (a) visibility/weather beyond wind (PRD
 user story, never implemented); (b) career-level gameplay unlocks (PRD marks
-the hook as future); (c) cut the 0.2.0 Windows release — version bump,
+the hook as future); (c) cut the Windows release — version bump,
 CHANGELOG, tag per PLAYBOOK release flow — picking up everything landed since
 0.1.0 (gate teleport, MVA dedupe, resizable window, main menu, Linux GPU
-fixes, -500 score floor). Not scheduled.
+fixes, -500 score floor).
+Status: (a) DONE 2026-07-22. (c) **version bump + CHANGELOG DONE 2026-09-03
+as 0.3.0** — the "0.2.0" in this spec was stale (v0.2.0 and v0.2.1 were
+already tagged); the release is prepared but NOT tagged or pushed, since
+`release.yml` builds the Windows installer off the tag. Tagging is the user's
+call. (b) career unlocks remain open (PRD marks it future).
 
 ### T-009 — spstudio: designed ground pathways (user request, 2026-07-16 playtest; scoped for current sprint 2026-07-18)
 Taxi routes currently come from the auto-built taxi graph and show a slight
@@ -401,6 +406,59 @@ result.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-09-03 — LEAD (Claude) — commit the development pack, clear 3 escalations, prep 0.3.0 — DONE (user request)
+
+**1. Development feature pack committed (3 commits).** The uncommitted tree on
+`development` (sim-rate, emergencies-lite, conflict probe, serialized radio)
+turned out to be a **partial revert of shipped helicopter work**: it was
+authored against a pre-helicopter base, so `simulation-tick.ts`,
+`aircraft-factory.ts` and `RadarCanvas.tsx` silently deleted helipad threading,
+the rotorcraft MVA exemption, `randomFixedWingType`, and heliport rendering.
+Neither typecheck nor `npm test` caught it — `rotorcraft.test.ts` drives
+movement/phase code directly and bypasses the tick. Those three files were
+re-derived from HEAD with only the additive hunks re-applied.
+- `59704d5` feat(sim) — the pack + `emergencies.ts` / `conflict-probe.ts` + 3 suites
+- `9a3e80e` refactor(audio) — serialized radio transmission queue
+- `961a7d2` chore — vitest scoped to `src/` (a stray `Update GLM-web/` export dump
+  was polluting runs), Electron ^35 → ^43 **unverified against a real launch**
+
+**2. Escalations cleared (3 commits).**
+- `316658a` — **hard-mode arrivals** (2026-08-26 escalation). The IMC ILS gate
+  was weather-only; hard forces IMC and no HHAS runway has an ILS, so every
+  fixed-wing approach clearance was rejected. Per the user's design call the
+  gate is now a runway-*choice* rule: it applies only where the field actually
+  has an ILS runway. No invented chart data. +4 cases (`imc-approach.test.ts`).
+- `46d494d` — **pad elevation** (2026-08-26 escalation). Rotors have no
+  assignedRunway, so the descent floor fell back to 0 ft MSL. Heliports now
+  carry `elevationFt` from field elevation in both loader paths. The ARRIVED
+  gate and rotor go-around altitude read the same floor and had to move with
+  it — left alone, no rotorcraft would ever have touched down again. +2 cases.
+- `a94e1e9` — **duplicate ICAO** (2026-08-25 escalation). Confirmed cause: the
+  untracked `HHAS2.airport` declares ICAO "HHAS" alongside `hhas.airport.json`.
+  Registry now keeps one entry per ICAO, preferring the canonical
+  `.airport.json` so a hand-saved copy can't shadow the shipped field, and
+  warns naming both files. +5 cases (`src/state/__tests__/`).
+
+**3. Release 0.3.0 prepared** — `123a270`. See T-011 status.
+
+- Verification: `npm run typecheck` clean and `npm test` 292/292 green after
+  each commit; production `npm run build` OK; every fix has a regression test
+  that was confirmed to FAIL on the pre-fix code (stash, run, restore).
+- Notes / out of scope, not done:
+  - **Not tagged, not pushed.** `release.yml` builds the Windows installer off
+    the tag — the user's call.
+  - The Electron 35 → 43 bump rode along in the uncommitted tree and is not
+    tied to any task. Tests and build pass, but it has **not** been verified
+    against a real Electron launch. Worth a `npm run dev` before tagging.
+  - AI approach controller retries `CLEARED_APPROACH` forever if it is
+    rejected; it never re-assigns to an ILS runway. Unreachable at HHAS now
+    that the gate is capability-based, so left alone.
+  - **`npm test` no longer runs everything** — it is scoped to `src/` to dodge
+    the `Update GLM-web/` dump. Delete or gitignore that directory and the
+    scoping can go.
+  - Live Electron verification of the emergencies/probe/sim-rate features was
+    NOT done — engine suites only.
 
 ### 2026-08-26 — LEAD (Claude) — main menu (briefing) layout redesign — DONE (user request)
 - What changed: `BriefingScreen.tsx` rebuilt from a single 420 px column
@@ -820,27 +878,23 @@ AI TWR/APP):**
 
 (open items for the planning lead; include file:line and what you expected vs found)
 
-- 2026-08-25: React logs `Encountered two children with the same key: "HHAS"`
-  repeatedly on the briefing screen (airport picker list). Pre-dates the
-  helicopter work (airport registry / `BriefingScreen.tsx` airport rows);
-  cosmetic but noisy in the console. Likely the same airport appearing twice
-  in the registry (`.airport` + `.airport.json` duplicates?) — needs a look.
-- 2026-08-26: **Fixed-wing arrivals are un-clearable on HARD at HHAS.**
-  Hard preset forces IMC (ceiling 700, `constants.ts` DIFFICULTY_PRESETS)
-  and no HHAS runway carries an ILS block (`hhas.airport.json` —
-  `ils.available` absent on all four runways), so the IMC gate in
-  `command-validators.ts` (CLEARED_APPROACH) rejects every fixed-wing
-  approach clearance → arrivals overfly and are removed at 20 NM. Observed
-  live during the T-015 watch; rotorcraft were exempted in 6a52d7d because
-  their visual pad approach needs no runway. Needs a design call: add ILS
-  data to one HHAS runway (editor/data change) or relax the hard-preset
-  weather, plus AI-app behavior when it cannot clear.
-- 2026-08-26: Helipads land below field elevation. Pads carry no elevation
-  data, so the rotor hover-descent runs to ~0 ft MSL while the airfield is
-  7,661 ft — radar altitude readouts show a helicopter "landing" ~2 mi low
-  before ARRIVED (observed: alt 3217→67 ft while d≈0.5 NM from pad H1).
-  Cosmetic/state quirk; fix would be deriving heliport elevation from
-  airport elevation in `airport-loader.ts`.
+- ~~2026-08-25: React logs `Encountered two children with the same key:
+  "HHAS"` repeatedly on the briefing screen (airport picker list).~~
+  **RESOLVED 2026-09-03 (`a94e1e9`).** Cause confirmed: the untracked
+  `HHAS2.airport` declares ICAO "HHAS" alongside `hhas.airport.json`. The
+  registry now keeps one entry per ICAO (canonical `.airport.json` preferred)
+  and warns naming both files.
+- ~~2026-08-26: **Fixed-wing arrivals are un-clearable on HARD at HHAS.**~~
+  **RESOLVED 2026-09-03 (`316658a`).** User's design call: neither add ILS data
+  nor relax the preset — make the gate a runway-*choice* rule that applies only
+  at a field which actually has an ILS runway. HHAS keeps `ils:false` on all
+  four ends. Still open, but unreachable at HHAS: the AI approach controller
+  retries `CLEARED_APPROACH` forever when rejected instead of re-assigning to
+  an ILS runway.
+- ~~2026-08-26: Helipads land below field elevation.~~
+  **RESOLVED 2026-09-03 (`46d494d`).** Heliports carry `elevationFt` derived
+  from field elevation in both loader paths; the rotor descent, flare, ARRIVED
+  gate and go-around altitude all read it.
 - 2026-08-26 (T-010 note): voice-tokenizer WITH_YOU_FINAL branch emits
   "…on final runway <digits>" tokens for rotorcraft too (no assignedRunway
   → digit tokens empty) while the text line now says "for the helipad" —
