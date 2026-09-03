@@ -258,11 +258,14 @@ function moveApproach(aircraft: Aircraft, dtSeconds: number, runway: RunwayData 
 
   // Altitude
   if (aircraft.type.rotorcraft && helipad && aircraft.clearedForApproach) {
-    // Rotorcraft: descend straight toward the pad elevation — no glideslope
-    const fieldElev = runway?.elevationFt ?? 0
-    if (aircraft.altitude > fieldElev) {
+    // Rotorcraft: descend straight toward the pad elevation — no glideslope.
+    // The pad carries the elevation because a rotor has no assignedRunway to
+    // read it from — without it they descended to 0 ft MSL, ~7,600 ft below
+    // the HHAS field.
+    const padElev = helipad.elevationFt ?? runway?.elevationFt ?? 0
+    if (aircraft.altitude > padElev) {
       const descFt = aircraft.type.descentRate * (dtSeconds / 60)
-      aircraft.altitude = Math.max(aircraft.altitude - descFt, fieldElev)
+      aircraft.altitude = Math.max(aircraft.altitude - descFt, padElev)
     }
   } else if (aircraft.clearedForApproach && runway) {
     const distToThresh = distanceNM(aircraft.x, aircraft.y, runway.thresholdX, runway.thresholdY)
@@ -313,9 +316,9 @@ function moveLanding(aircraft: Aircraft, dtSeconds: number, runway: RunwayData |
     aircraft.heading = turnToward(aircraft.heading,
       bearingBetween(aircraft.x, aircraft.y, helipad.x, helipad.y), 5)
     aircraft.speed = Math.max(aircraft.speed - 3, 0)
-    const fieldElev = runway?.elevationFt ?? 0
-    if (aircraft.altitude > fieldElev) {
-      aircraft.altitude = Math.max(aircraft.altitude - 50, fieldElev)
+    const padElev = helipad.elevationFt ?? runway?.elevationFt ?? 0
+    if (aircraft.altitude > padElev) {
+      aircraft.altitude = Math.max(aircraft.altitude - 50, padElev)
     }
     const travelNM = (aircraft.speed / 3600) * dtSeconds
     const dist = distanceNM(aircraft.x, aircraft.y, helipad.x, helipad.y)

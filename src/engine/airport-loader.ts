@@ -81,7 +81,10 @@ function loadV1Airport(data: any): Airport {
       id: h.id,
       x: h.x,
       y: h.y,
-      taxiwayId: h.taxiway_id || h.taxiwayId || ''
+      taxiwayId: h.taxiway_id || h.taxiwayId || '',
+      // ponytail: pads sit at field elevation — no per-pad elevation in the
+      // schema (a rooftop pad would need one authored in the editor)
+      elevationFt: h.elevation_ft ?? h.elevationFt ?? (data.metadata.elevation_ft || 0),
     })),
     parking: data.parking || [],
     frequencies: data.frequencies || [],
@@ -199,7 +202,14 @@ function loadEditorAirport(data: any, SCALE: number): Airport {
       gates.push({ id: obj.name || `G${gates.length + 1}`, x: p.x, y: p.y, taxiwayId: '' })
     } else if (obj.type === 'heliport' && obj.position) {
       const p = toNM(obj.position)
-      heliports.push({ id: obj.name || `H${heliports.length + 1}`, x: p.x, y: p.y, taxiwayId: '' })
+      // ponytail: pads sit at field elevation — see the v1 loader note
+      heliports.push({
+        id: obj.name || `H${heliports.length + 1}`,
+        x: p.x,
+        y: p.y,
+        taxiwayId: '',
+        elevationFt: data.metadata?.elevation || 0,
+      })
     } else if (obj.type === 'label' && obj.position && obj.text) {
       const p = toNM(obj.position)
       diagramLabels.push({ text: obj.text, x: p.x, y: p.y })

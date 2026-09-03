@@ -183,7 +183,7 @@ export function processPhaseTransitions(
             aircraft.clearedToLand = false
             aircraft.urgent = false
             aircraft.missedHeading = aircraft.heading
-            aircraft.missedAltitude = (runway?.elevationFt ?? 0) + 4000
+            aircraft.missedAltitude = (helipad.elevationFt ?? runway?.elevationFt ?? 0) + 4000
             eventBus.emit(GameEventType.MISSED_APPROACH, { callsign: aircraft.callsign })
           }
         }
@@ -220,7 +220,8 @@ export function processPhaseTransitions(
       // arrivals score exactly like a fixed-wing landing + gate arrival.
       if (aircraft.type.rotorcraft && helipad &&
           distanceNM(aircraft.x, aircraft.y, helipad.x, helipad.y) < 0.01 &&
-          aircraft.altitude <= (runway?.elevationFt ?? 0) + 5 && aircraft.speed <= 30) {
+          aircraft.altitude <= (helipad.elevationFt ?? runway?.elevationFt ?? 0) + 5 &&
+          aircraft.speed <= 30) {
         aircraft.phase = AircraftPhase.ARRIVED
         aircraft.speed = 0
         aircraft.x = helipad.x

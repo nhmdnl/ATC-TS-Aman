@@ -278,6 +278,9 @@ export interface GateData {
   readonly x: number             // NM
   readonly y: number             // NM
   readonly taxiwayId: string
+  /** Set on heliports (derived from field elevation) so rotorcraft descend to
+   *  the ground and not to 0 ft MSL. Undefined on ordinary gates. */
+  readonly elevationFt?: number
 }
 
 export interface ParkingData {

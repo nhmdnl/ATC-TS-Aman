@@ -426,4 +426,63 @@ describe('loadAirport — real HHAS data carries the T-015 heliports', () => {
     const airport = loadAirport(hhasData)
     expect(airport.heliports!.map(h => h.id).sort()).toEqual(['H1', 'H2'])
   })
+
+  it('gives every pad the field elevation', () => {
+    const airport = loadAirport(hhasData)
+    const fieldElev = airport.metadata.elevationFt
+    expect(fieldElev).toBeGreaterThan(7000)
+    for (const pad of airport.heliports!) {
+      expect(pad.elevationFt).toBe(fieldElev)
+    }
+  })
+})
+
+/**
+ * Regression: rotorcraft have no assignedRunway, so the tick passes
+ * runway=null — the descent floor used to fall back to 0 ft MSL and the
+ * helicopter "landed" ~7,600 ft below the HHAS field before ARRIVED.
+ * The pad now carries the elevation.
+ */
+describe('rotorcraft descend to pad elevation, not 0 ft MSL', () => {
+  beforeEach(() => {
+    gameState.reset()
+  })
+
+  afterEach(() => {
+    gameState.reset()
+  })
+
+  it('lands at field elevation on a real HHAS pad with no runway in play', () => {
+    const airport = loadAirport(hhasData)
+    const pad = findHelipadById(airport, 'H1')!
+    const fieldElev = airport.metadata.elevationFt
+
+    const ac = makeHelicopter({
+      flightType: 'arrival',
+      phase: AircraftPhase.APPROACH,
+      controller: ControllerStation.APPROACH,
+      x: pad.x,
+      y: pad.y - 6,
+      heading: 0,
+      altitude: fieldElev + 3000,
+      speed: 120,
+    })
+    gameState.addAircraft(ac)
+
+    executeCommand(cmd(CommandType.CLEARED_APPROACH), ac, airport)
+    executeCommand(cmd(CommandType.CLEARED_LAND), ac, airport)
+
+    let lowest = ac.altitude
+    // runway === null, exactly as simulation-tick passes it for a rotorcraft
+    for (let t = 0; t < 900 && ac.phase !== AircraftPhase.ARRIVED; t++) {
+      moveAircraft(ac, 1, null, pad)
+      processPhaseTransitions(ac, null, airport, pad)
+      lowest = Math.min(lowest, ac.altitude)
+    }
+
+    expect(ac.phase).toBe(AircraftPhase.ARRIVED)
+    expect(ac.altitude).toBe(fieldElev)
+    // never dipped toward sea level on the way down
+    expect(lowest).toBe(fieldElev)
+  })
 })
