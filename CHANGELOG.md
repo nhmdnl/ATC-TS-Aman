@@ -4,10 +4,24 @@ All notable changes to ATC Aman are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] — 2026-09-03
 
 ### Added
 
+- **Helicopter support** — airports can now host rotorcraft traffic end to end:
+  - Five flyable helicopter types (H125, H135, AW139, UH-60, EC135) with
+  realistic performance; heliports are authorable in airport files
+  (`"type": "heliport"` objects) and render as H-marked circles on the radar.
+  - Rotorcraft skip the entire ground chain: they liftoff vertically from
+  their pad on a cleared-liftoff instruction and land straight onto an
+  assigned pad — no pushback, taxi, or runway. Arrivals are vectored to the
+  pad and go around if not cleared; departures climb out via the normal
+  handoff. Ground-movement clearances are rejected for rotorcraft with a
+  clear radio message.
+  - HHAS gains two apron-side helipads (H1/H2) plus scheduled traffic
+  (HMS501 arrival, HMS502 departure).
+- **Arrival-side authored ground paths** (T-009) — runway exits, rollout
+  turn-off, and a visible taxi-in to the gate, replacing the gate teleport.
 - **Sim-rate controls** — run the simulation at 1× / 2× / 4× via status-bar
   RATE buttons or the `1` / `2` / `3` keys. The fixed 1 Hz tick runs N times
   per gate, so physics and phase logic stay fixed-step while sim time (fuel
@@ -30,20 +44,37 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **constants.ts merged with GLM-web branch** — added `SIM_RATES`,
-  emergency fuel/radio-failure constants (`LOW_FUEL_ARRIVAL_CHANCE`,
-  `LOW_FUEL_TOTAL_MS`, `LOW_FUEL_DECLARE_MS`, `RADIO_FAILURE_CHANCE_PER_TICK`,
-  `RADIO_FAILURE_DURATION_MS`), conflict-probe constants
-  (`CONFLICT_PROBE_HORIZON_S`, `CONFLICT_PROBE_STEP_S`), and
-  `fuel_priority_landed` / `fuel_emergency` entries to `SCORE_DELTAS`,
-  `DIMENSION_DELTAS`, and `XP_PER_REASON`. All five rotorcraft entries
-  (H125, H135, AW139, H60, EC35) with `rotorcraft: true` preserved.
+- **Briefing screen redesign** — the single-column menu overflowed 1280 × 720
+  with no scroll (the title and action rows were unreachable at the kiosk
+  size); it is now a full-width two-column briefing sheet: airport context and
+  map preview left, session setup right, actions anchored bottom.
+- **Radio transmissions are serialized** — ATC and pilot calls play one at a
+  time through a transmission queue instead of two independent timers, so
+  simultaneous traffic no longer talks over itself. Muting flushes the queue.
 - Radar datablocks grow an optional 4th advisory line (`NORDO` / `MIN FUEL` /
   `PC 45s`) that also forces Full Data Block display for flagged traffic.
 - AI controllers now work declared low-fuel aircraft immediately (bypassing
   the human-like decision interval) and skip NORDO aircraft entirely.
-- Test suite grew from 235 to 256 tests (sim-rate, conflict-probe, and
-  emergencies suites added).
+- Radar display and UI reworked toward realistic ATC console visuals;
+  per-session aircraft class settings and fleet toggles; aircraft model labels
+  and runway-size suitability.
+- Electron 35 → 43.
+- Test suite grew from 235 to 292 tests.
+
+### Fixed
+
+- **Fixed-wing arrivals were un-clearable on hard at HHAS** — the IMC approach
+  gate demanded an ILS that no HHAS runway has, so every approach clearance
+  was rejected and arrivals overflew the field. The gate now applies only at
+  airports that actually have an ILS runway.
+- **Helicopters descended to 0 ft MSL** instead of pad elevation, "landing"
+  thousands of feet below the 7,661 ft field before arriving.
+- **Duplicate ICAO in the airport registry** produced two identical briefing
+  picker buttons and a React duplicate-key warning on every render.
+- **Arrivals froze permanently at 12 NM**, which also blocked every spawn fix
+  behind them and stalled scheduled traffic.
+- Rotorcraft arrivals never fired their initial "with you" call, and rotor
+  approach clearances were impossible in IMC.
 
 ## [0.2.0] — 2026-07-22
 

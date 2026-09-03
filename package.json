@@ -1,6 +1,6 @@
 {
   "name": "atc-aman",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "ATC Aman — real-time air traffic control simulation",
   "license": "MIT",
