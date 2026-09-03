@@ -99,8 +99,22 @@ export function validateCommand(command: Command, aircraft: Aircraft, airport: A
         // they have no runway, so an ILS requirement would make them
         // un-clearable in every IMC session
         if (airport && gameState.getConditions() === 'IMC') {
-          const hasIls = airport.runways.some(r => r.id === aircraft.assignedRunway && r.ils?.available)
-          if (!hasIls) return 'IMC conditions — ILS not available on this runway'
+          // The gate is a runway-choice rule, not a weather ban: it only bites
+          // at a field that actually has an ILS somewhere, where sending an
+          // arrival to the non-ILS end in IMC is the controller's mistake.
+          // At a field with no ILS at all (HHAS) every approach is
+          // non-precision, so the clearance stands — otherwise the hard preset
+          // (IMC by definition) made every fixed-wing arrival un-clearable and
+          // arrivals just overflew and got removed at 20 NM.
+          // ponytail: no non-precision minima modeled — an approach at an
+          // ILS-less field is always clearable regardless of how low the
+          // ceiling is. Upgrade path: per-runway approach minima from the
+          // plate (VOR/NDB/RNP DA-MDA), refused below minimums.
+          const fieldHasIls = airport.runways.some(r => r.ils?.available)
+          if (fieldHasIls) {
+            const hasIls = airport.runways.some(r => r.id === aircraft.assignedRunway && r.ils?.available)
+            if (!hasIls) return 'IMC conditions — ILS not available on this runway'
+          }
         }
       } else if (command.type === CommandType.CLEARED_LAND) {
         if (rwyId && gameState.runwayOccupied.has(rwyId)) {
