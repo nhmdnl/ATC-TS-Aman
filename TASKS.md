@@ -169,6 +169,26 @@ app rather than the canonical one — resolve which app is authoritative first.
 
 ---
 
+### T-010 — recorded radio voice pack replaces Web Speech TTS (user request, 2026-07-18) — target: next major version (v2)
+Replace runtime TTS with concatenative pre-recorded audio: a token library
+(ATC digits "tree/fife/niner", airline call names, phrase chunks from
+`phraseology.ts`, alerts — est. 150–250 tokens per voice, 2 voices for v1:
+one ATC, one pilot). Agreed split: Claude generates the line sheet from
+`phraseology.ts` (token list + pronunciation notes + filenames), user
+records/edits the assets, Claude builds the playback layer in `useAudio.ts`
+(token-stream emission alongside text, clip-chaining queue, manifest, Web
+Speech fallback for missing tokens so it ships incrementally), then a
+WebAudio radio-effect pass (bandpass + static; also masks concatenation
+seams). Rationale: kills the SAPI/platform voice dependency (Windows deploy
+sounds identical everywhere, offline). Not scheduled — next major version,
+after the current playtest round stabilizes.
+
+---
+
+## Done
+
+---
+
 ### T-013 — Helicopter support 1/3: rotorcraft types + heliport schema (user request, 2026-08-22)
 
 **Status:** DONE (2026-08-25) · **Repo:** sim · **Priority:** P1
@@ -278,24 +298,6 @@ green.
 
 **Out of scope:** spstudio authoring support (file as its own task if wanted);
 tutorial content updates.
-
-### T-010 — recorded radio voice pack replaces Web Speech TTS (user request, 2026-07-18) — target: next major version (v2)
-Replace runtime TTS with concatenative pre-recorded audio: a token library
-(ATC digits "tree/fife/niner", airline call names, phrase chunks from
-`phraseology.ts`, alerts — est. 150–250 tokens per voice, 2 voices for v1:
-one ATC, one pilot). Agreed split: Claude generates the line sheet from
-`phraseology.ts` (token list + pronunciation notes + filenames), user
-records/edits the assets, Claude builds the playback layer in `useAudio.ts`
-(token-stream emission alongside text, clip-chaining queue, manifest, Web
-Speech fallback for missing tokens so it ships incrementally), then a
-WebAudio radio-effect pass (bandpass + static; also masks concatenation
-seams). Rationale: kills the SAPI/platform voice dependency (Windows deploy
-sounds identical everywhere, offline). Not scheduled — next major version,
-after the current playtest round stabilizes.
-
----
-
-## Done
 
 ---
 
