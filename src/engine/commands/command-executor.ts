@@ -85,8 +85,16 @@ export function executeCommand(command: Command, aircraft: Aircraft, airport: Ai
     case CommandType.CLEARED_APPROACH:
       aircraft.clearedForApproach = true
       // Rotorcraft (T-014) approach their assigned helipad — no runway to pick
-      if (!aircraft.type.rotorcraft && !aircraft.assignedRunway && airport) {
-        aircraft.assignedRunway = selectActiveRunway(airport, gameState.wind)?.id ?? null
+      if (!aircraft.type.rotorcraft) {
+        if (command.params.runway) {
+          // An explicit runway re-assigns. This is the only way an already
+          // assigned end can be changed, and IMC needs it: the arrival is
+          // given its runway by wind at spawn, which may not be the precision
+          // one the approach clearance requires.
+          aircraft.assignedRunway = command.params.runway
+        } else if (!aircraft.assignedRunway && airport) {
+          aircraft.assignedRunway = selectActiveRunway(airport, gameState.wind)?.id ?? null
+        }
       }
       break
 

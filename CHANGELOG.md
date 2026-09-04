@@ -4,6 +4,23 @@ All notable changes to ATC Aman are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **AI approach controller could refuse the same clearance forever.** At a
+  field with an ILS, in IMC, an arrival whose runway was chosen by wind at
+  spawn could be sitting on the non-precision end. The IMC runway-choice rule
+  then refused `CLEARED_APPROACH` — and because a rejected command sets neither
+  `clearedForApproach` nor `lastCommandTime`, the AI re-issued the identical
+  refused clearance on the next tick, and every tick after, until the arrival
+  overflew the boundary and was removed. The approach AI now assigns the
+  precision runway together with the clearance, `selectActiveRunway` can be
+  asked for an ILS end, command validation judges the runway a clearance is
+  actually for rather than the stale assignment, and the executor honours an
+  explicit runway. Unreachable at HHAS, which has no ILS on any of its four
+  ends — the regression tests run against a synthetic ILS field.
+
 ## [0.3.1] — 2026-09-04
 
 ### Changed

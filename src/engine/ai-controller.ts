@@ -2,6 +2,7 @@ import type { Aircraft } from './types'
 import { AircraftPhase, CommandType, ControllerStation } from './types'
 import type { GameState } from './game-state'
 import { processCommand } from './commands/command-registry'
+import { selectActiveRunway } from './airport-loader'
 import { AI_MIN_DECISION_INTERVAL_MS } from './constants'
 
 /**
@@ -83,6 +84,33 @@ function aiStationFor(aircraft: Aircraft): ControllerStation {
   return aircraft.controller
 }
 
+/**
+ * Precision runway this arrival has to be moved to before it can be cleared,
+ * or null when no move is needed.
+ *
+ * `command-validators.ts` refuses CLEARED_APPROACH to a non-ILS end in IMC at
+ * a field that has an ILS somewhere. The arrival's runway comes from wind at
+ * spawn, so it can easily be the wrong one — and a rejected command never sets
+ * `clearedForApproach`, never touches `lastCommandTime`, and leaves
+ * `nextExpectedCommand` returning CLEARED_APPROACH again. Without this the AI
+ * re-issues the same refused clearance every tick until the arrival overflies
+ * the boundary and is removed. Mirrors the validator's condition exactly.
+ */
+function ilsRunwayToAssign(aircraft: Aircraft, state: GameState): string | null {
+  if (aircraft.type.rotorcraft) return null
+  const airport = state.airport
+  if (!airport) return null
+  if (state.getConditions() !== 'IMC') return null
+  if (!airport.runways.some(r => r.ils?.available)) return null
+
+  const assignedIsPrecision = airport.runways.some(
+    r => r.id === aircraft.assignedRunway && r.ils?.available,
+  )
+  if (assignedIsPrecision) return null
+
+  return selectActiveRunway(airport, state.wind, { requireIls: true })?.id ?? null
+}
+
 export function runAiControllers(state: GameState, nowMs: number): void {
   if (!state.airport) return
 
@@ -99,6 +127,14 @@ export function runAiControllers(state: GameState, nowMs: number): void {
       if (state.runwayOccupied.has(aircraft.assignedRunway)) continue
     }
 
-    processCommand({ type: commandType, targetCallsign: aircraft.callsign, params: {} }, state.airport)
+    // Approach clearance carries the precision runway when IMC demands one,
+    // so the clearance validates instead of being refused on repeat.
+    const params: Record<string, string> = {}
+    if (commandType === CommandType.CLEARED_APPROACH) {
+      const runway = ilsRunwayToAssign(aircraft, state)
+      if (runway) params.runway = runway
+    }
+
+    processCommand({ type: commandType, targetCallsign: aircraft.callsign, params }, state.airport)
   }
 }

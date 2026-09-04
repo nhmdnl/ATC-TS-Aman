@@ -351,12 +351,28 @@ export function getAvailableHelipads(airport: Airport, occupiedGateIds: Set<stri
  * Only the longest strip is considered so light winds never divert traffic
  * to a short secondary runway. Calm or tied wind keeps the first-listed end
  * (the previous runways[0] default).
- * ponytail: no ILS preference or crosswind limits — add if ops realism matters
+ * `requireIls` narrows the pool to precision ends before any of that, for the
+ * case where a controller must put an arrival on an ILS in IMC. It is applied
+ * ahead of the longest-strip rule on purpose: the precision end is not always
+ * on the longest strip, and in IMC the approach aid outranks the pavement.
+ * Returns null when nothing in the pool qualifies.
+ *
+ * ponytail: no crosswind or tailwind limits — an ILS end is still chosen on
+ * headwind alone, so a field whose only precision end faces the wind will be
+ * assigned a tailwind landing. Upgrade path: per-runway crosswind/tailwind
+ * limits from the plate, refused beyond them.
  */
-export function selectActiveRunway(airport: Airport, wind: Wind): RunwayData | null {
-  if (airport.runways.length === 0) return null
-  const maxLength = Math.max(...airport.runways.map(r => r.length))
-  const candidates = airport.runways.filter(r => r.length === maxLength)
+export function selectActiveRunway(
+  airport: Airport,
+  wind: Wind,
+  opts?: { readonly requireIls?: boolean },
+): RunwayData | null {
+  const pool = opts?.requireIls
+    ? airport.runways.filter(r => r.ils?.available)
+    : airport.runways
+  if (pool.length === 0) return null
+  const maxLength = Math.max(...pool.map(r => r.length))
+  const candidates = pool.filter(r => r.length === maxLength)
   let best = candidates[0]
   let bestHeadwind = -Infinity
   for (const r of candidates) {

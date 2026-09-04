@@ -279,52 +279,6 @@ green.
 **Out of scope:** spstudio authoring support (file as its own task if wanted);
 tutorial content updates.
 
-### T-012 — UI design pass 3: radar scope readability + panel upgrades (user request, 2026-07-23)
-Follow-up to the 22-item UI/UX audit (16 shipped 2026-07-22). Four batches,
-in impact order — user approved starting with (a):
-(a) **Radar** (`RadarCanvas.tsx`): draw runway threshold numbers (25/07) and
-gate labels (G1…) on the diagram; render authored hold-short bars in the sim
-(ties T-009 editor work into the picture); richer data tags (type, speed,
-altitude + climb/descend arrow, leader line); selected-aircraft highlight
-ring. (b) **Radio log** (`RadioLog.tsx`): expandable/resizable panel, click a
-callsign to select that aircraft. (c) **Flight strips**: tooltips for status
-abbreviations (PBK?/RDY/TOFF…), attention pulse on strips waiting for a
-player command. (d) **Command panel**: group buttons by station, tooltip on
-disabled buttons explaining the unmet requirement.
-Status: (a)–(d) DONE 2026-07-23 (uncommitted on worktree branch). Note: (d)
-station grouping already existed as the GND/TWR/APP tab bar (hidden when the
-player controls a single station); only the disabled-reason tooltip was added.
-
-### T-011 — PRD leftovers + release (user decision 2026-07-18) — target: next minor
-Bundle for the next minor version: (a) visibility/weather beyond wind (PRD
-user story, never implemented); (b) career-level gameplay unlocks (PRD marks
-the hook as future); (c) cut the Windows release — version bump,
-CHANGELOG, tag per PLAYBOOK release flow — picking up everything landed since
-0.1.0 (gate teleport, MVA dedupe, resizable window, main menu, Linux GPU
-fixes, -500 score floor).
-Status: (a) DONE 2026-07-22. (c) **version bump + CHANGELOG DONE 2026-09-03
-as 0.3.0** — the "0.2.0" in this spec was stale (v0.2.0 and v0.2.1 were
-already tagged); the release is prepared but NOT tagged or pushed, since
-`release.yml` builds the Windows installer off the tag. Tagging is the user's
-call. (b) career unlocks remain open (PRD marks it future).
-
-### T-009 — spstudio: designed ground pathways (user request, 2026-07-16 playtest; scoped for current sprint 2026-07-18)
-Taxi routes currently come from the auto-built taxi graph and show a slight
-visual offset from the drawn taxiways; landing/rollout also doesn't track the
-drawn runway exactly. The user wants ground pathways to be authored in
-airport-Studio at design time (explicit taxi/runway paths in the `.airport`
-file) so aircraft follow exactly what the designer drew. Scope: spstudio
-editor support for drawing pathways + engine consumption alongside/instead of
-the derived graph.
-
-**Sprint scope (user, 2026-07-18): DONE — see Worklog.** Departure chain
-ships: line-up now taxis hold-short → runway-entry → threshold and takes
-off on the drawn centerline (sim commit 4cfce52); hold-short bars are
-authorable via the editor's Holding Point tool and override the synthesized
-setback in the derived graph.
-**Arrival-side scope: DONE (2026-08-14).** Exit-runway routing, rollout turn-off,
-and visible taxi-in to gate complete.
-
 ### T-010 — recorded radio voice pack replaces Web Speech TTS (user request, 2026-07-18) — target: next major version (v2)
 Replace runtime TTS with concatenative pre-recorded audio: a token library
 (ATC digits "tree/fife/niner", airline call names, phrase chunks from
@@ -342,6 +296,64 @@ after the current playtest round stabilizes.
 ---
 
 ## Done
+
+---
+
+### T-009 — spstudio: designed ground pathways (user request, 2026-07-16 playtest; scoped for current sprint 2026-07-18)
+
+**Closed 2026-09-05:** DONE. Departure pathway chain landed 2026-08-14; the remaining arrival-side authored paths — runway exits, rollout turn-off and the visible taxi-in that replaced the gate teleport — shipped in 0.3.0 (CHANGELOG credits T-009). Nothing outstanding.
+Taxi routes currently come from the auto-built taxi graph and show a slight
+visual offset from the drawn taxiways; landing/rollout also doesn't track the
+drawn runway exactly. The user wants ground pathways to be authored in
+airport-Studio at design time (explicit taxi/runway paths in the `.airport`
+file) so aircraft follow exactly what the designer drew. Scope: spstudio
+editor support for drawing pathways + engine consumption alongside/instead of
+the derived graph.
+
+**Sprint scope (user, 2026-07-18): DONE — see Worklog.** Departure chain
+ships: line-up now taxis hold-short → runway-entry → threshold and takes
+off on the drawn centerline (sim commit 4cfce52); hold-short bars are
+authorable via the editor's Holding Point tool and override the synthesized
+setback in the derived graph.
+**Arrival-side scope: DONE (2026-08-14).** Exit-runway routing, rollout turn-off,
+and visible taxi-in to gate complete.
+
+---
+
+### T-011 — PRD leftovers + release (user decision 2026-07-18) — target: next minor
+
+**Closed 2026-09-05:** DONE. (a) weather 2026-07-22. (b) career unlocks are shipped and wired — `DIFFICULTY_UNLOCK_LEVEL` is consumed by `BriefingScreen.tsx` and covered by `career-unlocks.test.ts`. (c) the release is cut: v0.3.0 and v0.3.1 are both tagged and pushed, and `release.yml` built and published the Windows installer off each tag. The "prepared but NOT tagged" note in the body is superseded.
+Bundle for the next minor version: (a) visibility/weather beyond wind (PRD
+user story, never implemented); (b) career-level gameplay unlocks (PRD marks
+the hook as future); (c) cut the Windows release — version bump,
+CHANGELOG, tag per PLAYBOOK release flow — picking up everything landed since
+0.1.0 (gate teleport, MVA dedupe, resizable window, main menu, Linux GPU
+fixes, -500 score floor).
+Status: (a) DONE 2026-07-22. (c) **version bump + CHANGELOG DONE 2026-09-03
+as 0.3.0** — the "0.2.0" in this spec was stale (v0.2.0 and v0.2.1 were
+already tagged); the release is prepared but NOT tagged or pushed, since
+`release.yml` builds the Windows installer off the tag. Tagging is the user's
+call. (b) career unlocks remain open (PRD marks it future).
+
+---
+
+### T-012 — UI design pass 3: radar scope readability + panel upgrades (user request, 2026-07-23)
+
+**Closed 2026-09-05:** DONE. (a)–(d) completed 2026-07-23. The "uncommitted on worktree branch" caveat in the body is obsolete — those branches were merged into `development` and pruned 2026-09-04.
+Follow-up to the 22-item UI/UX audit (16 shipped 2026-07-22). Four batches,
+in impact order — user approved starting with (a):
+(a) **Radar** (`RadarCanvas.tsx`): draw runway threshold numbers (25/07) and
+gate labels (G1…) on the diagram; render authored hold-short bars in the sim
+(ties T-009 editor work into the picture); richer data tags (type, speed,
+altitude + climb/descend arrow, leader line); selected-aircraft highlight
+ring. (b) **Radio log** (`RadioLog.tsx`): expandable/resizable panel, click a
+callsign to select that aircraft. (c) **Flight strips**: tooltips for status
+abbreviations (PBK?/RDY/TOFF…), attention pulse on strips waiting for a
+player command. (d) **Command panel**: group buttons by station, tooltip on
+disabled buttons explaining the unmet requirement.
+Status: (a)–(d) DONE 2026-07-23 (uncommitted on worktree branch). Note: (d)
+station grouping already existed as the GND/TWR/APP tab bar (hidden when the
+player controls a single station); only the disabled-reason tooltip was added.
 
 ---
 
@@ -988,9 +1000,17 @@ AI TWR/APP):**
   **RESOLVED 2026-09-03 (`316658a`).** User's design call: neither add ILS data
   nor relax the preset — make the gate a runway-*choice* rule that applies only
   at a field which actually has an ILS runway. HHAS keeps `ils:false` on all
-  four ends. Still open, but unreachable at HHAS: the AI approach controller
-  retries `CLEARED_APPROACH` forever when rejected instead of re-assigning to
-  an ILS runway.
+  four ends. The follow-on AI defect is **RESOLVED 2026-09-05:** the approach
+  AI re-issued `CLEARED_APPROACH` every tick once the IMC precision rule
+  refused it, because a rejection sets neither `clearedForApproach` nor
+  `lastCommandTime`, so `nextExpectedCommand` kept returning the same refused
+  command until the arrival overflew the boundary. It now assigns the precision
+  runway *with* the clearance: `selectActiveRunway(..., { requireIls: true })`
+  picks the end, the clearance carries it, `command-validators.ts` judges the
+  runway the clearance is for instead of the stale assignment, and the executor
+  honours an explicit runway. Three tests in `ai-controller.test.ts` cover it
+  against a synthetic ILS field — HHAS has no ILS to reproduce it on, which is
+  why this sat open.
 - ~~2026-08-26: Helipads land below field elevation.~~
   **RESOLVED 2026-09-03 (`46d494d`).** Heliports carry `elevationFt` derived
   from field elevation in both loader paths; the rotor descent, flare, ARRIVED
@@ -999,8 +1019,13 @@ AI TWR/APP):**
   "…on final runway <digits>" tokens for rotorcraft too (no assignedRunway
   → digit tokens empty) while the text line now says "for the helipad" —
   token library will need a pc_with_you_final_helipad chunk.
-- 2026-08-26 (low priority, automation-only): sessions created by
+  **Owner: user — finishing 2026-09-06 evening.** Left alone until then.
+- ~~2026-08-26 (low priority, automation-only): sessions created by
   mutating the gameState singleton directly (CDP harness) can end up with
-  the scheduler not firing until poked manually — never reproduced through
-  the normal briefing→START path; noted in case someone debugs CDP-driven
-  sessions later.
+  the scheduler not firing until poked manually.~~
+  **CLOSED 2026-09-05 — not a product defect.** It only occurs when a harness
+  writes the singleton directly and skips the briefing→START path that
+  initialises the scheduler; no player-reachable path does this, and it was
+  never reproduced through the normal flow. Keeping it in the escalation queue
+  implied a bug that is not there. Retained as guidance: a CDP-driven session
+  must go through the real start path, or drive the scheduler itself.

@@ -82,7 +82,10 @@ export function validateCommand(command: Command, aircraft: Aircraft, airport: A
     case CommandType.CLEARED_TAKEOFF:
     case CommandType.CLEARED_LAND:
     case CommandType.CLEARED_APPROACH: {
-      const rwyId = aircraft.assignedRunway
+      // Judge the clearance against the runway it is actually for. An approach
+      // clearance may carry a runway that re-assigns the arrival — validating
+      // the old assignment would refuse a clearance that is valid as issued.
+      const rwyId = command.params.runway ?? aircraft.assignedRunway
       if (airport && rwyId) {
         const rwy = airport.runways.find(r => r.id === rwyId)
         if (rwy) {
@@ -112,7 +115,7 @@ export function validateCommand(command: Command, aircraft: Aircraft, airport: A
           // plate (VOR/NDB/RNP DA-MDA), refused below minimums.
           const fieldHasIls = airport.runways.some(r => r.ils?.available)
           if (fieldHasIls) {
-            const hasIls = airport.runways.some(r => r.id === aircraft.assignedRunway && r.ils?.available)
+            const hasIls = airport.runways.some(r => r.id === rwyId && r.ils?.available)
             if (!hasIls) return 'IMC conditions — ILS not available on this runway'
           }
         }

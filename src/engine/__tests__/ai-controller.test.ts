@@ -181,3 +181,93 @@ describe('runAiControllers — integration, real HHAS data + real command pipeli
     ])
   })
 })
+
+describe('AI approach clearance in IMC at an ILS field (escalation 2026-08-26)', () => {
+  /** HHAS with one precision end, so the ILS runway-choice rule can actually
+   *  bite. Real HHAS has `ils: false` on all four ends, which is exactly why
+   *  this bug was unreachable in a normal session and sat open. */
+  function ilsFieldData(): unknown {
+    const clone = structuredClone(hhasData) as any
+    clone.objects[0].ops.forward.ils = true
+    return clone
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    gameState.reset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    gameState.reset()
+  })
+
+  it('selectActiveRunway can require a precision end', () => {
+    const plain = loadAirport(hhasData)
+    // HHAS has no ILS anywhere — nothing qualifies, and the caller gets null
+    // rather than a non-precision end it did not ask for.
+    expect(selectActiveRunway(plain, gameState.wind, { requireIls: true })).toBeNull()
+    // The unfiltered call is unchanged.
+    expect(selectActiveRunway(plain, gameState.wind)).not.toBeNull()
+
+    const withIls = loadAirport(ilsFieldData() as never)
+    const picked = selectActiveRunway(withIls, gameState.wind, { requireIls: true })
+    expect(picked).not.toBeNull()
+    expect(picked!.ils?.available).toBe(true)
+  })
+
+  it('re-assigns to the precision runway instead of re-issuing a refused clearance', () => {
+    gameState.airport = loadAirport(ilsFieldData() as never)
+    gameState.playerStations = []
+    // IMC per GameState.getConditions: visibility < 3 NM and ceiling < 1000 ft
+    gameState.wind = { ...gameState.wind, visibilityNM: 2, ceiling: 700 }
+    expect(gameState.getConditions()).toBe('IMC')
+
+    const precision = gameState.airport.runways.find(r => r.ils?.available)!
+    const nonPrecision = gameState.airport.runways.find(r => !r.ils?.available)!
+
+    const rejected: string[] = []
+    const unsubscribe = eventBus.on(GameEventType.COMMAND_REJECTED, (event) => {
+      rejected.push(event.payload.commandType as string)
+    })
+
+    const aircraft = makeAircraft({
+      // What wind-based selection at spawn would have handed it.
+      assignedRunway: nonPrecision.id,
+      lastCommandTime: 0,
+    })
+    gameState.addAircraft(aircraft)
+
+    for (let t = 0; t < 5 && !aircraft.clearedForApproach; t++) {
+      runAiControllers(gameState, Date.now())
+      vi.advanceTimersByTime(4100)
+    }
+    unsubscribe()
+
+    expect(aircraft.clearedForApproach).toBe(true)
+    expect(aircraft.assignedRunway).toBe(precision.id)
+    // The point of the fix: it validated as issued. Before this, the clearance
+    // was refused every tick and clearedForApproach never became true.
+    expect(rejected).toEqual([])
+  })
+
+  it('leaves the runway alone in VMC, and at a field with no ILS at all', () => {
+    gameState.airport = loadAirport(ilsFieldData() as never)
+    gameState.playerStations = []
+    // VMC — the precision rule must not reach in and move traffic.
+    gameState.wind = { ...gameState.wind, visibilityNM: 8, ceiling: 3500 }
+    expect(gameState.getConditions()).toBe('VMC')
+
+    const nonPrecision = gameState.airport.runways.find(r => !r.ils?.available)!
+    const aircraft = makeAircraft({ assignedRunway: nonPrecision.id, lastCommandTime: 0 })
+    gameState.addAircraft(aircraft)
+
+    for (let t = 0; t < 5 && !aircraft.clearedForApproach; t++) {
+      runAiControllers(gameState, Date.now())
+      vi.advanceTimersByTime(4100)
+    }
+
+    expect(aircraft.clearedForApproach).toBe(true)
+    expect(aircraft.assignedRunway).toBe(nonPrecision.id)
+  })
+})
