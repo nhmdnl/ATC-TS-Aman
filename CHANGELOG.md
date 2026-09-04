@@ -4,7 +4,15 @@ All notable changes to ATC Aman are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.1] — 2026-09-04
+
+### Changed
+
+- **README** brought back in line with the code: the tech line still claimed
+  Electron 35 (it is 43), the controls table was missing four bound keys
+  (`Escape`, `C`, `0`, and `1` / `2` / `3`), and none of the 0.3.0 features —
+  helicopters, authored arrival ground paths, sim-rate, low-fuel, NORDO, the
+  conflict probe — were mentioned at all.
 
 ### Fixed
 
