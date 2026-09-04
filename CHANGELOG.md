@@ -4,6 +4,21 @@ All notable changes to ATC Aman are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Overlapping datablocks** — every tag hung off the same fixed `+16 / -16`
+  leader offset, so aircraft close together on the scope drew their labels on
+  top of each other and none of them stayed readable. Tags now pick a free
+  direction: eight leader directions across three leader lengths are tried in
+  preference order, and the first that clears the tags already placed (and
+  every other blip) wins. Alerting traffic — selected, in violation, urgent,
+  NORDO, min-fuel, predicted-conflict — is placed first so it keeps the short
+  leader. Each tag reuses its previous slot while that slot stays clear, so
+  labels do not hop between directions frame to frame. Uncontested traffic
+  still renders on the historical NE offset.
+
 ## [0.3.0] — 2026-09-03
 
 ### Added

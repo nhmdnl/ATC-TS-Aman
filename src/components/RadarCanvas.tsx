@@ -5,6 +5,7 @@ import { useGame } from '../state/GameContext'
 import { AircraftPhase } from '../engine/types'
 import type { TutorialDemoAircraft } from '../data/tutorialContent'
 import { RADAR_RENDER_CONFIG } from '../engine/constants'
+import { layoutDatablocks, type TagInput, type TagPlacement } from './datablock-layout'
 
 const COMPASS_LABEL_DEGS = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]
 const CARDINAL_LABELS: Record<number, string> = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }
@@ -53,8 +54,76 @@ interface DrawableAircraft {
   readonly predictedConflictInS?: number | null    // seconds until predicted loss
 }
 
+/** Whether this aircraft gets a datablock at all — ground traffic only shows one
+ *  when selected, or when the tutorial demo forces it. */
+function hasDatablock(data: DrawableAircraft): boolean {
+  return !data.isGround || data.isSelected === true || data.forceLabel === true
+}
+
+/** Full data block when the aircraft is selected or flagged, 2-line partial block
+ *  otherwise. Pure, so the placement pass can size a tag without drawing it. */
+function buildDatablockLabel(data: DrawableAircraft): string {
+  const altStr = data.altitude < 100 ? 'GND' : Math.round(data.altitude / 100).toString().padStart(3, '0')
+  const spdStr = Math.round(data.speed / 10).toString().padStart(2, '0')
+  const cAltStr = data.clearedAltitude != null ? Math.round(data.clearedAltitude / 100).toString().padStart(3, '0') : ''
+  const cSpdStr = data.clearedSpeed != null ? Math.round(data.clearedSpeed / 10).toString().padStart(2, '0') : ''
+
+  const trend = !data.isGround && data.clearedAltitude != null && Math.abs(data.clearedAltitude - data.altitude) > 100
+    ? (data.clearedAltitude > data.altitude ? '↑' : '↓')
+    : '='
+
+  const wakeStr = data.type?.wakeCategory ? ` ${data.type.wakeCategory.slice(0, 1)}` : ''
+  const squawkStr = data.squawk ? ` ${data.squawk}` : ''
+
+  // Advisory tag line — NORDO beats fuel beats prediction (max one context
+  // each; joined so multiple simultaneous states still read)
+  const tags = [
+    data.nordo ? 'NORDO' : null,
+    data.lowFuelDeclared ? 'MIN FUEL' : null,
+    data.predictedConflictWith ? `PC ${data.predictedConflictInS ?? '?'}s` : null,
+  ].filter(Boolean).join(' ')
+
+  const isFDB = data.isSelected || data.urgent || data.inViolation || data.forceLabel ||
+    data.nordo === true || data.lowFuelDeclared === true || data.predictedConflictWith != null
+
+  if (isFDB) {
+    // 3-Line FDB:
+    // Line 1: CALLSIGN WAKE SQUAWK
+    // Line 2: ALT TREND SPD
+    // Line 3: C:ALT SPD
+    // Line 4 (only when flagged): NORDO / MIN FUEL / PC 45s
+    let label = `${data.callsign}${wakeStr}${squawkStr}\n${altStr} ${trend} ${spdStr}`
+    if (cAltStr || cSpdStr) {
+      label += `\nC:${cAltStr || '---'} ${cSpdStr || '--'}`
+    }
+    if (tags) {
+      label += `\n${tags}`
+    }
+    return label
+  }
+
+  // 2-Line PDB for unselected background traffic:
+  // Line 1: CALLSIGN
+  // Line 2: ALT SPD
+  return `${data.callsign}\n${altStr} ${spdStr}`
+}
+
+/** Placement order — alerting traffic claims an uncontested slot before
+ *  routine traffic has to settle for a longer leader. */
+function datablockPriority(data: DrawableAircraft): number {
+  if (data.isSelected) return 5
+  if (data.inViolation) return 4
+  if (data.urgent) return 3
+  if (data.nordo || data.lowFuelDeclared) return 2
+  if (data.predictedConflictWith != null) return 1
+  return 0
+}
+
 /** Draws one aircraft's blip, history dots, hover ring, violation pulse, vector ticks,
- *  and 3-line leader-line datablock into the given sprite. */
+ *  and 3-line leader-line datablock into the given sprite.
+ *
+ *  `placement` comes from the per-frame de-confliction pass; without one the tag
+ *  falls back to the historical fixed NE offset. */
 function drawAircraftBody(
   g: PIXI.Graphics,
   text: PIXI.Text,
@@ -63,6 +132,7 @@ function drawAircraftBody(
   mapY: (y: number) => number,
   zoom: number,
   hoveredId: string | null,
+  placement?: TagPlacement | null,
 ): void {
   const x = mapX(data.x)
   const y = mapY(data.y)
@@ -188,65 +258,29 @@ function drawAircraftBody(
     g.stroke()
   }
 
-  // 4. Standardized 3-Line ATC Data Block (Leader Line + Tag)
-  if (!isGround || data.isSelected || data.forceLabel) {
+  // 4. Standardized ATC Data Block (Leader Line + Tag)
+  if (hasDatablock(data)) {
     text.visible = true
-    const anchorX = x + 16
-    const anchorY = y - 16
-    
-    // Angled leader line with joggle
+    // Direction comes from the per-frame de-confliction pass; without one the
+    // tag falls back to the historical fixed NE offset.
+    const anchorX = placement ? placement.anchorX : x + 16
+    const anchorY = placement ? placement.anchorY : y - 16
+
+    // Leader line from the blip out to the tag anchor, whichever way it points
+    const lx = anchorX - x
+    const ly = anchorY - y
+    const llen = Math.hypot(lx, ly) || 1
     g.setStrokeStyle({ width: 1, color, alpha: 0.6 })
-    g.moveTo(x + 3, y - 3)
-    g.lineTo(anchorX - 2, anchorY + 2)
+    g.moveTo(x + (lx / llen) * 4, y + (ly / llen) * 4)
+    g.lineTo(anchorX, anchorY)
     g.stroke()
 
-    text.position.set(anchorX + 2, anchorY - 8)
+    text.position.set(
+      placement ? placement.textX : anchorX + 2,
+      placement ? placement.textY : anchorY - 8,
+    )
     text.style.fill = color
-
-    const altStr = data.altitude < 100 ? 'GND' : Math.round(data.altitude / 100).toString().padStart(3, '0')
-    const spdStr = Math.round(data.speed / 10).toString().padStart(2, '0')
-    const cAltStr = data.clearedAltitude != null ? Math.round(data.clearedAltitude / 100).toString().padStart(3, '0') : ''
-    const cSpdStr = data.clearedSpeed != null ? Math.round(data.clearedSpeed / 10).toString().padStart(2, '0') : ''
-
-    const trend = !isGround && data.clearedAltitude != null && Math.abs(data.clearedAltitude - data.altitude) > 100
-      ? (data.clearedAltitude > data.altitude ? '↑' : '↓')
-      : '='
-
-    const wakeStr = data.type?.wakeCategory ? ` ${data.type.wakeCategory.slice(0, 1)}` : ''
-    const squawkStr = data.squawk ? ` ${data.squawk}` : ''
-
-    // Advisory tag line — NORDO beats fuel beats prediction (max one context
-    // each; joined so multiple simultaneous states still read)
-    const tags = [
-      data.nordo ? 'NORDO' : null,
-      data.lowFuelDeclared ? 'MIN FUEL' : null,
-      data.predictedConflictWith ? `PC ${data.predictedConflictInS ?? '?'}s` : null,
-    ].filter(Boolean).join(' ')
-
-    // Full Data Block (FDB) vs Partial Data Block (PDB)
-    const isFDB = data.isSelected || data.urgent || data.inViolation || data.forceLabel ||
-      data.nordo === true || data.lowFuelDeclared === true || data.predictedConflictWith != null
-
-    if (isFDB) {
-      // 3-Line FDB:
-      // Line 1: CALLSIGN WAKE SQUAWK
-      // Line 2: ALT TREND SPD
-      // Line 3: C:ALT SPD
-      // Line 4 (only when flagged): NORDO / MIN FUEL / PC 45s
-      let label = `${data.callsign}${wakeStr}${squawkStr}\n${altStr} ${trend} ${spdStr}`
-      if (cAltStr || cSpdStr) {
-        label += `\nC:${cAltStr || '---'} ${cSpdStr || '--'}`
-      }
-      if (tags) {
-        label += `\n${tags}`
-      }
-      text.text = label
-    } else {
-      // 2-Line PDB for unselected background traffic:
-      // Line 1: CALLSIGN
-      // Line 2: ALT SPD
-      text.text = `${data.callsign}\n${altStr} ${spdStr}`
-    }
+    text.text = buildDatablockLabel(data)
   } else {
     text.visible = false
   }
@@ -262,6 +296,10 @@ export default function RadarCanvas() {
   const dynamicLayerRef = useRef<PIXI.Container | null>(null)
   const aircraftSpritesRef = useRef<Map<string, { g: PIXI.Graphics, text: PIXI.Text }>>(new Map())
   const demoSpritesRef = useRef<Map<string, { g: PIXI.Graphics, text: PIXI.Text }>>(new Map())
+
+  // Datablock slot chosen per aircraft last frame, so a tag that is still clear
+  // keeps its direction instead of hopping between candidates every frame.
+  const datablockSlotsRef = useRef<Map<string, number>>(new Map())
   const taxiRouteLayerRef = useRef<PIXI.Graphics | null>(null)
   const tutorialDemoRef = useRef<readonly TutorialDemoAircraft[] | null>(null)
 
@@ -711,35 +749,60 @@ export default function RadarCanvas() {
       }
     }
 
+    // Build every drawable first, then de-conflict the datablocks as a set:
+    // a fixed offset per tag made close pairs draw on top of each other.
+    const drawables: Array<{ id: string; data: DrawableAircraft }> = []
     for (const ac of state.aircraft.values()) {
-      let sprite = sprites.get(ac.id)
+      drawables.push({
+        id: ac.id,
+        data: {
+          ...ac,
+          isGround: GROUND_PHASES.includes(ac.phase),
+          flightType: ac.flightType,
+          squawk: ac.squawk,
+          nordo: ac.radioFailureUntilMs != null && state.elapsedMs < ac.radioFailureUntilMs,
+          lowFuelDeclared: ac.fuelDeclared === true,
+        },
+      })
+    }
+
+    const tagInputs: TagInput[] = []
+    for (const { id, data } of drawables) {
+      if (!hasDatablock(data)) continue
+      tagInputs.push({
+        id,
+        x: mapX(data.x),
+        y: mapY(data.y),
+        label: buildDatablockLabel(data),
+        priority: datablockPriority(data),
+      })
+    }
+    const placements = layoutDatablocks(tagInputs, datablockSlotsRef.current)
+    const slots = new Map<string, number>()
+    for (const [id, placed] of placements) slots.set(id, placed.candidate)
+    datablockSlotsRef.current = slots
+
+    for (const { id, data } of drawables) {
+      let sprite = sprites.get(id)
       if (!sprite) {
         const g = new PIXI.Graphics()
         const text = new PIXI.Text({ text: '', style: { fontFamily: 'SF Mono', fontSize: 10, fill: 0xffffff, align: 'left' } })
 
         g.eventMode = 'static'
         g.cursor = 'pointer'
-        g.on('pointerdown', () => selectAircraft(ac.id))
+        g.on('pointerdown', () => selectAircraft(id))
         text.eventMode = 'static'
         text.cursor = 'pointer'
-        text.on('pointerdown', () => selectAircraft(ac.id))
+        text.on('pointerdown', () => selectAircraft(id))
 
         container.addChild(g)
         container.addChild(text)
         sprite = { g, text }
-        sprites.set(ac.id, sprite)
+        sprites.set(id, sprite)
       }
       sprite.g.visible = true
       sprite.text.visible = true
-      const isGround = GROUND_PHASES.includes(ac.phase)
-      drawAircraftBody(sprite.g, sprite.text, {
-        ...ac,
-        isGround,
-        flightType: ac.flightType,
-        squawk: ac.squawk,
-        nordo: ac.radioFailureUntilMs != null && state.elapsedMs < ac.radioFailureUntilMs,
-        lowFuelDeclared: ac.fuelDeclared === true,
-      }, mapX, mapY, zoom, hoveredIdRef.current)
+      drawAircraftBody(sprite.g, sprite.text, data, mapX, mapY, zoom, hoveredIdRef.current, placements.get(id))
     }
   }
 
