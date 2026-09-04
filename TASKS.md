@@ -69,6 +69,106 @@ Both repos are in scope:
 
 ## Backlog (priority order)
 
+### T-016 — Commendations: achievement system (user request, 2026-09-05)
+
+**Status:** TODO · **Repo:** sim · **Priority:** P2
+
+**Goal:** Recognise specific named feats, separately from the career system's
+continuous XP/level progression. Primary purpose is *discovery*: NORDO,
+minimum-fuel, the conflict probe, helicopters and sim rates are all shipped and
+most players will never trigger any of them. An achievement list is the cheapest
+way to surface that half of the game.
+
+**Research:** done 2026-09-05. Full design note (taxonomy, the "never reward
+unsafe play" constraint, catalogue, sharp edges):
+https://claude.ai/code/artifact/7d894caa-5fdd-4295-bf87-11ff6b73122e
+
+**Prior art in-repo:** `career-system.ts` is the template — constructor
+subscribes to the event bus, persists to `localStorage`. `mission-system.ts` is
+NOT prior art: it holds one hardcoded tutorial mission (`tut_1`) whose second
+objective checks `score > 1000`. No overlap to resolve.
+
+**Steps:**
+1. `src/engine/achievement-system.ts`, mirroring `CareerSystem`: subscribe in
+   the constructor, persist under `atc_aman_commendations`. Storage shape
+   `{ version, unlocked: Record<id, isoTimestamp>, counters: Record<key, number> }`
+   — counters persisted, not recomputed, so partial progress ("14 / 50") can be
+   shown. Guard storage the way `CareerSystem` does; an unavailable store is a
+   no-op, never a throw (Vitest's node env has no `localStorage`).
+2. Definitions as a frozen const array in `constants.ts` (matches the existing
+   convention for constant tables). No new `GameEventType` values — everything
+   needed is already emitted: `LANDING`, `TAKEOFF`, `ARRIVED_GATE`, `HANDOFF`,
+   `MISSED_APPROACH`, `SEPARATION_VIOLATION`, `FUEL_EMERGENCY`, `SESSION_ENDED`.
+3. MVP is four entries, one per kind that matters — First Watch (milestone),
+   Clean Sheet (mastery), Say Again (discovery: NORDO to a safe landing),
+   Rotors Turning (discovery: helicopter onto H1/H2). The remaining eight in the
+   design note are then data, not code.
+4. Unlock toast at the moment it fires, not a session-end summary.
+5. Tests in `src/engine/__tests__/achievement-system.test.ts` — pure, node-safe.
+
+**Hard constraints:**
+- **Never reward unsafe play.** No entry may incentivise reduced separation,
+  proximity, or speed over safety. In an ATC sim that trains the opposite of the
+  subject. Every mastery entry must be earned by being *more* conservative.
+- **Respect `playerStations`.** `ai-controller.ts` works any station the player
+  does not hold, and only the player's aircraft are scored. Achievements must
+  inherit the same rule or the list is farmable by handing everything to the AI.
+- **Sim rate.** The tick runs N× per 1 Hz gate at `simRate` 2/4, so any
+  duration-based entry is 4× cheaper at 4×. Decide sim-time vs real-time per
+  entry and record it in the definition.
+- **Deferred execution.** `processCommand` emits `COMMAND_ISSUED` immediately
+  but executes after a randomised readback delay, by which time the aircraft may
+  be gone. Count on issue *or* execution, consistently.
+- No network. Local only — no platform/Steam integration (README promise).
+
+**Verification:** `npm run typecheck`, `npm test` green; a session that triggers
+one unlock persists it across a reload; no existing career/scoring test changes.
+
+**Out of scope:** gating any content behind commendations; XP or score bonuses
+for unlocking (the career system already pays for those actions — paying twice
+devalues both); a full catalogue beyond the MVP four; any UI beyond the toast
+and a simple list.
+
+---
+
+### T-017 — Fold the airport editor into ATC Aman (user request, 2026-09-05) — deferred, "one thing for the future"
+
+**Status:** TODO (deferred — do not start without the user saying so) ·
+**Repo:** sim + spstudio · **Priority:** P3
+
+**Goal:** Author airports from inside ATC Aman instead of alt-tabbing to a
+separate app and hand-managing `.airport` files.
+
+**Findings (2026-09-05, verified):**
+- The editor lives at `~/Projects/spstudio/`, which is **not** under version
+  control. Both the root app (v1.0, no graph) and the canonical
+  `airport-studio-application/` (v1.1 + graph) are **Next.js 16.2.6 + React 19**.
+- ATC Aman is **Vite 6 + React 19 + Electron 43**.
+- React 19 on both sides, so the editor's *components* are portable. Next.js
+  itself is **not** — its router, build pipeline and server-component model have
+  no place in an Electron renderer. This is a port of the editor's React tree
+  into the Vite renderer as a separate mode/route, not an embed of the Next app.
+- There is already a defined contract between them: the editor writes the
+  `.airport` JSON that `airport-loader.ts` parses.
+
+**Blocking prerequisite:** put `spstudio` under version control before any of
+this. It is currently untracked, and a port that touches it without history is a
+bad trade. See the standing note that the user sometimes saves from the old root
+app rather than the canonical one — resolve which app is authoritative first.
+
+**Sketch (not a plan yet):**
+1. Version `spstudio`; confirm `airport-studio-application/` is the survivor.
+2. Inventory which editor components are framework-agnostic React vs. which
+   lean on Next (routing, server actions, `next/image`, etc.).
+3. Decide the seam: a separate Electron window/route inside ATC Aman, versus a
+   dev-only tool. Airport authoring is not a player-facing feature — shipping it
+   in the player build may be the wrong call.
+4. Reuse `airport-loader.ts` as the single parser so editor and sim cannot drift.
+
+**Out of scope until scheduled:** any code change in either repo.
+
+---
+
 ### T-013 — Helicopter support 1/3: rotorcraft types + heliport schema (user request, 2026-08-22)
 
 **Status:** DONE (2026-08-25) · **Repo:** sim · **Priority:** P1
