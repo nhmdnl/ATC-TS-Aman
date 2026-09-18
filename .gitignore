@@ -12,29 +12,26 @@ release/
 charts/
 *.pdf
 
-# Local tool/runtime state — not project source
+# Local tool/runtime state — not project source.
+# NOTE: do not add .github/ here — CI workflows are versioned project source.
 .claude/
-.impeccable/
-.qwen/
-.superpowers/
-.tokensave/
-graphify-out/
-brag-output/
-bun.lock
-.remember/
-.github/
-.tokensave/
-.superpowers/
-.release/
 .docs/
-Tower-Simulator-3-Reproduction-Spec.md
+.impeccable/
+.omp/
 .qwen/
+.release/
+.remember/
+.superpowers/
+.tokensave/
 .vscode/
+bun.lock
+graphify-out/
 
+# Agent / skill output directories — regenerated on demand, never source
+brag-output/
 
-# Agent documents
-./CLAUDE.md
-./PLAYBOOK.md
-./PRD_GDD.md
-./QWEN.md
-./TASKS.md
+# Scratch working copies that must not reach the build.
+# A second .airport file declaring an ICAO that hhas.airport.json already
+# owns produced duplicate briefing-picker entries (see TASKS.md escalations).
+*2.airport
+Tower-Simulator-3-Reproduction-Spec.md
