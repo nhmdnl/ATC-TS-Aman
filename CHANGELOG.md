@@ -4,7 +4,16 @@ All notable changes to ATC Aman are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); the
 project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.0] — 2026-09-18
+
+### Removed
+
+- **Non-app files pruned from the repo** (13 files, ~5,100 lines): a dead
+  `test-loader.js` stub, the spent `upgrade-hhas-v11.mjs` migration, tracked
+  `.qwen/` agent state, a stale generated `codebase-exploration.md`, and the
+  `docs/superpowers/` plans and specs for four features that have long shipped.
+  `.gitignore` also no longer contains `.github/`, which would have silently
+  swallowed any new CI workflow.
 
 ### Added
 

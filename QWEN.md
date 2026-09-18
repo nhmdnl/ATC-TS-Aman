@@ -131,7 +131,7 @@ CLEARED_APPROACH + CONTACT_TOWER unaided; AI outcomes excluded from scoring).
 | **EndScreen** | ✅ | Grade badge, all 5 dimension bars, duration, career stats, PLAY AGAIN |
 | **State management** | ✅ | React context + rAF render loop |
 | **Layout** | ✅ | 5-container: air-strip | radar | commands (with GND/TWR/APP tabs) | input | comms |
-| **Tests** | ✅ | Vitest, 211 tests (14 files) incl. executor regression, arrival-lifecycle + AI-controller integration, v1.1 loader + taxi-routing, 2026-07-16 playtest regressions, all passing |
+| **Tests** | ✅ | Vitest, 323 tests (25 files) incl. executor regression, arrival-lifecycle + AI-controller integration, v1.1 loader + taxi-routing, 2026-07-16 playtest regressions, all passing |
 
 (2026-07-12) **v1.1 airport-format integration shipped on both sides** (sim commit
 `60325f6`; editor has its own repo in `/home/devnhm/Projects/spstudio/airport-studio-application`).
@@ -147,13 +147,12 @@ calibration, and `lib/taxi-graph.ts` derives the routable graph on every save.
 
 | Feature | Where | Notes |
 |---------|-------|-------|
-| **HHAS v1.1 data upgrade** | TASKS.md T-001 | Scripted scale/version/freqs/ops/spawns upgrade of `hhas.airport.json` |
-| **Taxi-route radar rendering** | TASKS.md T-002 | Draw assigned `taxiRoute` for the selected aircraft |
-| **Wind readout** | TASKS.md T-003 | StatusBar wind display |
-| **Callsign fallback** | TASKS.md T-004 | De-hardcode "Asmara" in `getStationName` |
-| **Editor graph overlay** | TASKS.md T-005 | Visualize derived taxi graph in spstudio viewport |
-| **Headless Linux noise** | TASKS.md T-006 | Investigation/report only |
-| **v1.1 E2E** | TASKS.md T-007 | Blocked on user drawing taxiways + saving in the editor |
+| **Editor integration** | TASKS.md T-017 | Fold the airport editor into ATC Aman. **Deferred** — do not start without the user saying so |
+| **Recorded voice pack** | TASKS.md T-010 | Replaces Web Speech TTS. Target: next major version (v2) |
+
+T-001 … T-009 and T-011 … T-016 are **all DONE** — see the Done section of
+TASKS.md. This table previously still listed T-001 … T-007 as outstanding long
+after they shipped; if it ever disagrees with TASKS.md again, TASKS.md is right.
 
 (2026-07-11) **Wind-based runway selection shipped** — `selectActiveRunway` in
 `airport-loader.ts` picks the into-wind end of the longest strip for arrivals,
