@@ -13,6 +13,7 @@ import {
   AIRBORNE_PHASES,
   PHASE_CONTROLLER,
   AIRCRAFT_TYPES,
+  COMMENDATIONS,
 } from '../constants'
 import {
   AircraftPhase,
@@ -221,6 +222,15 @@ describe('constants', () => {
     it('flags rotorcraft exactly on the HELICOPTER-class entries (T-013 sync guard)', () => {
       for (const t of AIRCRAFT_TYPES) {
         expect(t.rotorcraft ?? false).toBe(t.aircraftClass === 'HELICOPTER')
+      }
+    })
+
+    it('COMMENDATIONS is four MVP rows with unique ids and a timing field', () => {
+      expect(COMMENDATIONS).toHaveLength(4)
+      const ids = COMMENDATIONS.map(c => c.id)
+      expect(new Set(ids).size).toBe(4)
+      for (const c of COMMENDATIONS) {
+        expect(['none', 'sim', 'real']).toContain(c.timing)
       }
     })
 

@@ -12,6 +12,7 @@ import GuidePanel from './components/GuidePanel'
 import TutorialOverlay from './components/TutorialOverlay'
 import TutorialMenu from './components/TutorialMenu'
 import PauseMenu from './components/PauseMenu'
+import { CommendationToast } from './components/Commendations'
 import { GameProvider, useGame } from './state/GameContext'
 import { useGameLoop } from './state/useGameLoop'
 import { useAudio } from './state/useAudio'
@@ -150,6 +151,7 @@ function GameUI() {
             otherwise mount it underneath the tutorial overlay simultaneously
             (visually bleeding through smaller, centered tutorial cards). */}
         {!tutorialUIOpen && <PauseMenu />}
+        <CommendationToast />
       </div>
     </>
   )

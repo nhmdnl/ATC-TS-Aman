@@ -546,3 +546,41 @@ export const RADAR_RENDER_CONFIG = {
   APPROACH_FUNNEL_COLOR: 0x1e3a5f,
 } as const
 
+// ─── Commendations (achievement-system.ts) ───────────────────────────────────
+// timing: none = not duration-based; sim = sim elapsedMs; real = wall clock.
+// Recorded on every entry so a later duration feat cannot silently inherit 4× at simRate 4.
+
+export const COMMENDATIONS = [
+  {
+    id: 'first_watch',
+    title: 'First Watch',
+    description: 'Complete your first session.',
+    kind: 'milestone',
+    timing: 'none',
+  },
+  {
+    id: 'clean_sheet',
+    title: 'Clean Sheet',
+    description: 'Handle at least one aircraft with no player-station separation violations.',
+    kind: 'mastery',
+    timing: 'none',
+  },
+  {
+    id: 'say_again',
+    title: 'Say Again',
+    description: 'Land an aircraft that went NORDO on your frequency.',
+    kind: 'discovery',
+    timing: 'none',
+  },
+  {
+    id: 'rotors_turning',
+    title: 'Rotors Turning',
+    description: 'Land a helicopter on a helipad.',
+    kind: 'discovery',
+    timing: 'none',
+  },
+] as const
+
+export type CommendationId = typeof COMMENDATIONS[number]['id']
+export type CommendationDef = typeof COMMENDATIONS[number]
+

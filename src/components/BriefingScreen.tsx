@@ -5,6 +5,7 @@ import { ControllerStation } from '../engine/types'
 import { DIFFICULTY_PRESETS, CSS_COLORS, DEFAULT_ENABLED_AIRCRAFT_CLASSES } from '../engine/constants'
 import { careerSystem, DIFFICULTY_UNLOCK_LEVEL, airportUnlockLevel, rankTitle } from '../engine/career-system'
 import AirportPreview from './AirportPreview'
+import { CommendationList } from './Commendations'
 
 const DIFF_ORDER: DifficultyLevel[] = ['easy', 'medium', 'hard']
 
@@ -286,6 +287,11 @@ export default function BriefingScreen(): React.ReactElement {
                 <ParamCell label="Duration" value={`${preset.sessionDurationMs / 60000} min`} />
               </div>
             )}
+
+            <div>
+              <div style={SECTION_LABEL}>Commendations</div>
+              <CommendationList />
+            </div>
           </section>
         </main>
 

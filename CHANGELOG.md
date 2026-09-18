@@ -6,6 +6,10 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Commendations** — local achievement unlocks (First Watch, Clean Sheet, Say Again, Rotors Turning), persisted under `atc_aman_commendations`. Toast on unlock; list on briefing and end screen. No XP or score bonus.
+
 ### Fixed
 
 - **AI approach controller could refuse the same clearance forever.** At a

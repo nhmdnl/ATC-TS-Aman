@@ -1,6 +1,7 @@
 import React from 'react'
 import { useGame } from '../state/GameContext'
 import { careerSystem, rankTitle } from '../engine/career-system'
+import { CommendationList } from './Commendations'
 import type { Grade, ScoreDimensions } from '../engine/types'
 
 const GRADE_COLORS: Record<Grade, string> = {
@@ -99,6 +100,13 @@ export default function EndScreen() {
           <span>Best <span style={{ color: '#e2e8f0' }}>{career.bestGrade ?? '—'}</span></span>
           <span>High score <span style={{ color: '#e2e8f0' }}>{career.highScore}</span></span>
           <span>Sessions <span style={{ color: '#e2e8f0' }}>{career.sessionsPlayed}</span></span>
+        </div>
+
+        <div style={{ textAlign: 'left', marginBottom: 20 }}>
+          <div style={{ fontSize: 10, letterSpacing: 1.5, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8 }}>
+            Commendations
+          </div>
+          <CommendationList />
         </div>
 
         <button

@@ -69,9 +69,65 @@ Both repos are in scope:
 
 ## Backlog (priority order)
 
+### T-017 — Fold the airport editor into ATC Aman (user request, 2026-09-05) — deferred, "one thing for the future"
+
+**Status:** TODO (deferred — do not start without the user saying so) ·
+**Repo:** sim + spstudio · **Priority:** P3
+
+**Goal:** Author airports from inside ATC Aman instead of alt-tabbing to a
+separate app and hand-managing `.airport` files.
+
+**Findings (2026-09-05, verified):**
+- The editor lives at `~/Projects/spstudio/`, which is **not** under version
+  control. Both the root app (v1.0, no graph) and the canonical
+  `airport-studio-application/` (v1.1 + graph) are **Next.js 16.2.6 + React 19**.
+- ATC Aman is **Vite 6 + React 19 + Electron 43**.
+- React 19 on both sides, so the editor's *components* are portable. Next.js
+  itself is **not** — its router, build pipeline and server-component model have
+  no place in an Electron renderer. This is a port of the editor's React tree
+  into the Vite renderer as a separate mode/route, not an embed of the Next app.
+- There is already a defined contract between them: the editor writes the
+  `.airport` JSON that `airport-loader.ts` parses.
+
+**Blocking prerequisite:** put `spstudio` under version control before any of
+this. It is currently untracked, and a port that touches it without history is a
+bad trade. See the standing note that the user sometimes saves from the old root
+app rather than the canonical one — resolve which app is authoritative first.
+
+**Sketch (not a plan yet):**
+1. Version `spstudio`; confirm `airport-studio-application/` is the survivor.
+2. Inventory which editor components are framework-agnostic React vs. which
+   lean on Next (routing, server actions, `next/image`, etc.).
+3. Decide the seam: a separate Electron window/route inside ATC Aman, versus a
+   dev-only tool. Airport authoring is not a player-facing feature — shipping it
+   in the player build may be the wrong call.
+4. Reuse `airport-loader.ts` as the single parser so editor and sim cannot drift.
+
+**Out of scope until scheduled:** any code change in either repo.
+
+---
+
+### T-010 — recorded radio voice pack replaces Web Speech TTS (user request, 2026-07-18) — target: next major version (v2)
+Replace runtime TTS with concatenative pre-recorded audio: a token library
+(ATC digits "tree/fife/niner", airline call names, phrase chunks from
+`phraseology.ts`, alerts — est. 150–250 tokens per voice, 2 voices for v1:
+one ATC, one pilot). Agreed split: Claude generates the line sheet from
+`phraseology.ts` (token list + pronunciation notes + filenames), user
+records/edits the assets, Claude builds the playback layer in `useAudio.ts`
+(token-stream emission alongside text, clip-chaining queue, manifest, Web
+Speech fallback for missing tokens so it ships incrementally), then a
+WebAudio radio-effect pass (bandpass + static; also masks concatenation
+seams). Rationale: kills the SAPI/platform voice dependency (Windows deploy
+sounds identical everywhere, offline). Not scheduled — next major version,
+after the current playtest round stabilizes.
+
+---
+
+## Done
+
 ### T-016 — Commendations: achievement system (user request, 2026-09-05)
 
-**Status:** TODO · **Repo:** sim · **Priority:** P2
+**Status:** DONE (2026-09-18) · **Repo:** sim · **Priority:** P2
 
 **Goal:** Recognise specific named feats, separately from the career system's
 continuous XP/level progression. Primary purpose is *discovery*: NORDO,
@@ -130,62 +186,6 @@ devalues both); a full catalogue beyond the MVP four; any UI beyond the toast
 and a simple list.
 
 ---
-
-### T-017 — Fold the airport editor into ATC Aman (user request, 2026-09-05) — deferred, "one thing for the future"
-
-**Status:** TODO (deferred — do not start without the user saying so) ·
-**Repo:** sim + spstudio · **Priority:** P3
-
-**Goal:** Author airports from inside ATC Aman instead of alt-tabbing to a
-separate app and hand-managing `.airport` files.
-
-**Findings (2026-09-05, verified):**
-- The editor lives at `~/Projects/spstudio/`, which is **not** under version
-  control. Both the root app (v1.0, no graph) and the canonical
-  `airport-studio-application/` (v1.1 + graph) are **Next.js 16.2.6 + React 19**.
-- ATC Aman is **Vite 6 + React 19 + Electron 43**.
-- React 19 on both sides, so the editor's *components* are portable. Next.js
-  itself is **not** — its router, build pipeline and server-component model have
-  no place in an Electron renderer. This is a port of the editor's React tree
-  into the Vite renderer as a separate mode/route, not an embed of the Next app.
-- There is already a defined contract between them: the editor writes the
-  `.airport` JSON that `airport-loader.ts` parses.
-
-**Blocking prerequisite:** put `spstudio` under version control before any of
-this. It is currently untracked, and a port that touches it without history is a
-bad trade. See the standing note that the user sometimes saves from the old root
-app rather than the canonical one — resolve which app is authoritative first.
-
-**Sketch (not a plan yet):**
-1. Version `spstudio`; confirm `airport-studio-application/` is the survivor.
-2. Inventory which editor components are framework-agnostic React vs. which
-   lean on Next (routing, server actions, `next/image`, etc.).
-3. Decide the seam: a separate Electron window/route inside ATC Aman, versus a
-   dev-only tool. Airport authoring is not a player-facing feature — shipping it
-   in the player build may be the wrong call.
-4. Reuse `airport-loader.ts` as the single parser so editor and sim cannot drift.
-
-**Out of scope until scheduled:** any code change in either repo.
-
----
-
-### T-010 — recorded radio voice pack replaces Web Speech TTS (user request, 2026-07-18) — target: next major version (v2)
-Replace runtime TTS with concatenative pre-recorded audio: a token library
-(ATC digits "tree/fife/niner", airline call names, phrase chunks from
-`phraseology.ts`, alerts — est. 150–250 tokens per voice, 2 voices for v1:
-one ATC, one pilot). Agreed split: Claude generates the line sheet from
-`phraseology.ts` (token list + pronunciation notes + filenames), user
-records/edits the assets, Claude builds the playback layer in `useAudio.ts`
-(token-stream emission alongside text, clip-chaining queue, manifest, Web
-Speech fallback for missing tokens so it ships incrementally), then a
-WebAudio radio-effect pass (bandpass + static; also masks concatenation
-seams). Rationale: kills the SAPI/platform voice dependency (Windows deploy
-sounds identical everywhere, offline). Not scheduled — next major version,
-after the current playtest round stabilizes.
-
----
-
-## Done
 
 ---
 
@@ -520,6 +520,56 @@ result.
 ## Worklog
 
 (newest first — see template in Protocol)
+
+### 2026-09-18 — T-016 — DONE
+
+- What changed:
+  - `src/engine/constants.ts` — `COMMENDATIONS` frozen const table, four MVP rows
+    (First Watch / Clean Sheet / Say Again / Rotors Turning), each carrying a
+    `timing` field ('none' | 'sim' | 'real') so a later duration entry cannot
+    silently inherit 4x at simRate 4. Exports `CommendationId`, `CommendationDef`.
+  - `src/engine/achievement-system.ts` — new. Mirrors `CareerSystem`: subscribes in
+    the constructor (LANDING, SEPARATION_VIOLATION, SESSION_ENDED), persists to
+    `atc_aman_commendations` as `{version, unlocked, counters}`. Counters are stored,
+    not recomputed, so partial progress can be shown later. Absent storage is a
+    no-op, never a throw.
+  - `src/components/Commendations.tsx` — new. `CommendationToast` (fires at the
+    moment of unlock, 4 s) and `CommendationList` (locked rows dimmed).
+  - `src/App.tsx`, `src/components/BriefingScreen.tsx`, `src/components/EndScreen.tsx`,
+    `src/state/GameContext.tsx` — mount points; GameContext forces singleton
+    construction alongside `initializeScoringSystem()`.
+  - `src/engine/__tests__/achievement-system.test.ts` — new, 14 cases.
+  - `src/engine/__tests__/constants.test.ts` — one case for the table's shape.
+  - `.gitignore` — `brag-output/` (see Notes).
+
+- Verification:
+  - `npm run typecheck` — clean (renderer + main).
+  - `npm test` — 323 passed / 323, 25 files. No career or scoring test changed;
+    the only pre-existing test file touched is `constants.test.ts` (+10 lines).
+  - Reload persistence (the spec line the unit tests could not reach): two separate
+    node processes sharing one real `localStorage` via `--localstorage-file`.
+    Process A emitted SESSION_ENDED and wrote
+    `{"version":1,"unlocked":{"first_watch":"..."},"counters":{"sessions_completed":1}}`;
+    process B booted cold and read the unlock and the counter back. This exercises
+    the production `defaultStorage()` path, not the injected test store.
+
+- Notes:
+  - Hard constraints honoured explicitly, not just noted. `playerAircraft()` gates
+    every unlock on `gameState.playerStations.includes(ac.controller)`, so work
+    handed to `ai-controller.ts` cannot farm the list — there are dedicated tests
+    for the AI-station NORDO landing and the AI-station violation. No entry rewards
+    reduced separation: Clean Sheet is earned by having *no* player-station
+    violation, and requires `aircraftHandled > 0` so an empty session is not a pass.
+    Landing unlocks tolerate an aircraft removed during the readback delay (tested).
+  - No new `GameEventType` values, no new dependency, no new config file.
+  - Out of scope, noticed and left alone: the remaining eight catalogue entries from
+    the design note are data, not code, and can be added to `COMMENDATIONS` whenever.
+  - Unrelated housekeeping in the same session, at the user's request: the untracked
+    `brag-output/` (35 MB of `/brag` skill output, never committed) was moved out of
+    the repo to `~/atc-aman-brag/` and added to `.gitignore` so a future run cannot
+    repopulate the tree. `claude-ads/` (12 MB, its own nested git repo),
+    `Update GLM-web/`, `design/`, `AGENTS.md` and `.omp/` are still untracked in the
+    project root and remain exposed to a `git add -A` — lead should decide.
 
 ### 2026-09-03 — LEAD (Claude) — commit the development pack, clear 3 escalations, prep 0.3.0 — DONE (user request)
 

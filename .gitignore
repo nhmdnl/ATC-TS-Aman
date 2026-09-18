@@ -19,6 +19,7 @@ charts/
 .superpowers/
 .tokensave/
 graphify-out/
+brag-output/
 bun.lock
 .remember/
 .github/

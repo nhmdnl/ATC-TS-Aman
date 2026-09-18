@@ -5,10 +5,12 @@ import { processCommand } from '../engine/commands/command-registry'
 import { buildTaxiwayGraph } from '../engine/airport-loader'
 import { trafficScheduler } from '../engine/traffic-scheduler'
 import { initializeScoringSystem } from '../engine/scoring'
+import { achievementSystem } from '../engine/achievement-system'
 import { AIRPORTS, getAirportEntry, type AirportEntry } from './airport-registry'
 
 // Initialize singletons
 initializeScoringSystem()
+void achievementSystem
 
 export interface GameContextType {
   state: GameStateSnapshot
